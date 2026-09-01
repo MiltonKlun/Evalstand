@@ -250,7 +250,10 @@ The agent must not violate these.
 **Goal:** an eval file is discovered and executed with a first-class authoring experience.
 **Estimate:** 14 hours.
 
-- [ ] **2.1 Design the public API** in `api.py` to the shape in Section 3. Keep the exported surface under 10 names. `cases` accepts a list, a callable returning a list, or an async callable.
+- [ ] **2.1 Design the public API** in `api.py` to the shape in Section 3. `cases` accepts a list, a callable returning a list, or an async callable.
+  - **The top-level exports are exactly seven:** `evaluate`, `Case`, `Score`, `Result`, `Trace`, `scorer`, `trace`. Scorers live in `evalstand.scorers` and do not count against the budget.
+  - `Run` and `Batch` are deliberately not exported: users read them in reports, they never construct them.
+  - Three slots of headroom remain against the cap of ten. Spending them needs an ADR — the cap exists to force the question.
   - *Acceptance:* `docs/writing-evals.md` contains a complete working example under 25 lines.
 - [ ] **2.2 Implement the pytest plugin** in `plugin.py`. Use `pytest_collect_file` to collect `*_eval.py`, generate **one item per `(case, repeat_index)`**, and use `pytest_runtest_makereport` to capture outcomes. Register through the `pytest11` entry point.
   - Item IDs carry the repeat index only when repeats are on: `q1` when `repeat=1`, `q1[repeat=2]` otherwise, so `-k q1` still selects them all by prefix.
@@ -280,9 +283,14 @@ The agent must not violate these.
   - A `trace(name)` context manager the user can wrap around any operation.
   - **Automatic capture** of every call made through `llm.py` during a task, using a `contextvars.ContextVar` to associate calls with the currently executing case.
   - Traces nest into a tree. Each node records name, start, duration, input, output, model, tokens, and cost.
+  - **Parenting rule:** a `ContextVar` holds the currently open node. Entering a scope sets it and keeps the token; leaving resets the token in a `finally`. This is the only rule that survives both `asyncio.gather` (contextvars copy per task, so siblings share a parent for free) and an exception mid-call (the `finally` reset stops a raising call corrupting its siblings' parentage).
+  - **When a parent cannot be determined confidently, attach the node to the Result root.** A visible orphan is honest; a wrongly-parented node is a plausible-looking lie. If nesting proves unreliable under load, degrade to a flat list rather than ship a wrong tree.
   - *Acceptance:* a task making three nested LLM calls produces a three-node trace tree with correct parent-child relationships and per-node cost, and the sum of node costs equals the case total.
-- [ ] **3.3 Implement `--repeat N`** (the reference implementation calls this `trialCount`). Each case runs N times with `repeat_index` recorded on every result. **Bypass the cache across repeats when temperature > 0**, or repeats are meaningless — make this explicit and test it.
-  - *Acceptance:* `--repeat 5` on a temperature-0.7 task produces at least one case with 5 distinct outputs.
+- [ ] **3.3 Implement `--repeat N`** (the reference implementation calls this `trialCount`). Each case runs N times with `repeat_index` recorded on every result. **`--repeat N` with N > 1 bypasses the Cache unconditionally.**
+  - The earlier draft of this plan said to bypass only when temperature > 0. That rule cannot be implemented as written: the Task calls the model itself, so its parameters live in user code the runner cannot inspect. Temperature is also not the only source of nondeterminism. Unconditional bypass is predictable and matches what asking for repeats means — receiving N identical cached rows never does.
+  - This spends real money, N times over. The run summary must show it (`repeats bypassed cache: 5 x 30 calls`), because it is the easiest way to run up a bill by accident.
+  - **Bypass runs in both directions:** a bypassed call is neither read from nor written to the Cache. Writing one would let a later non-repeat run serve an arbitrary sample from a repeat set as though it were the answer for that key.
+  - *Acceptance:* `--repeat 5` on a temperature-0.7 task produces at least one case with 5 distinct outputs; a cache-hit counter shows zero hits for repeated cases.
 - [ ] **3.4 Wire streaming through the runner** so partial output is available to the reporting layer as it arrives.
   - *Acceptance:* a streaming task shows incremental output in console reporting.
 - [ ] **3.5 Aggregate per-run totals:** total cost, total tokens, cache hit rate, wall time, pass count.
@@ -322,7 +330,7 @@ The agent must not violate these.
 - [ ] **5.1 Design the SQLite schema** in `storage.py` with a `schema_version` table and sequential migrations under `src/evalstand/migrations/`:
 
   ```sql
-  batches(id, kind, started_at, finished_at, git_sha, git_dirty)
+  batches(id, kind, status, started_at, finished_at, git_sha, git_dirty)
   runs(id, batch_id, name, filepath, started_at, finished_at,
        model_config_json, repeat_n, total_cases, total_cost_usd, status)
   results(id, run_id, case_id, repeat_index, output_text, output_json,
@@ -339,7 +347,9 @@ The agent must not violate these.
   Notes on the shape, each settled by a design decision:
   - `batches` is the invocation; `runs` is one Eval within it. `batches.kind` is
     `full` or `partial`, so a watch-mode re-run of three Evals is grouped rather
-    than appearing as three unrelated executions.
+    than appearing as three unrelated executions. `batches.status` carries
+    `cancelled` for a Batch a file change interrupted; `history` and `compare`
+    exclude those.
   - `case_snapshots.content_hash` is `sha256(input, expected)`. It makes
     Amended Case detection an integer comparison instead of a JSON parse per
     case, and it covers `input` as well as `expected` — an edited input under
@@ -354,7 +364,14 @@ The agent must not violate these.
     every mean rather than counted as zero — an infrastructure failure is not
     evidence the Task did badly — and any summary reporting a mean must also
     report how many Scores errored.
-  - *Acceptance:* the migration applies to an empty database and is idempotent; a second run does not corrupt the first.
+
+  **Migration direction.** An older database is migrated forward on open, inside
+  a transaction. A database whose `schema_version` exceeds what the installed
+  code understands is **refused** with an error naming both versions — never
+  opened best-effort, because a silently degraded read would corrupt exactly the
+  comparison data the tool exists to provide. This is unrelated to
+  `cache.evalstand_version`: the Cache is disposable, run history is not.
+  - *Acceptance:* the migration applies to an empty database and is idempotent; a second run does not corrupt the first; opening a database with a higher `schema_version` exits with a clear error.
 - [ ] **5.2 Record provenance** on every run: git SHA, dirty-tree flag, model config, and a hash of the task source. Refuse to persist without a SHA unless `--allow-dirty` is passed.
 - [ ] **5.3 Build `evalstand history [name]`** listing runs with name, SHA, date, mean score, pass count, and cost.
 - [ ] **5.4 Build `evalstand show <run_id>`** rendering a full run: summary, per-case scores, and trace trees.
@@ -384,9 +401,13 @@ The agent must not violate these.
   - *Acceptance:* a task with nested LLM calls renders an expandable, navigable trace tree.
 - [ ] **6.4 History view:** browse past runs, select one to open, select two to render the Phase 5 comparison.
 - [ ] **6.5 Custom columns.** Support a `columns=` argument on `evaluate()` letting the user add derived columns to the results table.
+  - The shape is a plain `dict[str, Callable[[Result], Any]]` — no new exported type, so this spends none of the three remaining public-API slots. Promoting to a structured `Column` type later is backward-compatible; retracting an exported type is not.
   - *Acceptance:* the showcase example adds a "fields correct" column.
 - [ ] **6.6 Watch mode** with `watchfiles`: re-run affected evals when an eval file, task file, or prompt file changes. Debounce 300ms. Preserve scroll position and show a "changed: <file>" indicator.
-  - *Acceptance:* editing a prompt triggers a re-run within one second without restarting the process.
+  - **A change during an in-flight Batch cancels it.** Waiting for a slow Batch would waste the feedback loop this feature exists to provide.
+  - Cancellation must be honest: the Batch gets a terminal `cancelled` status, `history` hides it by default, and `compare` refuses it. A half-finished Batch that looked complete would drag every mean it touched.
+  - In-flight model calls are allowed to finish and land in the Cache rather than being hard-killed. The money is already spent; discarding the response wastes it, and the next Batch will want it.
+  - *Acceptance:* editing a prompt triggers a re-run within one second without restarting the process; a cancelled Batch never appears in `history` or `compare`.
 - [ ] **6.7 Keybindings:** `q` quit, `r` re-run, `f` filter to failures, `c` compare with previous run, `/` search, `y` copy case id.
 - [ ] **6.8 Record a demo GIF** with `vhs` or `asciinema` + `agg`, embedded at the top of the README.
   - *Acceptance:* under 5 MB, showing a full run, a trace tree, and watch-mode re-run in under 30 seconds.
@@ -402,6 +423,8 @@ The agent must not violate these.
 
 - [ ] **7.1 CI flags:** `--threshold <float>` (fail when the mean score falls below it) and `--fail-on-error`. Documented exit codes: `0` pass, `1` below threshold, `2` execution error.
   - The Threshold is **absolute**, and the number is a human decision taken from the committed Baseline (5.7) — never computed from the most recent Run, which would let the bar drift down every time quality dropped.
+  - **The Threshold applies per Eval, never to a Batch mean.** Evals measure different things; averaging summarisation quality with extraction accuracy produces a number with no meaning, and lets a collapse in one Eval hide behind another's strength. A Batch fails if any Eval falls below the bar, and the output names which.
+  - An Eval whose file fails to import fails that Eval and is reported; the other Runs in the Batch still execute and persist, consistent with 3.1.
   - Because the database is project-local and gitignored (ADR 0005), CI starts with no history. `--threshold` therefore works on an empty database, while `compare` correctly reports it has nothing to compare and exits 2 rather than falsely passing.
   - A Run whose Scores errored reports the mean over the Scores that succeeded, together with the errored count. `--fail-on-error` is what turns those into a failure; the Threshold alone must not silently pass a Run that scored 3 of 30 cases.
   - *Acceptance:* an exit-code table in the docs, each code reproducible in a test, including the empty-database case.
