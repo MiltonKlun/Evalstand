@@ -164,3 +164,28 @@ excluded from means, never conflated with a low Score: an infrastructure failure
 is not evidence that the Task did badly. Any reported mean must also report how
 many Scores errored.
 _Avoid_: failure, bad score, null score
+
+**Cancelled Batch**:
+A Batch abandoned partway through, in practice because a file changed while it
+was still running. Its partial Results are kept but marked, and `history` hides
+them while `compare` refuses them — a half-finished Batch that looks complete
+would drag every mean it touched.
+_Avoid_: aborted run, failed run, partial run
+
+**Public API**:
+The seven names `evalstand` exports at the top level: `evaluate`, `Case`,
+`Score`, `Result`, `Trace`, `scorer`, `trace`. Scorers live in
+`evalstand.scorers` and are exempt. `Run` and `Batch` are deliberately absent —
+users read them in reports, they never construct them.
+
+**Bypass**:
+Skipping the Cache in both directions at once. A bypassed call is neither read
+from nor written to the Cache: a response produced under conditions that made it
+non-reusable must not later be served as *the* answer for its key.
+_Avoid_: skip cache, no-cache, refresh
+
+**Schema version**:
+The migration level of a project's database, distinct from the tool's own
+version. `evalstand` migrates an older database forward on open, and refuses to
+open one newer than it understands rather than reading it best-effort.
+_Avoid_: db version, migration number
