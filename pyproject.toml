@@ -1,6 +1,6 @@
 [project]
 name = "evalstand"
-version = "0.0.0"
+version = "0.0.0.dev0"
 description = "A local-first LLM evaluation tool for Python: write evals, run them like tests, watch results stream in."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -51,6 +51,20 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/evalstand"]
+
+[tool.hatch.build.targets.sdist]
+# Ship source and docs; leave development scaffolding out of the distribution.
+include = [
+    "/src",
+    "/tests",
+    "/docs",
+    "/examples",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/PLAN.md",
+    "/pyproject.toml",
+]
 
 [tool.ruff]
 line-length = 100

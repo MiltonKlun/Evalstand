@@ -7,6 +7,6 @@ traces, token counts, and cost.
 The public API is deliberately small. Keep it under 10 exported names.
 """
 
-__version__ = "0.0.0"
+__version__ = "0.0.0.dev0"
 
 __all__ = ["__version__"]
