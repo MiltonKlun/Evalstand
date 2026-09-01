@@ -8,4 +8,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 - Phase 0: repository scaffold, tooling configuration, CI workflow, ADR process.
-- Name chosen: `evalstand` (ADR 0001).
+
+## [0.0.0.dev0] — 2026-09-01
+
+Name-reservation release. Contains no working code.
+
+### Added
+- Name chosen and reserved on PyPI: `evalstand` (ADR 0001).
+- Package skeleton, MIT licence, build configuration.
