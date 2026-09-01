@@ -1,6 +1,8 @@
 # evalstand
 
-> **Status: in development.** Phase 0 of 7. Not yet usable, not yet on PyPI.
+> **Status: in development.** Phase 0 of 7. This release is a **name
+> reservation placeholder** and contains no working code. The example below
+> shows the intended API, which is not implemented yet.
 
 Evaluating an LLM application should feel like running a test suite.
 
