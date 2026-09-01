@@ -38,27 +38,33 @@ These are deliberately out of scope. They are listed so the agent does not drift
 
 This is the definition of "done" for v1. Every row must be satisfied or consciously waived with an ADR.
 
-| # | Capability | `evalstand` implementation | Phase |
-| --- | --- | --- | --- |
-| 1 | Eval files auto-collected by the test runner | `*_eval.py` collected by a pytest plugin | 2 |
-| 2 | One entry function for cases, task, scorers | `evaluate(cases=, task=, scorers=)` | 2 |
-| 3 | Case loader returning input/expected pairs | Sync or async callable returning `Case` objects | 2 |
-| 4 | Task receives input, returns output | Sync or async, auto-detected | 2 |
-| 5 | Built-in scorer library | Native scorer set, plus an adapter interface | 4 |
-| 6 | Custom scorers via a simple function signature | `@scorer` decorator | 4 |
-| 7 | Traces — nested LLM calls captured inside a task | `trace()` context manager + auto-capture | 3 |
-| 8 | Token and cost reporting per call and per run | Via LiteLLM cost lookup | 1, 3 |
-| 9 | Model response caching | SQLite-backed cache | 1 |
-| 10 | Run each case N times | `--repeat N` / `repeat=` argument | 3 |
-| 11 | SQLite result storage | stdlib `sqlite3` with migrations | 5 |
-| 12 | Score history across runs | `history` command and TUI history view | 5 |
-| 13 | Live-updating UI during a run | Textual TUI | 6 |
-| 14 | Watch mode with file-change re-runs | `watchfiles` | 6 |
-| 15 | Case detail view — input, output, expected, trace | TUI detail pane | 6 |
-| 16 | Custom result table columns | `columns=` argument on `evaluate()` | 6 |
-| 17 | `--threshold` for CI pass/fail | `--threshold` with documented exit codes | 7 |
-| 18 | Streaming task output | LiteLLM streaming, rendered live | 3 |
-| 19 | Runs under the plain test runner too | Works under bare `pytest` | 2 |
+| # | Capability | `evalstand` implementation | Phase | vs. reference |
+| --- | --- | --- | --- | --- |
+| 1 | Eval files auto-collected by the test runner | `*_eval.py` collected by a pytest plugin | 2 | parity |
+| 2 | One entry function for cases, task, scorers | `evaluate(cases=, task=, scorers=)` | 2 | parity |
+| 3 | Case loader returning input/expected pairs | Sync or async callable returning `Case` objects | 2 | parity |
+| 4 | Task receives input, returns output | Sync or async, auto-detected | 2 | parity |
+| 5 | Built-in scorer library | Native scorer set, plus an adapter interface | 4 | parity |
+| 6 | Custom scorers via a simple function signature | `@scorer` decorator | 4 | parity |
+| 7 | Traces — nested LLM calls captured inside a task | `trace()` context manager + auto-capture | 3 | **beyond** — reference traces are flat |
+| 8 | Token and cost reporting per call and per run | Via LiteLLM cost lookup | 1, 3 | parity |
+| 9 | Model response caching | SQLite-backed cache | 1 | **beyond** — reference has no response cache |
+| 10 | Run each case N times | `--repeat N` / `repeat=` argument | 3 | parity |
+| 11 | SQLite result storage | stdlib `sqlite3` with migrations | 5 | parity |
+| 12 | Score history across runs | `history` command and TUI history view | 5 | parity |
+| 13 | Live-updating UI during a run | Textual TUI | 6 | parity |
+| 14 | Watch mode with file-change re-runs | `watchfiles` | 6 | parity |
+| 15 | Case detail view — input, output, expected, trace | TUI detail pane | 6 | parity |
+| 16 | Custom result table columns | `columns=` argument on `evaluate()` | 6 | parity |
+| 17 | `--threshold` for CI pass/fail | `--threshold` with documented exit codes | 7 | parity |
+| 18 | Streaming task output | LiteLLM streaming, rendered live | 3 | parity |
+| 19 | Runs under the plain test runner too | Works under bare `pytest` | 2 | parity |
+
+Three capabilities go **beyond** the reference implementation, and the README
+says so: nested trace trees (its traces are a flat list), model response caching
+(it has none), and stable `Case.id` identity — it matches cases positionally by
+index, so inserting a case silently re-pairs every later case with the wrong
+history. Durable identity is what makes `history` and `compare` trustworthy.
 
 ---
 
@@ -246,8 +252,11 @@ The agent must not violate these.
 
 - [ ] **2.1 Design the public API** in `api.py` to the shape in Section 3. Keep the exported surface under 10 names. `cases` accepts a list, a callable returning a list, or an async callable.
   - *Acceptance:* `docs/writing-evals.md` contains a complete working example under 25 lines.
-- [ ] **2.2 Implement the pytest plugin** in `plugin.py`. Use `pytest_collect_file` to collect `*_eval.py`, generate one pytest item per case, and use `pytest_runtest_makereport` to capture outcomes. Register through the `pytest11` entry point.
-  - *Acceptance:* `pytest examples/toy` discovers and runs the eval; `pytest -k q1` selects a single case.
+- [ ] **2.2 Implement the pytest plugin** in `plugin.py`. Use `pytest_collect_file` to collect `*_eval.py`, generate **one item per `(case, repeat_index)`**, and use `pytest_runtest_makereport` to capture outcomes. Register through the `pytest11` entry point.
+  - Item IDs carry the repeat index only when repeats are on: `q1` when `repeat=1`, `q1[repeat=2]` otherwise, so `-k q1` still selects them all by prefix.
+  - An item is one execution with one outcome. Do not collapse several stochastic executions into a single pass/fail — any aggregation rule there is a judgement the user did not make.
+  - Duplicate Eval names are an error raised at collection time, naming both file paths. Names are identity; paths are metadata.
+  - *Acceptance:* `pytest examples/toy` discovers and runs the eval; `pytest -k q1` selects a single case; `--repeat 3 -k q1` selects three items.
 - [ ] **2.3 Support both sync and async tasks.** Detect with `inspect.iscoroutinefunction` and dispatch accordingly. The user should never have to think about it.
   - *Acceptance:* two identical evals, one sync and one async, produce identical results.
 - [ ] **2.4 Ensure bare `pytest` works.** Running `pytest` with no custom CLI must collect and execute evals and report pass/fail sensibly.
@@ -313,17 +322,38 @@ The agent must not violate these.
 - [ ] **5.1 Design the SQLite schema** in `storage.py` with a `schema_version` table and sequential migrations under `src/evalstand/migrations/`:
 
   ```sql
-  runs(id, name, git_sha, git_dirty, started_at, finished_at,
+  batches(id, kind, started_at, finished_at, git_sha, git_dirty)
+  runs(id, batch_id, name, filepath, started_at, finished_at,
        model_config_json, repeat_n, total_cases, total_cost_usd, status)
   results(id, run_id, case_id, repeat_index, output_text, output_json,
           latency_ms, input_tokens, output_tokens, cost_usd, error)
-  scores(id, result_id, scorer_name, value_float, passed, metadata_json)
+  scores(id, result_id, scorer_name, value_float, passed, error, metadata_json)
   traces(id, result_id, parent_id, name, started_at, duration_ms,
          input_json, output_json, model, tokens_json, cost_usd)
-  case_snapshots(run_id, case_id, input_json, expected_json, metadata_json)
-  cache(key, model, response_json, created_at, hit_count)
+  case_snapshots(run_id, case_id, content_hash, input_json, expected_json,
+                 metadata_json)
+  cache(key, model, evalstand_version, response_json, created_at, hit_count)
   ```
   Snapshot cases per run so history stays valid when the dataset changes later.
+
+  Notes on the shape, each settled by a design decision:
+  - `batches` is the invocation; `runs` is one Eval within it. `batches.kind` is
+    `full` or `partial`, so a watch-mode re-run of three Evals is grouped rather
+    than appearing as three unrelated executions.
+  - `case_snapshots.content_hash` is `sha256(input, expected)`. It makes
+    Amended Case detection an integer comparison instead of a JSON parse per
+    case, and it covers `input` as well as `expected` — an edited input under
+    the same `case_id` is also no longer the same test.
+  - `scores.passed` is nullable and is set **only** by Scorers that genuinely
+    know pass from fail. Nothing derives it from a threshold; a continuous
+    scorer leaves it `NULL` rather than having the system invent a cutoff.
+  - `traces.parent_id` is what makes a Result carry a tree rather than a list.
+  - `cache.evalstand_version` invalidates entries when key canonicalisation
+    changes, instead of silently mismatching.
+  - `scores.error` holds a Scorer that raised. Such a Score is excluded from
+    every mean rather than counted as zero — an infrastructure failure is not
+    evidence the Task did badly — and any summary reporting a mean must also
+    report how many Scores errored.
   - *Acceptance:* the migration applies to an empty database and is idempotent; a second run does not corrupt the first.
 - [ ] **5.2 Record provenance** on every run: git SHA, dirty-tree flag, model config, and a hash of the task source. Refuse to persist without a SHA unless `--allow-dirty` is passed.
 - [ ] **5.3 Build `evalstand history [name]`** listing runs with name, SHA, date, mean score, pass count, and cost.
@@ -371,7 +401,10 @@ The agent must not violate these.
 **Estimate:** 12 hours.
 
 - [ ] **7.1 CI flags:** `--threshold <float>` (fail when the mean score falls below it) and `--fail-on-error`. Documented exit codes: `0` pass, `1` below threshold, `2` execution error.
-  - *Acceptance:* an exit-code table in the docs, each code reproducible in a test.
+  - The Threshold is **absolute**, and the number is a human decision taken from the committed Baseline (5.7) — never computed from the most recent Run, which would let the bar drift down every time quality dropped.
+  - Because the database is project-local and gitignored (ADR 0005), CI starts with no history. `--threshold` therefore works on an empty database, while `compare` correctly reports it has nothing to compare and exits 2 rather than falsely passing.
+  - A Run whose Scores errored reports the mean over the Scores that succeeded, together with the errored count. `--fail-on-error` is what turns those into a failure; the Threshold alone must not silently pass a Run that scored 3 of 30 cases.
+  - *Acceptance:* an exit-code table in the docs, each code reproducible in a test, including the empty-database case.
 - [ ] **7.2 Markdown summary output** in `reporting/markdown.py` — `--output markdown` produces a body suitable for a PR comment: summary table, failed cases, cost.
 - [ ] **7.3 Document the GitHub Actions recipe** in `docs/ci.md`: a workflow that runs evals on pull requests, posts the markdown summary as a comment, and gates on the threshold. Ship it as a copyable YAML block rather than a published Action in this version.
 - [ ] **7.4 Docs site** with mkdocs-material: quickstart, writing evals, scorers, traces, CI, architecture, ADR index. Deploy to GitHub Pages.

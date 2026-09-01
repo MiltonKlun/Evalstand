@@ -54,7 +54,16 @@ stays on your machine.
 ## Planned capabilities
 
 See [PLAN.md](PLAN.md) for the full build plan and the capability checklist that
-defines v1.
+defines v1. Three of those capabilities go beyond what inspired them:
+
+- **Stable case identity.** Cases are matched across runs by a durable `id`, not
+  by position, so inserting a case does not silently re-pair every later case
+  with the wrong history.
+- **Nested traces.** A call made inside another call is recorded as its child,
+  so a judge scorer's request appears under the task request it is judging
+  rather than beside it.
+- **Response caching.** Identical model calls are served from a local cache, so
+  iterating on an eval does not pay for the same request twice.
 
 ## Limitations
 
