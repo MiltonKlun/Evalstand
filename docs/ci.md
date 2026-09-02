@@ -99,3 +99,24 @@ plain `pytest` without meaning to. Running them is always an explicit act.
 They exist because everything else is mocked or replayed: nothing else in the
 suite would notice if LiteLLM changed the shape of what it returns. A live run
 costs a fraction of a cent — the cheapest model, prompts of a few tokens.
+
+## Mutation testing
+
+Coverage shows which lines ran, not which behaviours are asserted on. A line can
+be fully covered by a test that would pass no matter what the line did.
+
+```bash
+python scripts/mutate.py          # break each behaviour, check the suite notices
+python scripts/mutate.py --list   # see what it would run
+```
+
+A **survivor** is a mutation the suite did not catch: the behaviour is covered
+but unverified. Three survivors from the post-Phase-2 audit each turned out to be
+a real gap — an unmeasured eval exiting zero, a numeric unknown-placeholder, and
+a supplied case id that could be silently overwritten.
+
+The harness purges `__pycache__` around every mutant. Restoring the source file
+is not enough on its own: during that audit a mutated `.pyc` outlived its
+restored source, and `UNKNOWN` read as `"0"` while the file on disk said `"-"`.
+Any harness that edits source in place has to clear bytecode, or its results
+cannot be trusted.
