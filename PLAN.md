@@ -100,7 +100,7 @@ evalstand/
 │   ├── config.py                  # settings resolution
 │   ├── scorers/
 │   │   ├── base.py                # Scorer protocol, @scorer decorator
-│   │   ├── string.py              # exact, normalised, contains, regex
+│   │   ├── text.py                # exact, normalised, contains, regex
 │   │   ├── fuzzy.py               # levenshtein, ratio (rapidfuzz)
 │   │   ├── numeric.py             # tolerance-based
 │   │   ├── json_field.py          # per-field structured comparison
@@ -207,18 +207,24 @@ The agent must not violate these.
 - [x] **0.1 Public name: `evalstand`.** Verified free on PyPI (`https://pypi.org/pypi/evalstand/json` -> 404) and GitHub (0 repositories matching the name) on 2026-09-01. Rejected because already taken on PyPI: `evalrig` (an AI-eval package), `proofmark` (an LLM-output testing package, uploaded 2026-08-17), `assay`, `evalbench`, `plumbline`, `rigor`, `tessera`, `proofbench`, `evalforge`, `evalloop`, `rubricon`.
   - *Acceptance:* recorded in `docs/adr/0001-name.md`, applied consistently across `pyproject.toml`, `src/`, and docs.
   - *Naming rule (binding):* the string `evalite` must not appear in any package name, module name, directory name, filename, class name, function name, or CLI command. A single attribution footnote at the bottom of the README is the only permitted occurrence in the shipped repo.
-- [ ] **0.2 Initialise the repo:** `uv init --lib`, Python 3.11+, `src/` layout, MIT `LICENSE`, `.gitignore`.
+- [x] **0.2 Initialise the repo:** `uv init --lib`, Python 3.11+, `src/` layout, MIT `LICENSE`, `.gitignore`.
   - *Acceptance:* `uv sync` succeeds; `uv run python -c "import evalstand"` succeeds.
-- [ ] **0.3 Configure tooling:** `ruff` (lint + format), `mypy` strict on `src/`, `pytest` with `--cov`, `pre-commit` with ruff plus a secret-scanning hook.
+- [x] **0.3 Configure tooling:** `ruff` (lint + format), `mypy` strict on `src/`, `pytest` with `--cov`, `pre-commit` with ruff plus a secret-scanning hook.
   - *Acceptance:* `pre-commit run --all-files` passes on a clean tree.
-- [ ] **0.4 Write `.github/workflows/ci.yml`.** Matrix over Python 3.11, 3.12, 3.13. Steps: checkout, install uv, sync, ruff check, ruff format --check, mypy, pytest.
+- [x] **0.4 Write `.github/workflows/ci.yml`.** Matrix over Python 3.11, 3.12, 3.13. Steps: checkout, install uv, sync, ruff check, ruff format --check, mypy, pytest.
   - *Acceptance:* CI green on first push; the workflow file contains no `secrets.` reference.
-- [ ] **0.5 Create `docs/adr/0000-adr-process.md`** and a template.
-- [ ] **0.6 Study the reference implementation** before writing any code — `evalite` (TypeScript, MIT), specifically its entry function, CLI, SQLite layer, and web UI. Write `docs/adr/0002-design-scope.md` recording which behaviours `evalstand` adopts, which it does differently, and why (TUI instead of React, pytest instead of Vitest).
+- [x] **0.5 Create `docs/adr/0000-adr-process.md`** and a template.
+- [x] **0.6 Study the reference implementation** before writing any code — `evalite` (TypeScript, MIT), specifically its entry function, CLI, SQLite layer, and web UI. Write `docs/adr/0002-design-scope.md` recording which behaviours `evalstand` adopts, which it does differently, and why (TUI instead of React, pytest instead of Vitest).
   - *Acceptance:* the ADR names specific behaviours and specific decisions, not generalities. Read it for design understanding only — do not copy code. This is an independent implementation.
-- [ ] **0.7 Placeholder README** with the problem statement, a "status: in development" banner, and the one-line attribution footnote. No marketing claims yet.
+- [x] **0.7 Placeholder README** with the problem statement, a "status: in development" banner, and the one-line attribution footnote. No marketing claims yet.
 
-**Exit criteria:** CI green, pre-commit passes, name applied everywhere, ADRs 0001 and 0002 written.
+**Exit criteria:** CI green, pre-commit passes, name applied everywhere, ADRs 0001 and 0002 written. **— met 2026-09-01.**
+
+Phase 0 also produced more than it planned to: `CONTEXT.md` (29 terms) and ADRs
+0003-0006, from a design review that ran before any implementation. That review
+corrected task 3.3, whose stated rule could not be implemented as written, and
+established that three capability rows go beyond the reference rather than
+matching it.
 
 ---
 
@@ -306,7 +312,7 @@ The agent must not violate these.
 
 - [ ] **4.1 Define the `Scorer` protocol** in `scorers/base.py` and a `@scorer` decorator that adapts a plain function. Support sync and async scorers.
   - *Acceptance:* a user-defined 3-line scorer works without importing any base class.
-- [ ] **4.2 String scorers** in `string.py`: `exact`, `normalised_exact` (case, whitespace, and punctuation folding), `contains`, `regex_match`.
+- [ ] **4.2 String scorers** in `text.py`: `exact`, `normalised_exact` (case, whitespace, and punctuation folding), `contains`, `regex_match`.
 - [ ] **4.3 Fuzzy scorers** in `fuzzy.py` using `rapidfuzz`: `levenshtein` (normalised to `[0, 1]`; this is `evalstand`'s default scorer) and `ratio`.
   - *Acceptance:* `levenshtein("kitten", "sitting")` returns the documented normalised value.
 - [ ] **4.4 Numeric scorer** in `numeric.py`: absolute and relative tolerance, with sensible handling of `None` and unparseable output.

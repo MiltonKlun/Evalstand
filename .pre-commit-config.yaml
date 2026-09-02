@@ -1,8 +1,8 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.4
+    rev: v0.16.5
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       - id: ruff-format
 
@@ -19,6 +19,6 @@ repos:
 
   # Secret scanning (guardrail 2: never commit secrets)
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.23.3
+    rev: v8.30.1
     hooks:
       - id: gitleaks

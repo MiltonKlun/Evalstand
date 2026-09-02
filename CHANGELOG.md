@@ -7,7 +7,22 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
-- Phase 0: repository scaffold, tooling configuration, CI workflow, ADR process.
+- Phase 0 complete: repository scaffold, tooling configuration, CI workflow,
+  ADR process.
+- `CONTEXT.md`: the project's domain model, 29 terms.
+- ADR 0002 (design scope), 0003 (no variants in v1), 0004 (`evaluate()`
+  registers rather than executes), 0005 (project-local database), 0006 (trace
+  parenting).
+
+### Changed
+- Task 3.3 corrected: repeats now bypass the cache unconditionally. Its previous
+  rule — bypass only when temperature > 0 — could not be implemented, because a
+  Task makes its own model calls and the runner cannot inspect their parameters.
+- Schema gains `batches`, `case_snapshots.content_hash`, `scores.error`,
+  `traces.parent_id`, and `cache.evalstand_version`.
+- The capability table records three rows as going beyond the reference
+  implementation rather than matching it: nested traces, response caching, and
+  stable case identity.
 
 ## [0.0.0.dev0] — 2026-09-01
 
