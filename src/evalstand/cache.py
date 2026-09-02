@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import threading
 from pathlib import Path
 
 from evalstand import __version__
@@ -36,15 +37,28 @@ CREATE TABLE IF NOT EXISTS cache (
 
 
 class ResponseCache:
-    """A SQLite-backed store of model responses."""
+    """A SQLite-backed store of model responses.
+
+    Safe to share across threads and across asyncio tasks. Every method that
+    touches the connection holds a lock, because SQLite's own thread checking is
+    disabled to permit the sharing — the two go together, and neither alone is
+    enough: without the lock, concurrent writes lose rows and raise
+    `InterfaceError`.
+    """
 
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.connection = sqlite3.connect(self.path)
+        # A cache instance is shared across a run, and a user's task may use a
+        # thread pool. `check_same_thread=False` permits the sharing; the lock
+        # is what makes it safe — without it, concurrent writes lose rows and
+        # raise InterfaceError. Both are needed, neither alone suffices.
+        self.connection = sqlite3.connect(self.path, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
-        self.connection.executescript(_SCHEMA)
-        self.connection.commit()
+        self._lock = threading.Lock()
+        with self._lock:
+            self.connection.executescript(_SCHEMA)
+            self.connection.commit()
 
     def get(self, key: str, *, bypass: bool = False) -> LLMResponse | None:
         """Return a cached response, or None.
@@ -56,9 +70,10 @@ class ResponseCache:
         if bypass:
             return None
 
-        row = self.connection.execute(
-            "SELECT response_json, evalstand_version FROM cache WHERE key = ?", (key,)
-        ).fetchone()
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT response_json, evalstand_version FROM cache WHERE key = ?", (key,)
+            ).fetchone()
         if row is None:
             return None
 
@@ -74,8 +89,12 @@ class ResponseCache:
             logger.debug("discarding unreadable cache entry: %s", exc)
             return None
 
-        self.connection.execute("UPDATE cache SET hit_count = hit_count + 1 WHERE key = ?", (key,))
-        self.connection.commit()
+        with self._lock:
+            # Read-modify-write, so it must happen under the lock or hits are lost.
+            self.connection.execute(
+                "UPDATE cache SET hit_count = hit_count + 1 WHERE key = ?", (key,)
+            )
+            self.connection.commit()
         return response
 
     def set(self, key: str, model: str, response: LLMResponse, *, bypass: bool = False) -> None:
@@ -88,8 +107,9 @@ class ResponseCache:
         if bypass:
             return
 
-        self.connection.execute(
-            """
+        with self._lock:
+            self.connection.execute(
+                """
             INSERT INTO cache (key, model, evalstand_version, response_json)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(key) DO UPDATE SET
@@ -98,23 +118,27 @@ class ResponseCache:
                 response_json = excluded.response_json,
                 created_at = CURRENT_TIMESTAMP
             """,
-            (key, model, __version__, response.model_dump_json()),
-        )
-        self.connection.commit()
+                (key, model, __version__, response.model_dump_json()),
+            )
+            self.connection.commit()
 
     def hit_count(self, key: str) -> int:
-        row = self.connection.execute(
-            "SELECT hit_count FROM cache WHERE key = ?", (key,)
-        ).fetchone()
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT hit_count FROM cache WHERE key = ?", (key,)
+            ).fetchone()
         return int(row["hit_count"]) if row else 0
 
     def entry_count(self) -> int:
-        row = self.connection.execute("SELECT COUNT(*) AS n FROM cache").fetchone()
-        return int(row["n"])
+        with self._lock:
+            row = self.connection.execute("SELECT COUNT(*) AS n FROM cache").fetchone()
+        return int(row["n"]) if row else 0
 
     def clear(self) -> None:
-        self.connection.execute("DELETE FROM cache")
-        self.connection.commit()
+        with self._lock:
+            self.connection.execute("DELETE FROM cache")
+            self.connection.commit()
 
     def close(self) -> None:
-        self.connection.close()
+        with self._lock:
+            self.connection.close()
