@@ -17,8 +17,72 @@ from typing import Any
 
 import litellm
 from pydantic import BaseModel, ConfigDict, Field
+from tenacity import (
+    AsyncRetrying,
+    RetryCallState,
+    Retrying,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 __all__ = ["LLMResponse", "StreamedCall", "acall", "acall_stream", "call"]
+
+MAX_ATTEMPTS = 3
+"""Three attempts total, not three retries. A fourth rarely converts."""
+
+_BASE_DELAY_SECONDS = 0.5
+_MAX_DELAY_SECONDS = 8.0
+
+RETRYABLE_STATUS_CODES = frozenset({408, 409, 429, 500, 502, 503, 504, 529})
+"""Rate limits, timeouts, and server faults. Everything else is permanent:
+an auth failure or a rejected prompt fails identically on every attempt, so
+retrying it only burns time and rate limit."""
+
+
+def _status_code(error: BaseException) -> int | None:
+    """The HTTP status an error carries, if it carries one."""
+    for attribute in ("status_code", "code", "http_status"):
+        value = getattr(error, attribute, None)
+        if isinstance(value, int):
+            return value
+    response = getattr(error, "response", None)
+    status = getattr(response, "status_code", None)
+    return status if isinstance(status, int) else None
+
+
+def _is_retryable(error: BaseException) -> bool:
+    """Only errors known to be transient are retried.
+
+    An error with no recognisable status is treated as permanent: without
+    evidence that a retry could succeed, retrying is a guess that costs time.
+    """
+    status = _status_code(error)
+    return status is not None and status in RETRYABLE_STATUS_CODES
+
+
+def _log_retry(state: RetryCallState) -> None:
+    """Report every retry. A silent one hides both latency and spend."""
+    error = state.outcome.exception() if state.outcome else None
+    logger.warning(
+        "retry %d/%d after %s; waiting %.2fs",
+        state.attempt_number,
+        MAX_ATTEMPTS - 1,
+        error,
+        state.idle_for or 0.0,
+    )
+
+
+def _retry_policy() -> dict[str, Any]:
+    """The shared policy, so sync and async cannot drift apart."""
+    return {
+        "stop": stop_after_attempt(MAX_ATTEMPTS),
+        "wait": wait_exponential_jitter(initial=_BASE_DELAY_SECONDS, max=_MAX_DELAY_SECONDS),
+        "retry": retry_if_exception(_is_retryable),
+        "before_sleep": _log_retry,
+        "reraise": True,
+    }
+
 
 logger = logging.getLogger("evalstand.llm")
 
@@ -99,19 +163,30 @@ def _build(response: Any, model: str, latency_ms: int) -> LLMResponse:
 
 
 def call(model: str, messages: list[dict[str, Any]], **params: Any) -> LLMResponse:
-    """Make one model call, reporting text, tokens, latency, and cost."""
-    started = time.perf_counter()
-    response = litellm.completion(model=model, messages=messages, **params)
-    latency_ms = int((time.perf_counter() - started) * 1000)
-    return _build(response, model, latency_ms)
+    """Make one model call, reporting text, tokens, latency, and cost.
+
+    Transient failures are retried; permanent ones are raised immediately.
+    Latency covers only the successful attempt, so it measures the model rather
+    than the retry loop.
+    """
+    for attempt in Retrying(**_retry_policy()):
+        with attempt:
+            started = time.perf_counter()
+            response = litellm.completion(model=model, messages=messages, **params)
+            return _build(response, model, int((time.perf_counter() - started) * 1000))
+
+    raise AssertionError("unreachable: Retrying either returns or reraises")
 
 
 async def acall(model: str, messages: list[dict[str, Any]], **params: Any) -> LLMResponse:
-    """Async twin of `call`. Must agree with it on tokens and cost."""
-    started = time.perf_counter()
-    response = await litellm.acompletion(model=model, messages=messages, **params)
-    latency_ms = int((time.perf_counter() - started) * 1000)
-    return _build(response, model, latency_ms)
+    """Async twin of `call`. Shares its retry policy, so the two cannot drift."""
+    async for attempt in AsyncRetrying(**_retry_policy()):
+        with attempt:
+            started = time.perf_counter()
+            response = await litellm.acompletion(model=model, messages=messages, **params)
+            return _build(response, model, int((time.perf_counter() - started) * 1000))
+
+    raise AssertionError("unreachable: AsyncRetrying either returns or reraises")
 
 
 class StreamedCall:
