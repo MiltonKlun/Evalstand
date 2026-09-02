@@ -243,7 +243,7 @@ matching it.
   - *Acceptance:* tests cover 429-then-success and 401-immediate-fail.
 - [x] **1.5 Build `cache.py`.** SQLite response cache keyed on the SHA-256 of canonical JSON of `(model, messages, temperature, top_p, max_tokens, seed, tools, response_format)`. Store the response, `created_at`, and `hit_count`. Support `--no-cache` and `--refresh-cache`.
   - *Acceptance:* the same call twice yields one provider call and one cache hit; changing temperature yields a miss.
-- [ ] **1.6 Add record/replay for tests.** A cassette mode writing responses to JSON on record and reading on replay.
+- [x] **1.6 Add record/replay for tests.** A cassette mode writing responses to JSON on record and reading on replay.
   - *Acceptance:* the full test suite passes with every provider API key unset.
 - [ ] **1.7 ADR 0007:** why LiteLLM rather than provider SDKs. (0003 is already taken by the variants decision.)
 
