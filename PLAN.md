@@ -239,7 +239,7 @@ matching it.
   - *Acceptance:* unit tests with LiteLLM mocked verify token and cost extraction. One `@pytest.mark.live` test hits a real cheap model and is excluded from CI.
 - [x] **1.3 Add streaming support.** `acall_stream` yields chunks and accumulates the final response with correct token and cost totals.
   - *Acceptance:* a streamed call and a non-streamed call to the same prompt produce identical accumulated text and equivalent cost.
-- [ ] **1.4 Add retry policy** with `tenacity`: retry on 429 and 5xx with exponential backoff and jitter, max 3 attempts. Never retry 4xx auth or content-policy errors. Log every retry.
+- [x] **1.4 Add retry policy** with `tenacity`: retry on 429 and 5xx with exponential backoff and jitter, max 3 attempts. Never retry 4xx auth or content-policy errors. Log every retry.
   - *Acceptance:* tests cover 429-then-success and 401-immediate-fail.
 - [ ] **1.5 Build `cache.py`.** SQLite response cache keyed on the SHA-256 of canonical JSON of `(model, messages, temperature, top_p, max_tokens, seed, tools, response_format)`. Store the response, `created_at`, and `hit_count`. Support `--no-cache` and `--refresh-cache`.
   - *Acceptance:* the same call twice yields one provider call and one cache hit; changing temperature yields a miss.
