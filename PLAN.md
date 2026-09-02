@@ -236,7 +236,7 @@ matching it.
 - [x] **1.1 Define `models.py`.** `Case`, `Score`, `Trace`, `Result`, `Run`, `Batch` as Pydantic models. `Score.value` is a float in `[0, 1]`. **`Score.passed` is set only by a Scorer that genuinely knows pass from fail; nothing derives it from a threshold, and a continuous scorer leaves it `None`.** Every model is JSON-serialisable.
   - *Acceptance:* round-trip serialisation tests pass for each model.
 - [x] **1.2 Build `llm.py` over LiteLLM.** `call(model, messages, **params) -> LLMResponse` and async `acall`, returning text, input and output token counts, latency in ms, `cost_usd` from `litellm.completion_cost()`, and the raw provider response.
-  - *Acceptance:* unit tests with LiteLLM mocked verify token and cost extraction. One `@pytest.mark.live` test hits a real cheap model and is excluded from CI.
+  - *Acceptance:* unit tests with LiteLLM mocked verify token and cost extraction. One `@pytest.mark.live` test hits a real cheap model and is excluded from CI. **— the live tests were added later, during the post-Phase-2 audit; 1.2 was ticked without them.**
 - [x] **1.3 Add streaming support.** `acall_stream` yields chunks and accumulates the final response with correct token and cost totals.
   - *Acceptance:* a streamed call and a non-streamed call to the same prompt produce identical accumulated text and equivalent cost.
 - [x] **1.4 Add retry policy** with `tenacity`: retry on 429 and 5xx with exponential backoff and jitter, max 3 attempts. Never retry 4xx auth or content-policy errors. Log every retry.

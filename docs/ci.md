@@ -85,9 +85,17 @@ the total absence of a measurement is treated as a failure.
 
 The test suite runs with no API keys and no spend. Tests that would call a provider
 use committed cassettes; tests that must hit a real model are marked
-`@pytest.mark.live` and excluded by default:
+`@pytest.mark.live` and **deselected by default**:
 
 ```bash
-pytest -m "not live"      # the default in CI
-pytest -m live            # opt in locally, with keys set
+pytest                    # live tests deselected; no key needed, nothing spent
+pytest -m live            # opt in, with a key set
 ```
+
+Deselected rather than skipped, deliberately. Skipping depends on no key being
+present, so a developer with `OPENAI_API_KEY` exported would spend money on a
+plain `pytest` without meaning to. Running them is always an explicit act.
+
+They exist because everything else is mocked or replayed: nothing else in the
+suite would notice if LiteLLM changed the shape of what it returns. A live run
+costs a fraction of a cent — the cheapest model, prompts of a few tokens.

@@ -85,7 +85,11 @@ testpaths = ["tests"]
 # point, so it is imported before pytest-cov begins measuring, and every
 # module-level line reads as uncovered — api.py reported 47% when it was really
 # 95%. Measure with `coverage run -m pytest` instead, which starts first.
-addopts = ""
+#
+# Live tests are deselected by default, not merely skipped. Skipping relies on
+# no key being present; a developer with OPENAI_API_KEY exported would otherwise
+# spend money on a plain `pytest`. Opt in with `pytest -m live`.
+addopts = "-m 'not live'"
 markers = [
     "live: hits a real provider API; excluded from CI (deselect with -m 'not live')",
 ]
