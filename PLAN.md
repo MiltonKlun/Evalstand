@@ -241,7 +241,7 @@ matching it.
   - *Acceptance:* a streamed call and a non-streamed call to the same prompt produce identical accumulated text and equivalent cost.
 - [x] **1.4 Add retry policy** with `tenacity`: retry on 429 and 5xx with exponential backoff and jitter, max 3 attempts. Never retry 4xx auth or content-policy errors. Log every retry.
   - *Acceptance:* tests cover 429-then-success and 401-immediate-fail.
-- [ ] **1.5 Build `cache.py`.** SQLite response cache keyed on the SHA-256 of canonical JSON of `(model, messages, temperature, top_p, max_tokens, seed, tools, response_format)`. Store the response, `created_at`, and `hit_count`. Support `--no-cache` and `--refresh-cache`.
+- [x] **1.5 Build `cache.py`.** SQLite response cache keyed on the SHA-256 of canonical JSON of `(model, messages, temperature, top_p, max_tokens, seed, tools, response_format)`. Store the response, `created_at`, and `hit_count`. Support `--no-cache` and `--refresh-cache`.
   - *Acceptance:* the same call twice yields one provider call and one cache hit; changing temperature yields a miss.
 - [ ] **1.6 Add record/replay for tests.** A cassette mode writing responses to JSON on record and reading on replay.
   - *Acceptance:* the full test suite passes with every provider API key unset.
