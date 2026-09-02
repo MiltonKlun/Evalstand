@@ -268,13 +268,18 @@ matching it.
   - *Acceptance:* `pytest examples/toy` discovers and runs the eval; `pytest -k q1` selects a single case; `--repeat 3 -k q1` selects three items.
 - [x] **2.3 Support both sync and async tasks.** Detect with `inspect.iscoroutinefunction` and dispatch accordingly. The user should never have to think about it.
   - *Acceptance:* two identical evals, one sync and one async, produce identical results.
-- [ ] **2.4 Ensure bare `pytest` works.** Running `pytest` with no custom CLI must collect and execute evals and report pass/fail sensibly.
+- [x] **2.4 Ensure bare `pytest` works.** Running `pytest` with no custom CLI must collect and execute evals and report pass/fail sensibly.
   - *Acceptance:* documented in `docs/ci.md` with a working example.
 - [x] **2.5 Build `examples/toy/`** — three cases, one scorer, no external files. Every subsequent phase develops against this.
-- [ ] **2.6 Console reporting** in `reporting/console.py` using rich: a summary table (per-scorer mean, pass count, total cost, wall time) and a failures table.
+- [x] **2.6 Console reporting** in `reporting/console.py` using rich: a summary table (per-scorer mean, pass count, total cost, wall time) and a failures table.
   - *Acceptance:* the toy example prints a readable summary within one screen.
 
-**Exit criteria:** `evalstand run examples/toy` and `pytest examples/toy` both work end to end.
+**Exit criteria:** `evalstand run examples/toy` and `pytest examples/toy` both work end to end. **— met 2026-09-02.**
+
+Note: the exit criterion required `evalstand run`, but no task created the CLI —
+the architecture lists `cli.py` and no phase assigned it. Phase 2 therefore ships
+a minimal `run` command that delegates to pytest rather than reimplementing
+collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
 
 ---
 
