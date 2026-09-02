@@ -455,3 +455,54 @@ class TestTraceForestIntegrity:
             Trace(id=f"n{i}", parent_id=f"n{i - 1}", name="n", duration_ms=1) for i in range(1, 500)
         ]
         assert len(Result(id="r1", case_id="q1", output="x", traces=traces).traces) == 500
+
+
+class TestRunTotals:
+    def test_total_cost_sums_every_result(self) -> None:
+        run = Run(
+            id="run1",
+            batch_id="b1",
+            name="qa",
+            filepath="x.py",
+            results=[
+                Result(
+                    id="r1",
+                    case_id="q1",
+                    output="x",
+                    traces=[Trace(id="t1", name="a", duration_ms=1, cost_usd=0.01)],
+                ),
+                Result(
+                    id="r2",
+                    case_id="q2",
+                    output="x",
+                    traces=[Trace(id="t2", name="b", duration_ms=1, cost_usd=0.02)],
+                ),
+            ],
+        )
+        assert run.total_cost_usd == pytest.approx(0.03)
+
+    def test_total_cost_is_zero_for_an_empty_run(self) -> None:
+        """No results means nothing was spent — a defensible zero, unlike a
+        mean, which would be a fabricated judgement."""
+        assert Run(id="r", batch_id="b", name="n", filepath="f").total_cost_usd == 0.0
+
+    def test_unpriced_traces_do_not_break_the_total(self) -> None:
+        """An unpriced call contributes nothing rather than raising."""
+        run = Run(
+            id="run1",
+            batch_id="b1",
+            name="qa",
+            filepath="x.py",
+            results=[
+                Result(
+                    id="r1",
+                    case_id="q1",
+                    output="x",
+                    traces=[
+                        Trace(id="t1", name="a", duration_ms=1, cost_usd=0.01),
+                        Trace(id="t2", name="b", duration_ms=1, cost_usd=None),
+                    ],
+                )
+            ],
+        )
+        assert run.total_cost_usd == pytest.approx(0.01)

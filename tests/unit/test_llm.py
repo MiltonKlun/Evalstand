@@ -169,3 +169,103 @@ class TestLLMResponse:
             text="x", model="m", latency_ms=1, input_tokens=1, output_tokens=2, raw=object()
         )
         assert "raw" not in response.model_dump(mode="json")
+
+
+class TestMalformedProviderResponses:
+    """The defensive paths, which coverage reported as covered but nothing
+    asserted on. A provider returning an unexpected shape must degrade to empty
+    text, never take down a run that already cost money.
+    """
+
+    @pytest.mark.parametrize(
+        ("label", "build"),
+        [
+            ("no choices attribute", lambda r: delattr(r, "choices")),
+            ("choices is empty", lambda r: setattr(r, "choices", [])),
+            ("choices is None", lambda r: setattr(r, "choices", None)),
+            ("message is None", lambda r: setattr(r.choices[0], "message", None)),
+            ("content is a dict", lambda r: setattr(r.choices[0].message, "content", {"a": 1})),
+            ("content is a number", lambda r: setattr(r.choices[0].message, "content", 42)),
+        ],
+    )
+    def test_text_extraction_degrades_to_empty(self, label: str, build: Any) -> None:
+        from evalstand.llm import _extract_text
+
+        response = _fake_completion()
+        build(response)
+        assert _extract_text(response) == "", label
+
+    @pytest.mark.parametrize(
+        ("label", "build"),
+        [
+            ("no choices attribute", lambda c: delattr(c, "choices")),
+            ("choices is empty", lambda c: setattr(c, "choices", [])),
+            ("delta is None", lambda c: setattr(c.choices[0], "delta", None)),
+            ("content is not a string", lambda c: setattr(c.choices[0].delta, "content", 7)),
+        ],
+    )
+    def test_delta_extraction_degrades_to_empty(self, label: str, build: Any) -> None:
+        from evalstand.llm import _extract_delta
+
+        chunk = MagicMock()
+        chunk.choices = [MagicMock()]
+        chunk.choices[0].delta.content = "text"
+        build(chunk)
+        assert _extract_delta(chunk) == "", label
+
+    def test_a_malformed_response_still_produces_a_usable_result(self) -> None:
+        """The call already cost money; losing the whole response to a shape
+        surprise would waste it and abort the case."""
+        response = _fake_completion()
+        response.choices = []
+
+        with (
+            patch("evalstand.llm.litellm.completion", return_value=response),
+            patch("evalstand.llm.litellm.completion_cost", return_value=0.0001),
+        ):
+            result = call("gpt-4o-mini", MESSAGES)
+
+        assert result.text == ""
+        assert result.cost_usd == pytest.approx(0.0001), "the spend is still recorded"
+        assert result.input_tokens == 12, "usage is still recorded"
+
+    @pytest.mark.parametrize(
+        ("label", "model_value"),
+        [
+            ("model is None", None),
+            ("model is empty", ""),
+            ("model is not a string", 12345),
+        ],
+    )
+    def test_falls_back_to_the_requested_model_name(self, label: str, model_value: Any) -> None:
+        """A provider echoing a junk model name must not lose the response."""
+        response = _fake_completion()
+        response.model = model_value
+
+        with (
+            patch("evalstand.llm.litellm.completion", return_value=response),
+            patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
+        ):
+            assert call("gpt-4o-mini", MESSAGES).model == "gpt-4o-mini", label
+
+    @pytest.mark.parametrize(
+        ("label", "build"),
+        [
+            ("usage is None", lambda r: setattr(r, "usage", None)),
+            ("no prompt_tokens", lambda r: delattr(r.usage, "prompt_tokens")),
+            ("prompt_tokens is None", lambda r: setattr(r.usage, "prompt_tokens", None)),
+        ],
+    )
+    def test_missing_usage_is_none_never_zero(self, label: str, build: Any) -> None:
+        """Zero tokens is a claim; unknown is the truth."""
+        response = _fake_completion()
+        build(response)
+
+        with (
+            patch("evalstand.llm.litellm.completion", return_value=response),
+            patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
+        ):
+            result = call("gpt-4o-mini", MESSAGES)
+
+        assert result.input_tokens is None, label
+        assert result.total_tokens is None, label
