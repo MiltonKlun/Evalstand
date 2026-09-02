@@ -307,3 +307,151 @@ class TestJsonSerialisability:
         ]
         for model in models:
             assert json.loads(model.model_dump_json())
+
+
+class TestTraceForestIntegrity:
+    """A Result's traces must form a forest — ADR 0006 promises a tree.
+
+    A cycle has no root, which makes the tree unreachable and sends a naive
+    renderer into infinite descent. A dangling parent orphans a node silently.
+    Both are caught here rather than in the TUI.
+    """
+
+    def test_accepts_a_valid_tree(self) -> None:
+        result = Result(
+            id="r1",
+            case_id="q1",
+            output="x",
+            traces=[
+                Trace(id="t1", name="task", duration_ms=10),
+                Trace(id="t2", parent_id="t1", name="judge", duration_ms=5),
+                Trace(id="t3", parent_id="t2", name="nested", duration_ms=1),
+            ],
+        )
+        assert len(result.traces) == 3
+
+    def test_accepts_several_roots(self) -> None:
+        """A task making two independent calls produces a forest, not one tree."""
+        result = Result(
+            id="r1",
+            case_id="q1",
+            output="x",
+            traces=[
+                Trace(id="t1", name="first", duration_ms=1),
+                Trace(id="t2", name="second", duration_ms=1),
+            ],
+        )
+        assert len(result.traces) == 2
+
+    def test_rejects_duplicate_trace_ids(self) -> None:
+        """Two nodes sharing an id make parentage ambiguous."""
+        with pytest.raises(ValidationError, match="duplicate"):
+            Result(
+                id="r1",
+                case_id="q1",
+                output="x",
+                traces=[
+                    Trace(id="t1", name="a", duration_ms=1),
+                    Trace(id="t1", name="b", duration_ms=1),
+                ],
+            )
+
+    def test_rejects_a_dangling_parent(self) -> None:
+        """A parent that is not present orphans the node without saying so."""
+        with pytest.raises(ValidationError, match="unknown parent"):
+            Result(
+                id="r1",
+                case_id="q1",
+                output="x",
+                traces=[Trace(id="t1", parent_id="GHOST", name="a", duration_ms=1)],
+            )
+
+    def test_rejects_a_two_node_cycle(self) -> None:
+        with pytest.raises(ValidationError, match="cycle"):
+            Result(
+                id="r1",
+                case_id="q1",
+                output="x",
+                traces=[
+                    Trace(id="a", parent_id="b", name="a", duration_ms=1),
+                    Trace(id="b", parent_id="a", name="b", duration_ms=1),
+                ],
+            )
+
+    def test_rejects_a_longer_cycle(self) -> None:
+        with pytest.raises(ValidationError, match="cycle"):
+            Result(
+                id="r1",
+                case_id="q1",
+                output="x",
+                traces=[
+                    Trace(id="a", parent_id="c", name="a", duration_ms=1),
+                    Trace(id="b", parent_id="a", name="b", duration_ms=1),
+                    Trace(id="c", parent_id="b", name="c", duration_ms=1),
+                ],
+            )
+
+    def test_a_valid_forest_can_always_be_walked_from_its_roots(self) -> None:
+        """The property that matters: every node is reachable, and walking
+        terminates. This is what the TUI's renderer depends on."""
+        result = Result(
+            id="r1",
+            case_id="q1",
+            output="x",
+            traces=[
+                Trace(id="t1", name="task", duration_ms=1),
+                Trace(id="t2", parent_id="t1", name="child", duration_ms=1),
+                Trace(id="t3", parent_id="t1", name="sibling", duration_ms=1),
+                Trace(id="t4", parent_id="t3", name="grandchild", duration_ms=1),
+            ],
+        )
+
+        children: dict[str | None, list[str]] = {}
+        for trace in result.traces:
+            children.setdefault(trace.parent_id, []).append(trace.id)
+
+        seen: list[str] = []
+        stack = list(children.get(None, []))
+        while stack:
+            node = stack.pop()
+            assert node not in seen, "a node was reached twice; the walk does not terminate"
+            seen.append(node)
+            stack.extend(children.get(node, []))
+
+        assert sorted(seen) == ["t1", "t2", "t3", "t4"]
+
+    @pytest.mark.parametrize(
+        ("label", "traces"),
+        [
+            (
+                "cycle after a valid tree",
+                [("x", None), ("y", "x"), ("a", "b"), ("b", "a")],
+            ),
+            (
+                "cycle before a valid tree",
+                [("a", "b"), ("b", "a"), ("x", None), ("y", "x")],
+            ),
+            ("two separate cycles", [("a", "b"), ("b", "a"), ("c", "d"), ("d", "c")]),
+        ],
+    )
+    def test_detection_does_not_depend_on_ordering(
+        self, label: str, traces: list[tuple[str, str | None]]
+    ) -> None:
+        """Cycle detection memoises settled nodes; it must stay order-independent."""
+        with pytest.raises(ValidationError, match="cycle"):
+            Result(
+                id="r1",
+                case_id="q1",
+                output="x",
+                traces=[
+                    Trace(id=node, parent_id=parent, name="n", duration_ms=1)
+                    for node, parent in traces
+                ],
+            )
+
+    def test_a_deep_valid_chain_is_accepted_quickly(self) -> None:
+        """Memoisation keeps validation linear; without it this is quadratic."""
+        traces = [Trace(id="n0", name="n", duration_ms=1)] + [
+            Trace(id=f"n{i}", parent_id=f"n{i - 1}", name="n", duration_ms=1) for i in range(1, 500)
+        ]
+        assert len(Result(id="r1", case_id="q1", output="x", traces=traces).traces) == 500

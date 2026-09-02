@@ -149,6 +149,50 @@ class Result(_Model):
     scores: list[Score] = Field(default_factory=list)
     traces: list[Trace] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _traces_form_a_forest(self) -> Self:
+        """Reject trace shapes that are not a forest.
+
+        ADR 0006 promises a tree. A cycle has no root, so the tree is
+        unreachable and a naive walk descends forever; a dangling parent orphans
+        a node silently. Both are caught here, where the data is built, rather
+        than in the renderer that would hang on them.
+        """
+        if not self.traces:
+            return self
+
+        ids = [trace.id for trace in self.traces]
+        if len(ids) != len(set(ids)):
+            duplicates = sorted({node for node in ids if ids.count(node) > 1})
+            raise ValueError(f"duplicate trace ids: {', '.join(duplicates)}")
+
+        parents = {trace.id: trace.parent_id for trace in self.traces}
+        known = set(parents)
+
+        for trace in self.traces:
+            if trace.parent_id is not None and trace.parent_id not in known:
+                raise ValueError(f"trace {trace.id!r} names an unknown parent {trace.parent_id!r}")
+
+        # Walk upward from each node; a node that revisits itself is in a
+        # cycle. Nodes already proven acyclic are not walked again, which keeps
+        # this linear rather than quadratic on deep chains.
+        settled: set[str] = set()
+        for start in known:
+            if start in settled:
+                continue
+            path: list[str] = []
+            seen: set[str] = set()
+            current: str | None = start
+            while current is not None and current not in settled:
+                if current in seen:
+                    raise ValueError(f"traces form a cycle through {current!r}")
+                seen.add(current)
+                path.append(current)
+                current = parents[current]
+            settled.update(path)
+
+        return self
+
     @property
     def mean_score(self) -> float | None:
         return _mean(
