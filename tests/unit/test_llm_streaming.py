@@ -237,3 +237,22 @@ class TestStreamedMatchesNonStreamed:
         assert streamed.input_tokens == whole.input_tokens
         assert streamed.output_tokens == whole.output_tokens
         assert streamed.cost_usd == pytest.approx(whole.cost_usd)
+
+
+class TestStreamedPricingFailure:
+    @pytest.mark.anyio
+    async def test_a_pricing_failure_leaves_the_call_unpriced(self) -> None:
+        """An unknown model must not be recorded as free, even with usage."""
+        stream = _stream(_chunk("Paris"), _final_chunk(10, 5))
+        with (
+            patch("evalstand.llm.litellm.acompletion", side_effect=stream),
+            patch("evalstand.llm.litellm.cost_per_token", side_effect=Exception("unknown model")),
+        ):
+            streamer = acall_stream("some/unlisted-model", MESSAGES)
+            async for _ in streamer:
+                pass
+
+        assert streamer.response is not None
+        assert streamer.response.cost_usd is None
+        assert streamer.response.input_tokens == 10, "tokens are still recorded"
+        assert streamer.response.text == "Paris", "the text is still returned"
