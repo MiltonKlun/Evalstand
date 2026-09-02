@@ -233,7 +233,7 @@ matching it.
 **Goal:** a single model call works, is cached, and reports tokens, latency, and cost.
 **Estimate:** 12 hours.
 
-- [ ] **1.1 Define `models.py`.** `Case`, `Score`, `Trace`, `Result`, `Run` as Pydantic models or frozen dataclasses. `Score.value` is a float in `[0, 1]`. `Score.passed` is optional and derived from a threshold when absent. Every model is JSON-serialisable.
+- [x] **1.1 Define `models.py`.** `Case`, `Score`, `Trace`, `Result`, `Run`, `Batch` as Pydantic models. `Score.value` is a float in `[0, 1]`. **`Score.passed` is set only by a Scorer that genuinely knows pass from fail; nothing derives it from a threshold, and a continuous scorer leaves it `None`.** Every model is JSON-serialisable.
   - *Acceptance:* round-trip serialisation tests pass for each model.
 - [ ] **1.2 Build `llm.py` over LiteLLM.** `call(model, messages, **params) -> LLMResponse` and async `acall`, returning text, input and output token counts, latency in ms, `cost_usd` from `litellm.completion_cost()`, and the raw provider response.
   - *Acceptance:* unit tests with LiteLLM mocked verify token and cost extraction. One `@pytest.mark.live` test hits a real cheap model and is excluded from CI.
@@ -245,7 +245,7 @@ matching it.
   - *Acceptance:* the same call twice yields one provider call and one cache hit; changing temperature yields a miss.
 - [ ] **1.6 Add record/replay for tests.** A cassette mode writing responses to JSON on record and reading on replay.
   - *Acceptance:* the full test suite passes with every provider API key unset.
-- [ ] **1.7 ADR 0003:** why LiteLLM rather than provider SDKs.
+- [ ] **1.7 ADR 0007:** why LiteLLM rather than provider SDKs. (0003 is already taken by the variants decision.)
 
 **Exit criteria:** a throwaway script makes a cached model call and prints text, tokens, latency, and cost. CI green without keys.
 
