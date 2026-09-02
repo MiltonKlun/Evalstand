@@ -10,13 +10,19 @@ free, and a run total built from such claims would understate real spend.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import time
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import litellm
 from pydantic import BaseModel, ConfigDict, Field
+
+if TYPE_CHECKING:
+    from evalstand.cache import ResponseCache
+
 from tenacity import (
     AsyncRetrying,
     RetryCallState,
@@ -26,7 +32,31 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
-__all__ = ["LLMResponse", "StreamedCall", "acall", "acall_stream", "call"]
+__all__ = ["LLMResponse", "StreamedCall", "acall", "acall_stream", "cache_key", "call"]
+
+KEY_PARAMETERS = ("temperature", "top_p", "max_tokens", "seed", "tools", "response_format")
+"""The parameters that change what a model says.
+
+Everything else a caller might pass — a timeout, an api_base, a retry setting —
+affects how the request travels, not what comes back, so it stays out of the key
+and two calls differing only in transport share a cached response.
+"""
+
+
+def cache_key(model: str, messages: list[dict[str, Any]], **params: Any) -> str:
+    """Identify one model call.
+
+    Canonical JSON with sorted keys, so a call is the same call regardless of
+    the order its parameters were written in.
+    """
+    payload = {
+        "model": model,
+        "messages": messages,
+        "params": {name: params[name] for name in KEY_PARAMETERS if name in params},
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
 
 MAX_ATTEMPTS = 3
 """Three attempts total, not three retries. A fourth rarely converts."""
@@ -102,6 +132,9 @@ class LLMResponse(BaseModel):
     input_tokens: int | None = None
     output_tokens: int | None = None
     cost_usd: float | None = None
+    cached: bool = False
+    """True when this came from the cache rather than the provider. A run
+    summary needs the hit rate, so a hit must be distinguishable from a call."""
     raw: Any = Field(default=None, exclude=True)
 
     @property
@@ -162,29 +195,66 @@ def _build(response: Any, model: str, latency_ms: int) -> LLMResponse:
     )
 
 
-def call(model: str, messages: list[dict[str, Any]], **params: Any) -> LLMResponse:
+def call(
+    model: str,
+    messages: list[dict[str, Any]],
+    *,
+    cache: ResponseCache | None = None,
+    bypass_cache: bool = False,
+    **params: Any,
+) -> LLMResponse:
     """Make one model call, reporting text, tokens, latency, and cost.
 
     Transient failures are retried; permanent ones are raised immediately.
     Latency covers only the successful attempt, so it measures the model rather
     than the retry loop.
+
+    When a `cache` is supplied, an identical earlier call is served from it.
+    `bypass_cache` skips it in both directions: neither read nor written.
     """
+    key = cache_key(model, messages, **params) if cache is not None else None
+
+    if cache is not None and key is not None:
+        hit = cache.get(key, bypass=bypass_cache)
+        if hit is not None:
+            return hit.model_copy(update={"cached": True})
+
     for attempt in Retrying(**_retry_policy()):
         with attempt:
             started = time.perf_counter()
             response = litellm.completion(model=model, messages=messages, **params)
-            return _build(response, model, int((time.perf_counter() - started) * 1000))
+            built = _build(response, model, int((time.perf_counter() - started) * 1000))
+            if cache is not None and key is not None:
+                cache.set(key, model, built, bypass=bypass_cache)
+            return built
 
     raise AssertionError("unreachable: Retrying either returns or reraises")
 
 
-async def acall(model: str, messages: list[dict[str, Any]], **params: Any) -> LLMResponse:
-    """Async twin of `call`. Shares its retry policy, so the two cannot drift."""
+async def acall(
+    model: str,
+    messages: list[dict[str, Any]],
+    *,
+    cache: ResponseCache | None = None,
+    bypass_cache: bool = False,
+    **params: Any,
+) -> LLMResponse:
+    """Async twin of `call`. Shares its retry and cache behaviour."""
+    key = cache_key(model, messages, **params) if cache is not None else None
+
+    if cache is not None and key is not None:
+        hit = cache.get(key, bypass=bypass_cache)
+        if hit is not None:
+            return hit.model_copy(update={"cached": True})
+
     async for attempt in AsyncRetrying(**_retry_policy()):
         with attempt:
             started = time.perf_counter()
             response = await litellm.acompletion(model=model, messages=messages, **params)
-            return _build(response, model, int((time.perf_counter() - started) * 1000))
+            built = _build(response, model, int((time.perf_counter() - started) * 1000))
+            if cache is not None and key is not None:
+                cache.set(key, model, built, bypass=bypass_cache)
+            return built
 
     raise AssertionError("unreachable: AsyncRetrying either returns or reraises")
 
