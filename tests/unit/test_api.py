@@ -155,6 +155,72 @@ class TestCaseLoading:
         )
         assert [c.id for c in declared.load_cases()] == ["case_0001", "case_0002"]
 
+    def test_a_supplied_dict_id_is_never_overwritten(self) -> None:
+        """Q13: ids are supplied, never derived. Auto-numbering fills a gap; it
+        must not replace an id the user chose, or history silently re-points at
+        different content."""
+        declared = evaluate(
+            name="qa",
+            cases=[{"id": "my-own-id", "input": "a"}, {"id": "second", "input": "b"}],
+            task=_task,
+            scorers=[_scorer],
+        )
+        assert [c.id for c in declared.load_cases()] == ["my-own-id", "second"]
+
+    def test_numbering_fills_only_the_gaps(self) -> None:
+        """A dataset may mix supplied and absent ids; each keeps what it had."""
+        declared = evaluate(
+            name="qa",
+            cases=[{"input": "a"}, {"id": "kept", "input": "b"}, {"input": "c"}],
+            task=_task,
+            scorers=[_scorer],
+        )
+        assert [c.id for c in declared.load_cases()] == ["case_0001", "kept", "case_0003"]
+
+    def test_numbering_follows_position_not_sequence(self) -> None:
+        """case_0003 is the third case, whether or not the second was numbered.
+        Position is what a regenerated dataset preserves; a running counter
+        would shift every later id when one case gains an explicit id."""
+        declared = evaluate(
+            name="qa",
+            cases=[{"id": "a", "input": "x"}, {"input": "y"}],
+            task=_task,
+            scorers=[_scorer],
+        )
+        assert [c.id for c in declared.load_cases()] == ["a", "case_0002"]
+
+    def test_a_blank_dict_id_is_treated_as_absent(self) -> None:
+        declared = evaluate(
+            name="qa",
+            cases=[{"id": "", "input": "a"}],
+            task=_task,
+            scorers=[_scorer],
+        )
+        assert [c.id for c in declared.load_cases()] == ["case_0001"]
+
+    def test_a_case_object_id_is_never_touched(self) -> None:
+        """Case objects carry their own id by construction; numbering must not
+        reach them at all."""
+        declared = evaluate(
+            name="qa",
+            cases=[Case(id="explicit", input="a")],
+            task=_task,
+            scorers=[_scorer],
+        )
+        assert [c.id for c in declared.load_cases()] == ["explicit"]
+
+    def test_ids_are_not_derived_from_content(self) -> None:
+        """Two cases with identical content but different ids stay distinct: a
+        content-derived id would make an edited case look like a new one, which
+        is what Amended Case detection has to catch."""
+        declared = evaluate(
+            name="qa",
+            cases=[{"id": "first", "input": "same"}, {"id": "second", "input": "same"}],
+            task=_task,
+            scorers=[_scorer],
+        )
+        assert [c.id for c in declared.load_cases()] == ["first", "second"]
+
     def test_duplicate_case_ids_are_refused(self) -> None:
         """Two cases sharing an id make per-case history ambiguous."""
         declared = evaluate(
