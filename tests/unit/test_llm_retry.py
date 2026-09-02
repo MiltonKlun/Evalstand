@@ -14,18 +14,9 @@ import pytest
 from tenacity import RetryCallState, wait_none
 
 from evalstand.llm import acall, call
+from tests.conftest import make_completion
 
 MESSAGES: list[dict[str, Any]] = [{"role": "user", "content": "hello"}]
-
-
-def _completion() -> MagicMock:
-    response = MagicMock()
-    response.choices = [MagicMock()]
-    response.choices[0].message.content = "ok"
-    response.usage.prompt_tokens = 1
-    response.usage.completion_tokens = 1
-    response.model = "gpt-4o-mini"
-    return response
 
 
 class _StatusError(Exception):
@@ -54,7 +45,7 @@ def _no_waiting() -> Any:
 
 class TestRetriesTransientFailures:
     def test_retries_a_429_then_succeeds(self) -> None:
-        attempts = [_StatusError(429), _completion()]
+        attempts = [_StatusError(429), make_completion("ok", input_tokens=1, output_tokens=1)]
         with (
             patch("evalstand.llm.litellm.completion", side_effect=attempts) as completion,
             patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
@@ -64,7 +55,7 @@ class TestRetriesTransientFailures:
 
     @pytest.mark.parametrize("status", [500, 502, 503, 529])
     def test_retries_server_errors(self, status: int) -> None:
-        attempts = [_StatusError(status), _completion()]
+        attempts = [_StatusError(status), make_completion("ok", input_tokens=1, output_tokens=1)]
         with (
             patch("evalstand.llm.litellm.completion", side_effect=attempts) as completion,
             patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
@@ -83,7 +74,11 @@ class TestRetriesTransientFailures:
 
     def test_logs_every_retry(self, caplog: pytest.LogCaptureFixture) -> None:
         """A silent retry hides both latency and spend."""
-        attempts = [_StatusError(429), _StatusError(503), _completion()]
+        attempts = [
+            _StatusError(429),
+            _StatusError(503),
+            make_completion("ok", input_tokens=1, output_tokens=1),
+        ]
         with (
             patch("evalstand.llm.litellm.completion", side_effect=attempts),
             patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
@@ -121,7 +116,7 @@ class TestDoesNotRetryPermanentFailures:
 class TestAsyncRetries:
     @pytest.mark.anyio
     async def test_retries_a_429_then_succeeds(self) -> None:
-        attempts = [_StatusError(429), _completion()]
+        attempts = [_StatusError(429), make_completion("ok", input_tokens=1, output_tokens=1)]
 
         async def fake(**_: Any) -> MagicMock:
             outcome = attempts.pop(0)

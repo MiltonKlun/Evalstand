@@ -11,24 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from evalstand.llm import LLMResponse, acall, call
-
-
-def _fake_completion(
-    text: str = "Paris",
-    input_tokens: int = 12,
-    output_tokens: int = 3,
-    model: str = "gpt-4o-mini",
-) -> MagicMock:
-    """Shape a mock the way LiteLLM shapes a real completion response."""
-    response = MagicMock()
-    response.choices = [MagicMock()]
-    response.choices[0].message.content = text
-    response.usage.prompt_tokens = input_tokens
-    response.usage.completion_tokens = output_tokens
-    response.usage.total_tokens = input_tokens + output_tokens
-    response.model = model
-    return response
-
+from tests.conftest import make_completion
 
 MESSAGES: list[dict[str, Any]] = [{"role": "user", "content": "capital of France?"}]
 
@@ -36,7 +19,7 @@ MESSAGES: list[dict[str, Any]] = [{"role": "user", "content": "capital of France
 class TestCall:
     def test_returns_the_text(self) -> None:
         with (
-            patch("evalstand.llm.litellm.completion", return_value=_fake_completion()),
+            patch("evalstand.llm.litellm.completion", return_value=make_completion()),
             patch("evalstand.llm.litellm.completion_cost", return_value=0.00012),
         ):
             assert call("gpt-4o-mini", MESSAGES).text == "Paris"
@@ -45,7 +28,7 @@ class TestCall:
         with (
             patch(
                 "evalstand.llm.litellm.completion",
-                return_value=_fake_completion(input_tokens=100, output_tokens=25),
+                return_value=make_completion(input_tokens=100, output_tokens=25),
             ),
             patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
         ):
@@ -56,14 +39,14 @@ class TestCall:
 
     def test_extracts_cost(self) -> None:
         with (
-            patch("evalstand.llm.litellm.completion", return_value=_fake_completion()),
+            patch("evalstand.llm.litellm.completion", return_value=make_completion()),
             patch("evalstand.llm.litellm.completion_cost", return_value=0.00042),
         ):
             assert call("gpt-4o-mini", MESSAGES).cost_usd == pytest.approx(0.00042)
 
     def test_records_latency(self) -> None:
         with (
-            patch("evalstand.llm.litellm.completion", return_value=_fake_completion()),
+            patch("evalstand.llm.litellm.completion", return_value=make_completion()),
             patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
         ):
             assert call("gpt-4o-mini", MESSAGES).latency_ms >= 0
@@ -71,14 +54,14 @@ class TestCall:
     def test_cost_is_none_when_litellm_cannot_price_the_model(self) -> None:
         """An unknown price must not silently become $0.00 in a run total."""
         with (
-            patch("evalstand.llm.litellm.completion", return_value=_fake_completion()),
+            patch("evalstand.llm.litellm.completion", return_value=make_completion()),
             patch("evalstand.llm.litellm.completion_cost", side_effect=Exception("unknown model")),
         ):
             assert call("some/unlisted-model", MESSAGES).cost_usd is None
 
     def test_survives_a_response_without_usage(self) -> None:
         """Some providers omit usage; that is missing data, not zero tokens."""
-        response = _fake_completion()
+        response = make_completion()
         response.usage = None
         with (
             patch("evalstand.llm.litellm.completion", return_value=response),
@@ -89,7 +72,7 @@ class TestCall:
         assert result.output_tokens is None
 
     def test_empty_content_becomes_empty_string(self) -> None:
-        response = _fake_completion()
+        response = make_completion()
         response.choices[0].message.content = None
         with (
             patch("evalstand.llm.litellm.completion", return_value=response),
@@ -99,9 +82,7 @@ class TestCall:
 
     def test_passes_parameters_through_to_litellm(self) -> None:
         with (
-            patch(
-                "evalstand.llm.litellm.completion", return_value=_fake_completion()
-            ) as completion,
+            patch("evalstand.llm.litellm.completion", return_value=make_completion()) as completion,
             patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
         ):
             call("gpt-4o-mini", MESSAGES, temperature=0.7, max_tokens=100)
@@ -112,7 +93,7 @@ class TestCall:
 
     def test_keeps_the_raw_response(self) -> None:
         """The raw provider payload stays available for debugging."""
-        fake = _fake_completion()
+        fake = make_completion()
         with (
             patch("evalstand.llm.litellm.completion", return_value=fake),
             patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
@@ -124,7 +105,7 @@ class TestAcall:
     @pytest.mark.anyio
     async def test_returns_the_text(self) -> None:
         async def fake_acompletion(**_: Any) -> MagicMock:
-            return _fake_completion()
+            return make_completion()
 
         with (
             patch("evalstand.llm.litellm.acompletion", side_effect=fake_acompletion),
@@ -137,7 +118,7 @@ class TestAcall:
         """Sync and async must not disagree about tokens or cost."""
 
         async def fake_acompletion(**_: Any) -> MagicMock:
-            return _fake_completion(input_tokens=50, output_tokens=10)
+            return make_completion(input_tokens=50, output_tokens=10)
 
         with (
             patch("evalstand.llm.litellm.acompletion", side_effect=fake_acompletion),
@@ -147,7 +128,7 @@ class TestAcall:
         with (
             patch(
                 "evalstand.llm.litellm.completion",
-                return_value=_fake_completion(input_tokens=50, output_tokens=10),
+                return_value=make_completion(input_tokens=50, output_tokens=10),
             ),
             patch("evalstand.llm.litellm.completion_cost", return_value=0.001),
         ):
@@ -191,7 +172,7 @@ class TestMalformedProviderResponses:
     def test_text_extraction_degrades_to_empty(self, label: str, build: Any) -> None:
         from evalstand.llm import _extract_text
 
-        response = _fake_completion()
+        response = make_completion()
         build(response)
         assert _extract_text(response) == "", label
 
@@ -216,7 +197,7 @@ class TestMalformedProviderResponses:
     def test_a_malformed_response_still_produces_a_usable_result(self) -> None:
         """The call already cost money; losing the whole response to a shape
         surprise would waste it and abort the case."""
-        response = _fake_completion()
+        response = make_completion()
         response.choices = []
 
         with (
@@ -239,7 +220,7 @@ class TestMalformedProviderResponses:
     )
     def test_falls_back_to_the_requested_model_name(self, label: str, model_value: Any) -> None:
         """A provider echoing a junk model name must not lose the response."""
-        response = _fake_completion()
+        response = make_completion()
         response.model = model_value
 
         with (
@@ -258,7 +239,7 @@ class TestMalformedProviderResponses:
     )
     def test_missing_usage_is_none_never_zero(self, label: str, build: Any) -> None:
         """Zero tokens is a claim; unknown is the truth."""
-        response = _fake_completion()
+        response = make_completion()
         build(response)
 
         with (

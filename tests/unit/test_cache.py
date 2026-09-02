@@ -7,13 +7,18 @@ Cassettes, not this, are what make tests deterministic.
 
 from __future__ import annotations
 
+import asyncio
+import random
+import threading
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from evalstand.cache import ResponseCache, cache_key
-from evalstand.llm import LLMResponse
+from evalstand.llm import LLMResponse, acall, call
+from tests.conftest import make_completion
 
 MESSAGES: list[dict[str, Any]] = [{"role": "user", "content": "capital of France?"}]
 
@@ -198,16 +203,7 @@ class TestCachedCalls:
     """Task 1.5's acceptance criterion, stated end to end."""
 
     def test_the_same_call_twice_hits_the_provider_once(self, cache: ResponseCache) -> None:
-        from unittest.mock import MagicMock, patch
-
-        from evalstand.llm import call
-
-        completion = MagicMock()
-        completion.choices = [MagicMock()]
-        completion.choices[0].message.content = "Paris"
-        completion.usage.prompt_tokens = 12
-        completion.usage.completion_tokens = 3
-        completion.model = "gpt-4o-mini"
+        completion = make_completion(input_tokens=12, output_tokens=3)
 
         with (
             patch("evalstand.llm.litellm.completion", return_value=completion) as provider,
@@ -221,16 +217,7 @@ class TestCachedCalls:
         assert cache.hit_count(cache_key("gpt-4o-mini", MESSAGES)) == 1
 
     def test_changing_temperature_calls_the_provider_again(self, cache: ResponseCache) -> None:
-        from unittest.mock import MagicMock, patch
-
-        from evalstand.llm import call
-
-        completion = MagicMock()
-        completion.choices = [MagicMock()]
-        completion.choices[0].message.content = "Paris"
-        completion.usage.prompt_tokens = 1
-        completion.usage.completion_tokens = 1
-        completion.model = "gpt-4o-mini"
+        completion = make_completion(input_tokens=1, output_tokens=1)
 
         with (
             patch("evalstand.llm.litellm.completion", return_value=completion) as provider,
@@ -242,16 +229,7 @@ class TestCachedCalls:
         assert provider.call_count == 2
 
     def test_no_cache_bypasses_in_both_directions(self, cache: ResponseCache) -> None:
-        from unittest.mock import MagicMock, patch
-
-        from evalstand.llm import call
-
-        completion = MagicMock()
-        completion.choices = [MagicMock()]
-        completion.choices[0].message.content = "Paris"
-        completion.usage.prompt_tokens = 1
-        completion.usage.completion_tokens = 1
-        completion.model = "gpt-4o-mini"
+        completion = make_completion(input_tokens=1, output_tokens=1)
 
         with (
             patch("evalstand.llm.litellm.completion", return_value=completion) as provider,
@@ -265,16 +243,7 @@ class TestCachedCalls:
 
     def test_a_cached_response_reports_that_it_was_cached(self, cache: ResponseCache) -> None:
         """A run summary needs the hit rate, so a hit must be distinguishable."""
-        from unittest.mock import MagicMock, patch
-
-        from evalstand.llm import call
-
-        completion = MagicMock()
-        completion.choices = [MagicMock()]
-        completion.choices[0].message.content = "Paris"
-        completion.usage.prompt_tokens = 1
-        completion.usage.completion_tokens = 1
-        completion.model = "gpt-4o-mini"
+        completion = make_completion(input_tokens=1, output_tokens=1)
 
         with (
             patch("evalstand.llm.litellm.completion", return_value=completion),
@@ -288,16 +257,7 @@ class TestCachedCalls:
 
     @pytest.mark.anyio
     async def test_acall_uses_the_cache_too(self, cache: ResponseCache) -> None:
-        from unittest.mock import MagicMock, patch
-
-        from evalstand.llm import acall
-
-        completion = MagicMock()
-        completion.choices = [MagicMock()]
-        completion.choices[0].message.content = "Paris"
-        completion.usage.prompt_tokens = 1
-        completion.usage.completion_tokens = 1
-        completion.model = "gpt-4o-mini"
+        completion = make_completion(input_tokens=1, output_tokens=1)
 
         calls = 0
 
@@ -325,8 +285,6 @@ class TestConcurrency:
     """
 
     def test_survives_concurrent_writes_from_many_threads(self, cache: ResponseCache) -> None:
-        import threading
-
         errors: list[str] = []
 
         def worker(index: int) -> None:
@@ -348,8 +306,6 @@ class TestConcurrency:
 
     def test_concurrent_reads_and_writes_do_not_corrupt_counts(self, cache: ResponseCache) -> None:
         """hit_count is read-modify-write, so it needs the lock too."""
-        import threading
-
         key = cache_key("m", MESSAGES)
         cache.set(key, "m", _response())
 
@@ -368,17 +324,7 @@ class TestConcurrency:
     @pytest.mark.anyio
     async def test_survives_concurrent_asyncio_calls(self, cache: ResponseCache) -> None:
         """The shape Phase 3's runner actually uses: gather on one thread."""
-        import asyncio
-        from unittest.mock import MagicMock, patch
-
-        from evalstand.llm import acall
-
-        completion = MagicMock()
-        completion.choices = [MagicMock()]
-        completion.choices[0].message.content = "Paris"
-        completion.usage.prompt_tokens = 1
-        completion.usage.completion_tokens = 1
-        completion.model = "gpt-4o-mini"
+        completion = make_completion(input_tokens=1, output_tokens=1)
 
         async def fake(**_: Any) -> MagicMock:
             return completion
@@ -404,9 +350,6 @@ class TestConcurrency:
         `fetchone()` returning None. Unit tests that exercise one method at a
         time cannot catch that; this one can.
         """
-        import random
-        import threading
-
         errors: list[str] = []
 
         def churn(index: int) -> None:
