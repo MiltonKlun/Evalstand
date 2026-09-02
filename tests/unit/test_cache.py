@@ -314,3 +314,122 @@ class TestCachedCalls:
             await acall("gpt-4o-mini", MESSAGES, cache=cache)
 
         assert calls == 1
+
+
+class TestConcurrency:
+    """The cache must survive concurrent use.
+
+    Phase 3 runs cases concurrently. asyncio alone stays on one thread, but a
+    thread pool anywhere in a user's task would otherwise hit a confusing
+    SQLite "objects created in a thread can only be used in that thread" crash.
+    """
+
+    def test_survives_concurrent_writes_from_many_threads(self, cache: ResponseCache) -> None:
+        import threading
+
+        errors: list[str] = []
+
+        def worker(index: int) -> None:
+            try:
+                key = cache_key("m", [{"role": "user", "content": f"q{index}"}])
+                cache.set(key, "m", _response(f"answer-{index}"))
+                cache.get(key)
+            except Exception as exc:
+                errors.append(f"{type(exc).__name__}: {exc}")
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(50)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert errors == []
+        assert cache.entry_count() == 50
+
+    def test_concurrent_reads_and_writes_do_not_corrupt_counts(self, cache: ResponseCache) -> None:
+        """hit_count is read-modify-write, so it needs the lock too."""
+        import threading
+
+        key = cache_key("m", MESSAGES)
+        cache.set(key, "m", _response())
+
+        def reader() -> None:
+            for _ in range(20):
+                cache.get(key)
+
+        threads = [threading.Thread(target=reader) for _ in range(5)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert cache.hit_count(key) == 100, "every hit must be counted exactly once"
+
+    @pytest.mark.anyio
+    async def test_survives_concurrent_asyncio_calls(self, cache: ResponseCache) -> None:
+        """The shape Phase 3's runner actually uses: gather on one thread."""
+        import asyncio
+        from unittest.mock import MagicMock, patch
+
+        from evalstand.llm import acall
+
+        completion = MagicMock()
+        completion.choices = [MagicMock()]
+        completion.choices[0].message.content = "Paris"
+        completion.usage.prompt_tokens = 1
+        completion.usage.completion_tokens = 1
+        completion.model = "gpt-4o-mini"
+
+        async def fake(**_: Any) -> MagicMock:
+            return completion
+
+        with (
+            patch("evalstand.llm.litellm.acompletion", side_effect=fake),
+            patch("evalstand.llm.litellm.completion_cost", return_value=0.0),
+        ):
+            await asyncio.gather(
+                *[
+                    acall("gpt-4o-mini", [{"role": "user", "content": f"q{i}"}], cache=cache)
+                    for i in range(8)
+                ]
+            )
+
+        assert cache.entry_count() == 8
+
+    def test_mixed_operations_under_heavy_contention(self, cache: ResponseCache) -> None:
+        """Every public method must hold the lock, not just the obvious ones.
+
+        An earlier fix locked `set` and `get` but left `hit_count` and
+        `entry_count` unguarded, which surfaced only under contention as
+        `fetchone()` returning None. Unit tests that exercise one method at a
+        time cannot catch that; this one can.
+        """
+        import random
+        import threading
+
+        errors: list[str] = []
+
+        def churn(index: int) -> None:
+            try:
+                for step in range(10):
+                    key = cache_key("m", [{"role": "user", "content": f"q{(index * step) % 37}"}])
+                    match random.choice(["set", "get", "hit_count", "entry_count"]):
+                        case "set":
+                            cache.set(key, "m", _response(f"t{index}"))
+                        case "get":
+                            cache.get(key)
+                        case "hit_count":
+                            cache.hit_count(key)
+                        case _:
+                            cache.entry_count()
+            except Exception as exc:
+                errors.append(f"{type(exc).__name__}: {exc}")
+
+        threads = [threading.Thread(target=churn, args=(i,)) for i in range(40)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        assert errors == []
+        assert [t for t in threads if t.is_alive()] == [], "a thread deadlocked"
