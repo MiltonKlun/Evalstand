@@ -256,21 +256,21 @@ matching it.
 **Goal:** an eval file is discovered and executed with a first-class authoring experience.
 **Estimate:** 14 hours.
 
-- [ ] **2.1 Design the public API** in `api.py` to the shape in Section 3. `cases` accepts a list, a callable returning a list, or an async callable.
+- [x] **2.1 Design the public API** in `api.py` to the shape in Section 3. `cases` accepts a list, a callable returning a list, or an async callable.
   - **The top-level exports are exactly seven:** `evaluate`, `Case`, `Score`, `Result`, `Trace`, `scorer`, `trace`. Scorers live in `evalstand.scorers` and do not count against the budget.
   - `Run` and `Batch` are deliberately not exported: users read them in reports, they never construct them.
   - Three slots of headroom remain against the cap of ten. Spending them needs an ADR — the cap exists to force the question.
   - *Acceptance:* `docs/writing-evals.md` contains a complete working example under 25 lines.
-- [ ] **2.2 Implement the pytest plugin** in `plugin.py`. Use `pytest_collect_file` to collect `*_eval.py`, generate **one item per `(case, repeat_index)`**, and use `pytest_runtest_makereport` to capture outcomes. Register through the `pytest11` entry point.
+- [x] **2.2 Implement the pytest plugin** in `plugin.py`. Use `pytest_collect_file` to collect `*_eval.py`, generate **one item per `(case, repeat_index)`**, and use `pytest_runtest_makereport` to capture outcomes. Register through the `pytest11` entry point.
   - Item IDs carry the repeat index only when repeats are on: `q1` when `repeat=1`, `q1[repeat=2]` otherwise, so `-k q1` still selects them all by prefix.
   - An item is one execution with one outcome. Do not collapse several stochastic executions into a single pass/fail — any aggregation rule there is a judgement the user did not make.
   - Duplicate Eval names are an error raised at collection time, naming both file paths. Names are identity; paths are metadata.
   - *Acceptance:* `pytest examples/toy` discovers and runs the eval; `pytest -k q1` selects a single case; `--repeat 3 -k q1` selects three items.
-- [ ] **2.3 Support both sync and async tasks.** Detect with `inspect.iscoroutinefunction` and dispatch accordingly. The user should never have to think about it.
+- [x] **2.3 Support both sync and async tasks.** Detect with `inspect.iscoroutinefunction` and dispatch accordingly. The user should never have to think about it.
   - *Acceptance:* two identical evals, one sync and one async, produce identical results.
 - [ ] **2.4 Ensure bare `pytest` works.** Running `pytest` with no custom CLI must collect and execute evals and report pass/fail sensibly.
   - *Acceptance:* documented in `docs/ci.md` with a working example.
-- [ ] **2.5 Build `examples/toy/`** — three cases, one scorer, no external files. Every subsequent phase develops against this.
+- [x] **2.5 Build `examples/toy/`** — three cases, one scorer, no external files. Every subsequent phase develops against this.
 - [ ] **2.6 Console reporting** in `reporting/console.py` using rich: a summary table (per-scorer mean, pass count, total cost, wall time) and a failures table.
   - *Acceptance:* the toy example prints a readable summary within one screen.
 
