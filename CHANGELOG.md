@@ -7,6 +7,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- Phase 1 complete: the model-call layer. `models.py` (Case, Score, Trace,
+  Result, Run, Batch), `llm.py` (calls, streaming, retry, cost), `cache.py`
+  (SQLite response cache), `cassettes.py` (record/replay). 176 tests, 99%
+  coverage, no API keys required.
+- ADR 0006 (trace parenting), 0007 (LiteLLM over provider SDKs).
 - Phase 0 complete: repository scaffold, tooling configuration, CI workflow,
   ADR process.
 - `CONTEXT.md`: the project's domain model, 29 terms.
