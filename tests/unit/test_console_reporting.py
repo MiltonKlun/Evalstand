@@ -300,3 +300,55 @@ class TestRunningBatch:
     def test_a_failed_batch_is_flagged(self) -> None:
         batch = Batch(id="b1", kind=BatchKind.FULL, status="failed")
         assert "partial" in _render(render_summary([], batch=batch)).lower()
+
+
+class TestUnknownPlaceholder:
+    """The placeholder is the whole point of the module's honesty rule.
+
+    The earlier tests asserted on formatted substrings — "0.00", "$0.0000" — so
+    setting the placeholder itself to "0" passed all 28 of them while producing
+    exactly the claim the module forbids: that an unmeasured run scored zero.
+    These assert the contract instead of a rendering of it.
+    """
+
+    def test_the_placeholder_does_not_read_as_a_measurement(self) -> None:
+        from evalstand.reporting.console import UNKNOWN
+
+        assert not UNKNOWN.strip().lstrip("-+").replace(".", "").isdigit(), (
+            f"UNKNOWN is {UNKNOWN!r}, which reads as a number"
+        )
+
+    def test_an_unscored_run_reports_no_mean(self) -> None:
+        """The model, not the rendering: nothing measured means no mean."""
+        run = _run(_result("q1", scores=[Score.from_error("exact", "429")]))
+        assert run.mean_score is None
+
+    def test_an_unpriced_run_formats_as_unknown(self) -> None:
+        from evalstand.reporting.console import UNKNOWN, _format_cost
+
+        run = _run(_result("q1", scores=[Score(scorer_name="exact", value=1.0)], cost_usd=None))
+        assert _format_cost([run]) == UNKNOWN
+
+    def test_a_priced_run_formats_as_currency(self) -> None:
+        from evalstand.reporting.console import _format_cost
+
+        run = _run(_result("q1", scores=[Score(scorer_name="exact", value=1.0)], cost_usd=0.0012))
+        assert _format_cost([run]) == "$0.0012"
+
+    def test_a_missing_score_formats_as_unknown(self) -> None:
+        from evalstand.reporting.console import UNKNOWN, _format_score
+
+        assert _format_score(None) == UNKNOWN
+
+    def test_a_zero_score_formats_as_zero_not_unknown(self) -> None:
+        """A measured 0.0 and an absent measurement must not render alike."""
+        from evalstand.reporting.console import UNKNOWN, _format_score
+
+        assert _format_score(0.0) == "0.00"
+        assert _format_score(0.0) != UNKNOWN
+
+    def test_an_unjudged_run_reports_no_pass_count(self) -> None:
+        from evalstand.reporting.console import _pass_counts
+
+        run = _run(_result("q1", scores=[Score(scorer_name="levenshtein", value=0.9)]))
+        assert _pass_counts(run) == (0, 0), "no judged results, so no denominator"
