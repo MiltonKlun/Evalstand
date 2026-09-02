@@ -245,9 +245,9 @@ matching it.
   - *Acceptance:* the same call twice yields one provider call and one cache hit; changing temperature yields a miss.
 - [x] **1.6 Add record/replay for tests.** A cassette mode writing responses to JSON on record and reading on replay.
   - *Acceptance:* the full test suite passes with every provider API key unset.
-- [ ] **1.7 ADR 0007:** why LiteLLM rather than provider SDKs. (0003 is already taken by the variants decision.)
+- [x] **1.7 ADR 0007:** why LiteLLM rather than provider SDKs. (0003 is already taken by the variants decision.)
 
-**Exit criteria:** a throwaway script makes a cached model call and prints text, tokens, latency, and cost. CI green without keys.
+**Exit criteria:** a throwaway script makes a cached model call and prints text, tokens, latency, and cost. CI green without keys. **— met 2026-09-01**, demonstrated against the committed cassette: 14/1 tokens, $0.00000270, `cached=True` on the second call.
 
 ---
 
