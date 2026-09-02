@@ -72,6 +72,15 @@ left out of the mean, and the number excluded is always reported alongside it. A
 mean over 27 of 30 cases presented as though it covered all 30 would be quietly
 wrong.
 
+**A case with no usable score does not pass.** If every scorer for a case errored,
+the case has no verdict: the task may have been fine, but nothing measured it.
+Such a case fails rather than passing, so a run that measured nothing cannot exit
+zero and be read as success.
+
+A case where *some* scorers worked is still judged on those. Turning any errored
+score into a failure is what `--fail-on-error` will do (Phase 7); until then, only
+the total absence of a measurement is treated as a failure.
+
 ## Keeping CI free
 
 The test suite runs with no API keys and no spend. Tests that would call a provider

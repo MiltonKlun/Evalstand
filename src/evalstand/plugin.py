@@ -136,6 +136,14 @@ class EvalCaseFailedError(AssertionError):
     """One case did not pass. Carries enough context to act on without re-running."""
 
 
+class EvalCaseUnmeasuredError(Exception):
+    """Every scorer for a case errored, so the case has no verdict.
+
+    Distinct from a failure: the task may well have been fine. What is absent is
+    a measurement, and a run that measured nothing must not report success.
+    """
+
+
 class EvalItem(pytest.Item):
     """One execution of one case."""
 
@@ -174,6 +182,17 @@ class EvalItem(pytest.Item):
                 f"case {self.case.id!r} did not pass {', '.join(s.scorer_name for s in failed)}"
             )
 
+        # A case whose scorers all errored was not measured. Reporting it as a
+        # pass would be a false claim — a rate-limited judge is not evidence the
+        # task did well — and it is not a task failure either, since the task
+        # itself ran fine. What is missing is a verdict, so the run must not
+        # exit zero as though one had been reached.
+        if self.scores and not any(s.counts_towards_mean for s in self.scores):
+            reasons = "; ".join(f"{s.scorer_name}: {s.error}" for s in self.scores)
+            raise EvalCaseUnmeasuredError(
+                f"case {self.case.id!r} produced no usable score ({reasons})"
+            )
+
     def _record(self, error: str | None = None) -> None:
         """Keep this execution so the terminal summary can report on it."""
         store: dict[str, tuple[Eval, list[Result]]] = getattr(self.config, "_evalstand_results", {})
@@ -192,6 +211,17 @@ class EvalItem(pytest.Item):
 
     def repr_failure(self, excinfo: Any, style: Any = None) -> str:
         """Show what happened, so a failure is actionable without a re-run."""
+        if isinstance(excinfo.value, EvalCaseUnmeasuredError):
+            lines = [
+                f"eval:     {self.declared.name}",
+                f"case:     {self.case.id}",
+                f"input:    {self.case.input!r}",
+                f"output:   {self.output!r}",
+                "no usable score: every scorer errored, so this case has no verdict",
+            ]
+            lines += [f"  {s.scorer_name}: {s.error}" for s in self.scores if s.error]
+            return "\n".join(lines)
+
         if isinstance(excinfo.value, EvalCaseFailedError):
             lines = [
                 f"eval:     {self.declared.name}",

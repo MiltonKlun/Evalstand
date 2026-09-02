@@ -445,3 +445,73 @@ evaluate(
         joined = "\n".join(pytester.runpytest("--no-cov").outlines)
         assert "1/1" in joined, "the crashed case is reported, not counted as judged"
         assert "1/2" not in joined
+
+
+class TestUnmeasuredCases:
+    """A case whose scorers all errored was not measured.
+
+    Reporting it as a pass is a false claim: a rate-limited judge is not
+    evidence the task did well. It is not a task failure either — the task ran
+    fine. pytest has a state for "this did not produce a verdict", and that is
+    the honest one.
+    """
+
+    UNSCORABLE = """
+from evalstand import Case, evaluate
+
+
+def broken_scorer(output, expected, case):
+    raise RuntimeError("judge API is down")
+
+
+evaluate(
+    name="unscorable",
+    cases=[Case(id="q1", input="x", expected="x")],
+    task=lambda value: value,
+    scorers=[broken_scorer],
+)
+"""
+
+    def test_a_case_with_no_usable_score_does_not_pass(self, pytester: pytest.Pytester) -> None:
+        pytester.makepyfile(unscorable_eval=self.UNSCORABLE)
+        result = pytester.runpytest("--no-cov")
+        result.assert_outcomes(passed=0, failed=1)
+
+    def test_the_run_does_not_exit_zero(self, pytester: pytest.Pytester) -> None:
+        """CI gates on the exit code; a run that measured nothing must not
+        report success."""
+        pytester.makepyfile(unscorable_eval=self.UNSCORABLE)
+        assert pytester.runpytest("--no-cov").ret != 0
+
+    def test_the_reason_is_reported(self, pytester: pytest.Pytester) -> None:
+        pytester.makepyfile(unscorable_eval=self.UNSCORABLE)
+        joined = "\n".join(pytester.runpytest("--no-cov").outlines)
+        assert "judge API is down" in joined
+
+    def test_a_partially_scored_case_still_passes(self, pytester: pytest.Pytester) -> None:
+        """One working scorer is a measurement. Only a total absence is not."""
+        pytester.makepyfile(
+            partial_eval="""
+from evalstand import Case, evaluate
+from evalstand.scorers import exact
+
+
+def broken_scorer(output, expected, case):
+    raise RuntimeError("judge down")
+
+
+evaluate(
+    name="partial",
+    cases=[Case(id="q1", input="x", expected="x")],
+    task=lambda value: value,
+    scorers=[exact, broken_scorer],
+)
+"""
+        )
+        pytester.runpytest("--no-cov").assert_outcomes(passed=1)
+
+    def test_a_genuine_zero_still_fails_normally(self, pytester: pytest.Pytester) -> None:
+        """A measured zero is a failure, not an absence; the two must not be
+        conflated in either direction."""
+        pytester.makepyfile(zero_eval=FAILING_EVAL)
+        pytester.runpytest("--no-cov").assert_outcomes(failed=1)
