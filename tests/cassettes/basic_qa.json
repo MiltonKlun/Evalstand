@@ -1,0 +1,77 @@
+{
+  "interactions": [
+    {
+      "key": "2e0bf74395f783c39d298be906b522991432859fd7af9880a0808c4ba2848a6e",
+      "request": {
+        "messages": [
+          {
+            "content": "What is 2 + 2?",
+            "role": "user"
+          }
+        ],
+        "model": "gpt-4o-mini",
+        "params": {
+          "temperature": 0.0
+        }
+      },
+      "response": {
+        "cached": false,
+        "cost_usd": 2.4e-06,
+        "input_tokens": 12,
+        "latency_ms": 0,
+        "model": "gpt-4o-mini",
+        "output_tokens": 1,
+        "text": "4"
+      }
+    },
+    {
+      "key": "50579d8ce15a065359a4bb193ebde8d12d8fe7c50e17915fe06fa923059f9355",
+      "request": {
+        "messages": [
+          {
+            "content": "What is the capital of France?",
+            "role": "user"
+          }
+        ],
+        "model": "gpt-4o-mini",
+        "params": {
+          "temperature": 0.0
+        }
+      },
+      "response": {
+        "cached": false,
+        "cost_usd": 2.6999999999999996e-06,
+        "input_tokens": 14,
+        "latency_ms": 0,
+        "model": "gpt-4o-mini",
+        "output_tokens": 1,
+        "text": "Paris"
+      }
+    },
+    {
+      "key": "fa86434645829874d72ea11c8459e3e26c94eb6968543f1fce99387170489a5f",
+      "request": {
+        "messages": [
+          {
+            "content": "Name the largest ocean.",
+            "role": "user"
+          }
+        ],
+        "model": "gpt-4o-mini",
+        "params": {
+          "temperature": 0.0
+        }
+      },
+      "response": {
+        "cached": false,
+        "cost_usd": 4.35e-06,
+        "input_tokens": 13,
+        "latency_ms": 0,
+        "model": "gpt-4o-mini",
+        "output_tokens": 4,
+        "text": "The Pacific Ocean"
+      }
+    }
+  ],
+  "version": 1
+}
