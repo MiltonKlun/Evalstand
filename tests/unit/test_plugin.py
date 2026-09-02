@@ -375,3 +375,73 @@ evaluate(
         assert "output:" in joined
         assert "expected:" in joined
         assert "exact" in joined
+
+
+class TestTerminalSummary:
+    def test_a_summary_is_printed_after_an_eval_run(self, pytester: pytest.Pytester) -> None:
+        pytester.makepyfile(qa_eval=TOY_EVAL)
+        joined = "\n".join(pytester.runpytest("--no-cov").outlines)
+        assert "toy" in joined
+        assert "exact" in joined
+        assert "3/3" in joined
+
+    def test_nothing_is_printed_for_a_plain_test_session(self, pytester: pytest.Pytester) -> None:
+        """A repo with no evals must look exactly as it did before."""
+        pytester.makepyfile(test_plain="def test_ok():\n    assert True\n")
+        joined = "\n".join(pytester.runpytest("--no-cov").outlines)
+        assert "scorer" not in joined
+        assert "failures" not in joined
+
+    def test_a_crashed_case_appears_in_the_failures_table(self, pytester: pytest.Pytester) -> None:
+        """A case that blew up is a result; omitting it would hide the failure."""
+        pytester.makepyfile(
+            crash_eval="""
+from evalstand import Case, evaluate
+from evalstand.scorers import exact
+
+
+def task(x):
+    raise ValueError("model unavailable")
+
+
+evaluate(
+    name="crasher",
+    cases=[Case(id="q1", input="x", expected="y")],
+    task=task,
+    scorers=[exact],
+)
+"""
+        )
+        joined = "\n".join(pytester.runpytest("--no-cov").outlines)
+        assert "task error" in joined
+        assert "model unavailable" in joined
+
+    def test_a_crashed_case_is_not_counted_as_judged(self, pytester: pytest.Pytester) -> None:
+        """A case that never produced a score has not been judged, so counting
+        it in the denominator would understate the pass rate."""
+        pytester.makepyfile(
+            mixed_eval="""
+from evalstand import Case, evaluate
+from evalstand.scorers import exact
+
+
+def task(x):
+    if x == "boom":
+        raise ValueError("down")
+    return "ok"
+
+
+evaluate(
+    name="mixed",
+    cases=[
+        Case(id="good", input="x", expected="ok"),
+        Case(id="bad", input="boom", expected="ok"),
+    ],
+    task=task,
+    scorers=[exact],
+)
+"""
+        )
+        joined = "\n".join(pytester.runpytest("--no-cov").outlines)
+        assert "1/1" in joined, "the crashed case is reported, not counted as judged"
+        assert "1/2" not in joined

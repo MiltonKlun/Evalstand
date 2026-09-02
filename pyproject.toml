@@ -31,7 +31,7 @@ dependencies = [
 examples = ["reportlab>=4.2", "faker>=33.1", "pypdfium2>=4.30"]
 
 [project.scripts]
-evalstand = "evalstand.cli:app"
+evalstand = "evalstand.cli:main"
 
 [project.entry-points.pytest11]
 evalstand = "evalstand.plugin"
@@ -81,10 +81,18 @@ files = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=evalstand --cov-report=term-missing"
+# No --cov here. evalstand registers a pytest plugin through the pytest11 entry
+# point, so it is imported before pytest-cov begins measuring, and every
+# module-level line reads as uncovered — api.py reported 47% when it was really
+# 95%. Measure with `coverage run -m pytest` instead, which starts first.
+addopts = ""
 markers = [
     "live: hits a real provider API; excluded from CI (deselect with -m 'not live')",
 ]
 
+[tool.coverage.run]
+source = ["src/evalstand"]
+
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+fail_under = 80

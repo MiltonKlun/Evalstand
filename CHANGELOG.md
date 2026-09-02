@@ -7,6 +7,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- Phase 2 complete: the authoring API and pytest collection. `evaluate()`,
+  the pytest plugin, console reporting, a minimal `evalstand run`, and the toy
+  example. 263 tests, 98% coverage.
 - Phase 1 complete: the model-call layer. `models.py` (Case, Score, Trace,
   Result, Run, Batch), `llm.py` (calls, streaming, retry, cost), `cache.py`
   (SQLite response cache), `cassettes.py` (record/replay). 176 tests, 99%

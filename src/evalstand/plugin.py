@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import time
 import traceback
 from pathlib import Path
 from typing import Any
@@ -20,7 +21,7 @@ from typing import Any
 import pytest
 
 from evalstand.api import Eval, _current_eval_file, registry
-from evalstand.models import Case, Score
+from evalstand.models import Case, Result, Run, RunStatus, Score
 
 EVAL_FILE_SUFFIX = "_eval.py"
 
@@ -154,16 +155,40 @@ class EvalItem(pytest.Item):
         self.scores: list[Score] = []
 
     def runtest(self) -> None:
-        self.output = _run_task(self.declared.task, self.case.input)
+        try:
+            self.output = _run_task(self.declared.task, self.case.input)
+        except Exception as exc:
+            # Recorded before re-raising: a case that blew up is a result, and
+            # the summary must not silently omit it.
+            self._record(error=f"{type(exc).__name__}: {exc}")
+            raise
         self.scores = [
             _score(fn, self.output, self.case.expected, self.case) for fn in self.declared.scorers
         ]
+
+        self._record()
 
         failed = [s for s in self.scores if s.passed is False]
         if failed:
             raise EvalCaseFailedError(
                 f"case {self.case.id!r} did not pass {', '.join(s.scorer_name for s in failed)}"
             )
+
+    def _record(self, error: str | None = None) -> None:
+        """Keep this execution so the terminal summary can report on it."""
+        store: dict[str, tuple[Eval, list[Result]]] = getattr(self.config, "_evalstand_results", {})
+        _, results = store.setdefault(self.declared.name, (self.declared, []))
+        results.append(
+            Result(
+                id=f"{self.declared.name}-{self.case.id}-{self.repeat_index}",
+                case_id=self.case.id,
+                repeat_index=self.repeat_index,
+                output=self.output,
+                error=error,
+                scores=self.scores,
+            )
+        )
+        self.config._evalstand_results = store  # type: ignore[attr-defined]
 
     def repr_failure(self, excinfo: Any, style: Any = None) -> str:
         """Show what happened, so a failure is actionable without a re-run."""
@@ -236,3 +261,53 @@ def _score(fn: Any, output: Any, expected: Any, case: Case) -> Score:
 
 async def _await(awaitable: Any) -> Any:
     return await awaitable
+
+
+def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pytest.Config) -> None:
+    """Print the eval summary after pytest's own report.
+
+    Only when evals actually ran: a plain test session must look untouched.
+    """
+    runs = _collected_runs(config)
+    if not runs:
+        return
+
+    from rich.console import Console
+
+    from evalstand.reporting.console import render_failures, render_summary
+
+    console = Console(file=terminalreporter._tw._file, highlight=False)
+    console.print()
+    console.print(render_summary(runs, wall_seconds=_session_seconds(terminalreporter)))
+
+    failures = render_failures(runs)
+    if failures is not None:
+        console.print(failures)
+
+
+def _session_seconds(terminalreporter: Any) -> float | None:
+    start = getattr(terminalreporter, "_sessionstarttime", None)
+    return time.time() - start if start else None
+
+
+def _collected_runs(config: pytest.Config) -> list[Run]:
+    """Assemble Runs from the items that executed.
+
+    Phase 2 builds these here so reporting has something real to render. Phase 3
+    moves execution into the runner, which will own Run assembly instead.
+    """
+    results_by_eval: dict[str, tuple[Eval, list[Result]]] = getattr(
+        config, "_evalstand_results", {}
+    )
+    return [
+        Run(
+            id=f"run-{name}",
+            batch_id="batch-local",
+            name=name,
+            filepath=declared.filepath,
+            status=RunStatus.COMPLETED,
+            repeat_n=declared.repeat,
+            results=results,
+        )
+        for name, (declared, results) in results_by_eval.items()
+    ]
