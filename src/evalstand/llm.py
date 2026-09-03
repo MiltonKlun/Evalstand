@@ -182,6 +182,18 @@ def _extract_cost(response: Any) -> float | None:
         return None
 
 
+def _ambient_cache(cache: ResponseCache | None, bypass: bool) -> tuple[ResponseCache | None, bool]:
+    """Fall back to the running run's cache when the caller passed none.
+
+    A task calls the model itself and has no cache to pass along, so the runner
+    binds one for the duration of each case. An explicit argument always wins:
+    a caller who named a cache meant that one.
+    """
+    from evalstand.runner import current_bypass, current_cache
+
+    return (cache if cache is not None else current_cache.get(), bypass or current_bypass.get())
+
+
 def _trace(built: LLMResponse, messages: list[dict[str, Any]], *, cached: bool) -> None:
     """Record this call in the trace tree, if a case is running.
 
@@ -233,6 +245,7 @@ def call(
     When a `cache` is supplied, an identical earlier call is served from it.
     `bypass_cache` skips it in both directions: neither read nor written.
     """
+    cache, bypass_cache = _ambient_cache(cache, bypass_cache)
     key = cache_key(model, messages, **params) if cache is not None else None
 
     if cache is not None and key is not None:
@@ -264,6 +277,7 @@ async def acall(
     **params: Any,
 ) -> LLMResponse:
     """Async twin of `call`. Shares its retry and cache behaviour."""
+    cache, bypass_cache = _ambient_cache(cache, bypass_cache)
     key = cache_key(model, messages, **params) if cache is not None else None
 
     if cache is not None and key is not None:

@@ -352,3 +352,39 @@ class TestUnknownPlaceholder:
 
         run = _run(_result("q1", scores=[Score(scorer_name="levenshtein", value=0.9)]))
         assert _pass_counts(run) == (0, 0), "no judged results, so no denominator"
+
+
+class TestRunTotals:
+    """Task 3.5: the aggregates a user needs to trust or question a run."""
+
+    def test_the_cache_hit_rate_is_reported(self) -> None:
+        run = _run(_result("q1", scores=[Score(scorer_name="exact", value=1.0)]))
+        run = run.model_copy(update={"model_calls": 10, "cache_hits": 7})
+        assert "70%" in _render(render_summary([run]))
+
+    def test_no_calls_means_no_hit_rate(self) -> None:
+        """A run that called nothing did not have a 0% hit rate."""
+        run = _run(_result("q1", scores=[Score(scorer_name="exact", value=1.0)]))
+        assert "0%" not in _render(render_summary([run]))
+
+    def test_a_bypassed_run_says_so_instead_of_showing_a_rate(self) -> None:
+        """Repeats spend the full amount every time. The plan calls this the
+        easiest way to run up a bill by accident, so it must be visible."""
+        run = _run(_result("q1", scores=[Score(scorer_name="exact", value=1.0)]))
+        run = run.model_copy(
+            update={"model_calls": 15, "cache_hits": 0, "cache_bypassed": True, "repeat_n": 5}
+        )
+        output = _render(render_summary([run]))
+        assert "bypassed" in output.lower()
+        assert "15" in output, "the number of calls actually paid for"
+
+    def test_token_totals_are_reported(self) -> None:
+        run = _run(
+            _result("q1", scores=[Score(scorer_name="exact", value=1.0)]),
+            _result("q2", scores=[Score(scorer_name="exact", value=1.0)]),
+        )
+        run.results[0].input_tokens, run.results[0].output_tokens = 100, 20
+        run.results[1].input_tokens, run.results[1].output_tokens = 50, 10
+        output = _render(render_summary([run]))
+        assert "150" in output
+        assert "30" in output

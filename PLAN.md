@@ -297,14 +297,14 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
   - **Parenting rule:** a `ContextVar` holds the currently open node. Entering a scope sets it and keeps the token; leaving resets the token in a `finally`. This is the only rule that survives both `asyncio.gather` (contextvars copy per task, so siblings share a parent for free) and an exception mid-call (the `finally` reset stops a raising call corrupting its siblings' parentage).
   - **When a parent cannot be determined confidently, attach the node to the Result root.** A visible orphan is honest; a wrongly-parented node is a plausible-looking lie. If nesting proves unreliable under load, degrade to a flat list rather than ship a wrong tree.
   - *Acceptance:* a task making three nested LLM calls produces a three-node trace tree with correct parent-child relationships and per-node cost, and the sum of node costs equals the case total.
-- [ ] **3.3 Implement `--repeat N`** (the reference implementation calls this `trialCount`). Each case runs N times with `repeat_index` recorded on every result. **`--repeat N` with N > 1 bypasses the Cache unconditionally.**
+- [x] **3.3 Implement `--repeat N`** (the reference implementation calls this `trialCount`). Each case runs N times with `repeat_index` recorded on every result. **`--repeat N` with N > 1 bypasses the Cache unconditionally.**
   - The earlier draft of this plan said to bypass only when temperature > 0. That rule cannot be implemented as written: the Task calls the model itself, so its parameters live in user code the runner cannot inspect. Temperature is also not the only source of nondeterminism. Unconditional bypass is predictable and matches what asking for repeats means — receiving N identical cached rows never does.
   - This spends real money, N times over. The run summary must show it (`repeats bypassed cache: 5 x 30 calls`), because it is the easiest way to run up a bill by accident.
   - **Bypass runs in both directions:** a bypassed call is neither read from nor written to the Cache. Writing one would let a later non-repeat run serve an arbitrary sample from a repeat set as though it were the answer for that key.
   - *Acceptance:* `--repeat 5` on a temperature-0.7 task produces at least one case with 5 distinct outputs; a cache-hit counter shows zero hits for repeated cases.
 - [ ] **3.4 Wire streaming through the runner** so partial output is available to the reporting layer as it arrives.
   - *Acceptance:* a streaming task shows incremental output in console reporting.
-- [ ] **3.5 Aggregate per-run totals:** total cost, total tokens, cache hit rate, wall time, pass count.
+- [x] **3.5 Aggregate per-run totals:** total cost, total tokens, cache hit rate, wall time, pass count.
 
 **Exit criteria:** the toy example runs concurrently with repeats, and a trace tree is captured and printable.
 

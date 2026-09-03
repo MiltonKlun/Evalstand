@@ -14,6 +14,7 @@ diffed, so results are collected back into declaration order.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import inspect
 import uuid
 from dataclasses import dataclass
@@ -21,10 +22,26 @@ from datetime import UTC, datetime
 from typing import Any
 
 from evalstand.api import Eval
+from evalstand.cache import ResponseCache
 from evalstand.models import Case, Result, Run, RunStatus, Score
 from evalstand.tracing import TraceCollector
 
-__all__ = ["RunConfig", "run_eval"]
+__all__ = ["RunConfig", "current_bypass", "current_cache", "run_eval"]
+
+current_cache: contextvars.ContextVar[ResponseCache | None] = contextvars.ContextVar(
+    "evalstand_cache", default=None
+)
+"""The cache for the run currently executing.
+
+A ContextVar rather than an argument because the task calls the model itself,
+with parameters that live in user code. The same reason task 3.3 could not gate
+on temperature: the runner cannot reach inside the task.
+"""
+
+current_bypass: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "evalstand_bypass_cache", default=False
+)
+"""Whether the running case must skip the cache in both directions."""
 
 DEFAULT_CONCURRENCY = 8
 """Enough to hide network latency, low enough not to trip a rate limit on the
@@ -40,7 +57,11 @@ class RunConfig:
     """No default limit: a slow model is normal, and a default would fail
     honest work. The user sets one when they know what "too slow" means."""
 
+    cache: ResponseCache | None = None
+    """Shared across the run. Without one, every call reaches the provider."""
+
     bypass_cache: bool = False
+    """The user's explicit `--no-cache`. Repeats bypass regardless."""
 
     def __post_init__(self) -> None:
         if self.concurrency < 1:
@@ -62,22 +83,29 @@ async def run_eval(
     cases = await declared.aload_cases()
     semaphore = asyncio.Semaphore(config.concurrency)
 
-    # One unit of work per (case, repeat), which is also what the pytest plugin
-    # collects: an execution is the thing with an outcome.
-    units = [
-        (index, case, repeat_index)
-        for index, case in enumerate(cases)
-        for repeat_index in range(declared.repeat)
-    ]
+    # Repeats bypass unconditionally. The runner cannot inspect the task's
+    # temperature — those parameters live in user code — and temperature is not
+    # the only source of nondeterminism anyway. Asking for N repeats and getting
+    # N identical cached rows answers a question nobody asked.
+    bypass = config.bypass_cache or declared.repeat > 1
 
-    results = await asyncio.gather(
-        *(
-            _run_one(declared, case, repeat_index, config, semaphore)
-            for _, case, repeat_index in units
+    cache_token = current_cache.set(config.cache)
+    bypass_token = current_bypass.set(bypass)
+    try:
+        results = await asyncio.gather(
+            *(
+                _run_one(declared, case, repeat_index, config, semaphore)
+                for _, case, repeat_index in _units(cases, declared.repeat)
+            )
         )
-    )
+    finally:
+        # Reset in a finally so a raising run cannot leave the cache bound for
+        # whatever executes next in this context.
+        current_cache.reset(cache_token)
+        current_bypass.reset(bypass_token)
 
     # gather preserves input order, so this is already case-then-repeat order.
+    results = list(results)
     return Run(
         id=f"run-{uuid.uuid4().hex[:12]}",
         batch_id=batch_id,
@@ -87,8 +115,24 @@ async def run_eval(
         started_at=started_at,
         finished_at=datetime.now(UTC),
         repeat_n=declared.repeat,
-        results=list(results),
+        results=results,
+        cache_bypassed=bypass,
+        cache_hits=sum(1 for r in results for trace in r.traces if trace.name == "cached call"),
+        model_calls=sum(1 for r in results for trace in r.traces if trace.model is not None),
     )
+
+
+def _units(cases: list[Case], repeat: int) -> list[tuple[int, Case, int]]:
+    """One unit of work per (case, repeat).
+
+    The same unit the pytest plugin collects: an execution is the thing that has
+    an outcome.
+    """
+    return [
+        (index, case, repeat_index)
+        for index, case in enumerate(cases)
+        for repeat_index in range(repeat)
+    ]
 
 
 async def _run_one(
