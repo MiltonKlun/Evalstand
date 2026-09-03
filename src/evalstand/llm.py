@@ -182,6 +182,27 @@ def _extract_cost(response: Any) -> float | None:
         return None
 
 
+def _trace(built: LLMResponse, messages: list[dict[str, Any]], *, cached: bool) -> None:
+    """Record this call in the trace tree, if a case is running.
+
+    Every model call goes through here, which is what makes automatic capture
+    work without the user instrumenting anything. A cache hit is recorded too:
+    omitting it would make the tree disagree with what the run actually did.
+    """
+    from evalstand.tracing import record_call
+
+    record_call(
+        name="cached call" if cached else "model call",
+        model=built.model,
+        duration_ms=built.latency_ms,
+        input=messages,
+        output=built.text,
+        input_tokens=built.input_tokens,
+        output_tokens=built.output_tokens,
+        cost_usd=built.cost_usd,
+    )
+
+
 def _build(response: Any, model: str, latency_ms: int) -> LLMResponse:
     input_tokens, output_tokens = _extract_tokens(response)
     return LLMResponse(
@@ -217,7 +238,9 @@ def call(
     if cache is not None and key is not None:
         hit = cache.get(key, bypass=bypass_cache)
         if hit is not None:
-            return hit.model_copy(update={"cached": True})
+            cached = hit.model_copy(update={"cached": True})
+            _trace(cached, messages, cached=True)
+            return cached
 
     for attempt in Retrying(**_retry_policy()):
         with attempt:
@@ -226,6 +249,7 @@ def call(
             built = _build(response, model, int((time.perf_counter() - started) * 1000))
             if cache is not None and key is not None:
                 cache.set(key, model, built, bypass=bypass_cache)
+            _trace(built, messages, cached=False)
             return built
 
     raise AssertionError("unreachable: Retrying either returns or reraises")
@@ -245,7 +269,9 @@ async def acall(
     if cache is not None and key is not None:
         hit = cache.get(key, bypass=bypass_cache)
         if hit is not None:
-            return hit.model_copy(update={"cached": True})
+            cached = hit.model_copy(update={"cached": True})
+            _trace(cached, messages, cached=True)
+            return cached
 
     async for attempt in AsyncRetrying(**_retry_policy()):
         with attempt:
@@ -254,6 +280,7 @@ async def acall(
             built = _build(response, model, int((time.perf_counter() - started) * 1000))
             if cache is not None and key is not None:
                 cache.set(key, model, built, bypass=bypass_cache)
+            _trace(built, messages, cached=False)
             return built
 
     raise AssertionError("unreachable: AsyncRetrying either returns or reraises")
