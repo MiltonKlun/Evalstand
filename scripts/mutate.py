@@ -24,7 +24,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# A few mutants need a helper defined inside the module they mutate (to make a
+# real except-clause unreachable, say). It is injected at a known anchor so the
+# mutant body can refer to it.
+PRELUDE = "class _NeverRaised(Exception):\n    pass\n\n\n"
+PRELUDE_ANCHOR = 'EVAL_FILE_SUFFIX = "_eval.py"'
+
 # (file, description, original, replacement)
+#
+# The anchors are verbatim copies of source lines, so they cannot be wrapped to
+# satisfy the line limit: an anchor that no longer matches silently reports
+# ANCHOR NOT FOUND instead of testing anything.
+# ruff: noqa: E501
 MUTANTS: list[tuple[str, str, str, str]] = [
     (
         "src/evalstand/models.py",
@@ -183,6 +194,126 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "        if not self.model_calls:\n            return None",
         "        if not self.model_calls:\n            return 0.0",
     ),
+    # --- Phase 3 wiring: the runner reached through the plugin ---
+    # --- selection: the money-losing bug ---
+    (
+        "src/evalstand/plugin.py",
+        "deselected cases are executed anyway (-k costs full price)",
+        "            units.add((item.case.id, item.repeat_index))",
+        "            units.update((c.id, r) for c in item.declared.load_cases()\n"
+        "                         for r in range(item.declared.repeat))",
+    ),
+    (
+        "src/evalstand/runner.py",
+        "run_eval ignores the selection it was given",
+        "    if only is not None:\n        units = [unit for unit in units if (unit[1].id, unit[2]) in only]",
+        "    if False:\n        units = [unit for unit in units if (unit[1].id, unit[2]) in only]",
+    ),
+    # --- the results must reach the items ---
+    (
+        "src/evalstand/plugin.py",
+        "results are never attached to their items",
+        "            item.result = by_eval.get(item.declared.name, {}).get((item.case.id, item.repeat_index))",
+        "            item.result = None",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "results are matched by case only, ignoring repeat_index",
+        "        run.name: {(r.case_id, r.repeat_index): r for r in run.results} for run in runs",
+        "        run.name: {(r.case_id, 0): r for r in run.results} for run in runs",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "a case the runner never executed reports as a pass",
+        '            raise EvalCaseUnmeasuredError(f"case {self.case.id!r} was never executed by the runner")',
+        "            return",
+    ),
+    # --- the summary must carry the runner's real numbers ---
+    (
+        "src/evalstand/plugin.py",
+        "the summary drops the runner's Runs (no traces, tokens or cost)",
+        '    return list(getattr(config, "_evalstand_runs", []))',
+        "    return []",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "runs are never stored for the summary",
+        "    session.config._evalstand_runs = runs  # type: ignore[attr-defined]",
+        "    pass",
+    ),
+    # --- the flags ---
+    (
+        "src/evalstand/plugin.py",
+        "--no-cache is ignored",
+        '    kwargs: dict[str, Any] = {"bypass_cache": bool(config.getoption("--no-cache", default=False))}',
+        '    kwargs: dict[str, Any] = {"bypass_cache": False}',
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "--concurrency is ignored",
+        '        kwargs["concurrency"] = concurrency',
+        "        pass",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "--timeout is ignored",
+        '        kwargs["timeout_seconds"] = timeout',
+        "        pass",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "an invalid flag value crashes instead of being a usage error",
+        "    except ValueError as exc:\n        raise pytest.UsageError(str(exc)) from exc",
+        "    except _NeverRaised as exc:\n        raise pytest.UsageError(str(exc)) from exc",
+    ),
+    # --- a task error must still fail its item ---
+    (
+        "src/evalstand/plugin.py",
+        "a task that raised reports as a pass",
+        "        if self.result.error is not None:\n            raise EvalTaskError(self.result.error)",
+        "        if False:\n            raise EvalTaskError(self.result.error)",
+    ),
+    # --- the frames ---
+    (
+        "src/evalstand/runner.py",
+        "the user's stack frames are never captured",
+        "                frames = _user_frames(exc)",
+        "                frames = []",
+    ),
+    (
+        "src/evalstand/runner.py",
+        "internal machinery frames leak into the user's report",
+        "        if _is_library_frame(frame.filename):\n            continue",
+        "        if False:\n            continue",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "captured frames are never rendered",
+        "            if self.result is not None:\n                lines += self.result.error_frames",
+        "            if False:\n                lines += self.result.error_frames",
+    ),
+    # --- --collect-only must not spend money ---
+    (
+        "src/evalstand/plugin.py",
+        "--collect-only executes the evals anyway",
+        "    if session.config.option.collectonly:\n        return None",
+        "    if False:\n        return None",
+    ),
+    # --- a plain test session must stay untouched ---
+    (
+        "src/evalstand/plugin.py",
+        "a session with no evals still builds a RunConfig and runs",
+        "    if not wanted:\n        # A plain test session must be untouched by a plugin it never asked for.\n        return None",
+        "    if False:\n        return None",
+    ),
+    # --- evals must not run concurrently with each other ---
+    (
+        "src/evalstand/plugin.py",
+        "evals run concurrently, multiplying the concurrency the user asked for",
+        "    return [await run_eval(declared, config, only=units) for declared, units in wanted.values()]",
+        "    import asyncio as _a\n"
+        "    return list(await _a.gather(*(run_eval(d, config, only=u) for d, u in wanted.values())))",
+    ),
 ]
 
 
@@ -217,7 +348,10 @@ def run_mutant(rel: str, description: str, old: str, new: str) -> tuple[bool, st
         return False, "ANCHOR NOT FOUND (the mutant is stale, not the code)"
 
     try:
-        target.write_text(original.replace(old, new, 1), encoding="utf-8")
+        mutated = original.replace(old, new, 1)
+        if "_NeverRaised" in new:
+            mutated = mutated.replace(PRELUDE_ANCHOR, PRELUDE + PRELUDE_ANCHOR, 1)
+        target.write_text(mutated, encoding="utf-8")
         purge_bytecode()
         return (True, "killed") if run_suite() else (False, "SURVIVED")
     except subprocess.TimeoutExpired:

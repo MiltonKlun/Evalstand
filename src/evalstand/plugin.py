@@ -7,12 +7,20 @@ The unit of collection is one `(case, repeat_index)` pair, not one case. An item
 is one execution with one outcome; collapsing several stochastic executions into
 a single pass/fail would require inventing an aggregation rule — any/all/majority
 — and that is a judgement the user did not make.
+
+**Execution belongs to the runner, not to pytest.** pytest runs items strictly
+one after another, so a per-item `runtest` can never be concurrent, and every
+capability Phase 3 built — concurrency, timeouts, tracing, the shared cache —
+would be unreachable through the path users actually run. So the plugin takes
+over `pytest_runtestloop`: it hands each eval to `run_eval()`, then replays the
+finished Results through the items so pytest still reports one outcome per case
+and `-k`, `-x`, `--collect-only` and the rest keep working.
 """
 
 from __future__ import annotations
 
 import asyncio
-import inspect
+import threading
 import time
 import traceback
 from pathlib import Path
@@ -21,11 +29,64 @@ from typing import Any
 import pytest
 
 from evalstand.api import Eval, _current_eval_file, registry
-from evalstand.models import Case, Result, Run, RunStatus, Score
+from evalstand.models import Case, Result, Run, Score
+from evalstand.runner import RunConfig, run_eval
 
 EVAL_FILE_SUFFIX = "_eval.py"
 
 _SESSION_MARKER = "_evalstand_registry_reset"
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Phase 3's execution controls, exposed on the path users actually run.
+
+    These configure *how* a run executes, never what it measures, so they are
+    flags rather than anything declared in an eval file.
+    """
+    group = parser.getgroup("evalstand", "LLM evaluation")
+    group.addoption(
+        "--concurrency",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Cases to execute at once (default: 8).",
+    )
+    group.addoption(
+        "--timeout",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Abandon a case after this long. One case timing out never stops the rest.",
+    )
+    group.addoption(
+        "--no-cache",
+        action="store_true",
+        default=False,
+        help="Call the provider even when a cached response exists.",
+    )
+
+
+def _run_config(config: pytest.Config) -> RunConfig:
+    """Read the flags into a RunConfig, rejecting bad values as usage errors.
+
+    `RunConfig` validates in `__post_init__`; surfacing that as a pytest usage
+    error means `--concurrency 0` prints a one-line message instead of a
+    traceback from inside the runner.
+    """
+    kwargs: dict[str, Any] = {"bypass_cache": bool(config.getoption("--no-cache", default=False))}
+
+    concurrency = config.getoption("--concurrency", default=None)
+    if concurrency is not None:
+        kwargs["concurrency"] = concurrency
+
+    timeout = config.getoption("--timeout", default=None)
+    if timeout is not None:
+        kwargs["timeout_seconds"] = timeout
+
+    try:
+        return RunConfig(**kwargs)
+    except ValueError as exc:
+        raise pytest.UsageError(str(exc)) from exc
 
 
 def _reset_registry_once_per_session(session: pytest.Session) -> None:
@@ -124,6 +185,101 @@ class EvalFile(pytest.File):
                 )
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtestloop(session: pytest.Session) -> bool | None:
+    """Execute every selected eval through the runner, before any item runs.
+
+    Returning None hands control back to pytest, which then walks the items as
+    usual — each one now merely *reporting* a Result the runner already
+    produced. Taking the loop over entirely would mean reimplementing `-x`,
+    `--maxfail`, fixtures and reporting, all of which pytest already does well.
+
+    Only selected items are executed. `-k q1` must not spend money on the cases
+    it deselected, so the runner is told exactly which `(case, repeat)` pairs
+    survived selection.
+    """
+    if session.config.option.collectonly:
+        return None
+
+    wanted: dict[str, tuple[Eval, set[tuple[str, int]]]] = {}
+    for item in session.items:
+        if isinstance(item, EvalItem):
+            _, units = wanted.setdefault(item.declared.name, (item.declared, set()))
+            units.add((item.case.id, item.repeat_index))
+
+    if not wanted:
+        # A plain test session must be untouched by a plugin it never asked for.
+        return None
+
+    config = _run_config(session.config)
+    runs = _execute_sync(wanted, config)
+
+    by_eval: dict[str, dict[tuple[str, int], Result]] = {
+        run.name: {(r.case_id, r.repeat_index): r for r in run.results} for run in runs
+    }
+    for item in session.items:
+        if isinstance(item, EvalItem):
+            item.result = by_eval.get(item.declared.name, {}).get((item.case.id, item.repeat_index))
+
+    session.config._evalstand_runs = runs  # type: ignore[attr-defined]
+    return None
+
+
+def _execute_sync(
+    wanted: dict[str, tuple[Eval, set[tuple[str, int]]]],
+    config: RunConfig,
+) -> list[Run]:
+    """Drive the async runner from pytest's synchronous hook.
+
+    `asyncio.run` refuses to nest, and this hook is not guaranteed to run on a
+    thread without a loop — another plugin may own one. Falling back to a
+    dedicated thread costs nothing in the common case and turns "your whole
+    session died" into "it ran".
+
+    The check is made *before* building the coroutine rather than by catching
+    the resulting RuntimeError: a `try` around `asyncio.run` would also swallow
+    a genuine RuntimeError raised by a user's task, and it leaves an un-awaited
+    coroutine behind when it does.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(_execute(wanted, config))  # the ordinary path
+
+    results: list[Run] = []
+    error: BaseException | None = None
+
+    def target() -> None:
+        nonlocal error
+        try:
+            results.extend(asyncio.run(_execute(wanted, config)))
+        except BaseException as exc:  # re-raised on the calling thread below
+            error = exc
+
+    thread = threading.Thread(target=target, name="evalstand-runner")
+    thread.start()
+    thread.join()
+
+    if error is not None:
+        # Raised here so the failure reaches pytest normally. A crash swallowed
+        # in a thread nobody watches would look like an empty test session.
+        raise error
+    return results
+
+
+async def _execute(
+    wanted: dict[str, tuple[Eval, set[tuple[str, int]]]],
+    config: RunConfig,
+) -> list[Run]:
+    """Run each eval in turn, concurrent *within* an eval but not across them.
+
+    Evals are kept sequential on purpose: `--concurrency` is a promise about how
+    many calls are in flight, and running four evals at once would quietly
+    multiply it by four and trip the rate limit the flag exists to avoid.
+    """
+    return [await run_eval(declared, config, only=units) for declared, units in wanted.values()]
+
+
 def _is_internal(filename: str) -> bool:
     """Frames belonging to pytest, pluggy, or this plugin are not the user's."""
     lowered = filename.replace("\\", "/").lower()
@@ -134,6 +290,15 @@ def _is_internal(filename: str) -> bool:
 
 class EvalCaseFailedError(AssertionError):
     """One case did not pass. Carries enough context to act on without re-running."""
+
+
+class EvalTaskError(Exception):
+    """The task itself raised or timed out, so there is no output to score.
+
+    The runner catches the original exception and keeps its text on the Result,
+    because one failing case must never abort the others. By the time pytest
+    reports it the traceback is gone, so the message carries what is known.
+    """
 
 
 class EvalCaseUnmeasuredError(Exception):
@@ -159,22 +324,30 @@ class EvalItem(pytest.Item):
         self.declared = declared
         self.case = case
         self.repeat_index = repeat_index
-        self.output: Any = None
-        self.scores: list[Score] = []
+        self.result: Result | None = None
+        """Filled in by `pytest_runtestloop` before any item runs."""
+
+    @property
+    def output(self) -> Any:
+        return self.result.output if self.result else None
+
+    @property
+    def scores(self) -> list[Score]:
+        return self.result.scores if self.result else []
 
     def runtest(self) -> None:
-        try:
-            self.output = _run_task(self.declared.task, self.case.input)
-        except Exception as exc:
-            # Recorded before re-raising: a case that blew up is a result, and
-            # the summary must not silently omit it.
-            self._record(error=f"{type(exc).__name__}: {exc}")
-            raise
-        self.scores = [
-            _score(fn, self.output, self.case.expected, self.case) for fn in self.declared.scorers
-        ]
+        """Report what the runner already found.
 
-        self._record()
+        No execution happens here. By the time pytest walks the items the run is
+        over, so this turns one Result into one pytest outcome.
+        """
+        if self.result is None:
+            # Only reachable if something bypassed the run loop. Better a loud
+            # error than a green tick for a case that never executed.
+            raise EvalCaseUnmeasuredError(f"case {self.case.id!r} was never executed by the runner")
+
+        if self.result.error is not None:
+            raise EvalTaskError(self.result.error)
 
         failed = [s for s in self.scores if s.passed is False]
         if failed:
@@ -192,22 +365,6 @@ class EvalItem(pytest.Item):
             raise EvalCaseUnmeasuredError(
                 f"case {self.case.id!r} produced no usable score ({reasons})"
             )
-
-    def _record(self, error: str | None = None) -> None:
-        """Keep this execution so the terminal summary can report on it."""
-        store: dict[str, tuple[Eval, list[Result]]] = getattr(self.config, "_evalstand_results", {})
-        _, results = store.setdefault(self.declared.name, (self.declared, []))
-        results.append(
-            Result(
-                id=f"{self.declared.name}-{self.case.id}-{self.repeat_index}",
-                case_id=self.case.id,
-                repeat_index=self.repeat_index,
-                output=self.output,
-                error=error,
-                scores=self.scores,
-            )
-        )
-        self.config._evalstand_results = store  # type: ignore[attr-defined]
 
     def repr_failure(self, excinfo: Any, style: Any = None) -> str:
         """Show what happened, so a failure is actionable without a re-run."""
@@ -239,8 +396,24 @@ class EvalItem(pytest.Item):
             ]
             return "\n".join(lines)
 
-        # Show the user's own frames. pytest's default repr buries the actual
-        # error under eight frames of runner and pluggy internals.
+        if isinstance(excinfo.value, EvalTaskError):
+            lines = [
+                f"eval:     {self.declared.name}",
+                f"case:     {self.case.id}",
+                f"input:    {self.case.input!r}",
+                f"the task failed: {excinfo.value}",
+            ]
+            # The runner caught the exception to keep the other cases running,
+            # so the traceback is long gone by now. These frames were captured
+            # at the raise for exactly this moment.
+            if self.result is not None:
+                lines += self.result.error_frames
+            return "\n".join(lines)
+
+        # Anything else escaping `runtest` is a bug in evalstand, not in the
+        # user's task — the runner catches a task's own exceptions and reports
+        # them as EvalTaskError above. Kept rather than left to pytest's default
+        # repr, which would bury the one useful line under pluggy internals.
         error = excinfo.value
         theirs = [
             frame for frame in traceback.extract_tb(excinfo.tb) if not _is_internal(frame.filename)
@@ -250,7 +423,7 @@ class EvalItem(pytest.Item):
             f"eval:     {self.declared.name}",
             f"case:     {self.case.id}",
             f"input:    {self.case.input!r}",
-            f"the task raised {type(error).__name__}: {error}",
+            f"unexpected {type(error).__name__}: {error}",
         ]
         for frame in theirs:
             lines.append(f"  {Path(frame.filename).name}:{frame.lineno} in {frame.name}")
@@ -262,35 +435,11 @@ class EvalItem(pytest.Item):
         return self.path, 0, f"{self.declared.name}::{self.name}"
 
 
-def _run_task(task: Any, case_input: Any) -> Any:
-    """Call the task, sync or async. The user never says which it is."""
-    result = task(case_input)
-    if inspect.isawaitable(result):
-        return asyncio.run(_await(result))
-    return result
-
-
-def _score(fn: Any, output: Any, expected: Any, case: Case) -> Score:
-    """Run one scorer, capturing a raise rather than letting it fail the case.
-
-    A scorer that broke is not evidence the task did badly, so the error is
-    recorded on the Score and excluded from means.
-    """
-    name = getattr(fn, "__name__", "scorer")
-    try:
-        result = fn(output, expected, case)
-        if inspect.isawaitable(result):
-            result = asyncio.run(_await(result))
-    except Exception as exc:  # a scorer failure is data, not a crash
-        return Score.from_error(name, f"{type(exc).__name__}: {exc}")
-
-    if isinstance(result, Score):
-        return result
-    return Score(scorer_name=name, value=float(result))
-
-
-async def _await(awaitable: Any) -> Any:
-    return await awaitable
+# `_run_task`, `_score` and `_await` lived here until the runner took over
+# execution. They are gone rather than kept "just in case": two execution paths
+# that can drift apart is the exact risk this wiring was meant to remove, and a
+# dead copy of the scoring rules is the most likely thing to be edited by
+# mistake. The live versions are `runner._call_task` and `runner._score`.
 
 
 def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pytest.Config) -> None:
@@ -321,23 +470,11 @@ def _session_seconds(terminalreporter: Any) -> float | None:
 
 
 def _collected_runs(config: pytest.Config) -> list[Run]:
-    """Assemble Runs from the items that executed.
+    """The Runs the runner produced.
 
-    Phase 2 builds these here so reporting has something real to render. Phase 3
-    moves execution into the runner, which will own Run assembly instead.
+    Assembly belongs to the runner, which is the only place that saw the traces,
+    token counts and costs. Rebuilding Runs here from item state — as Phase 2
+    did — would silently drop all three, which is exactly how a summary comes to
+    print "-" for a run that really did cost money.
     """
-    results_by_eval: dict[str, tuple[Eval, list[Result]]] = getattr(
-        config, "_evalstand_results", {}
-    )
-    return [
-        Run(
-            id=f"run-{name}",
-            batch_id="batch-local",
-            name=name,
-            filepath=declared.filepath,
-            status=RunStatus.COMPLETED,
-            repeat_n=declared.repeat,
-            results=results,
-        )
-        for name, (declared, results) in results_by_eval.items()
-    ]
+    return list(getattr(config, "_evalstand_runs", []))
