@@ -16,7 +16,9 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import inspect
+import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -26,7 +28,10 @@ from evalstand.cache import ResponseCache
 from evalstand.models import Case, Result, Run, RunStatus, Score
 from evalstand.tracing import TraceCollector
 
-__all__ = ["RunConfig", "current_bypass", "current_cache", "run_eval"]
+__all__ = ["RunConfig", "current_bypass", "current_cache", "current_sink", "run_eval"]
+
+ChunkSink = Callable[[str, str], None]
+"""Called with (case_id, chunk) as streamed text arrives."""
 
 current_cache: contextvars.ContextVar[ResponseCache | None] = contextvars.ContextVar(
     "evalstand_cache", default=None
@@ -42,6 +47,17 @@ current_bypass: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "evalstand_bypass_cache", default=False
 )
 """Whether the running case must skip the cache in both directions."""
+
+current_sink: contextvars.ContextVar[ChunkSink | None] = contextvars.ContextVar(
+    "evalstand_chunk_sink", default=None
+)
+"""Where a streaming task's chunks go as they arrive.
+
+Bound per case, so the sink already knows which case each chunk belongs to and
+concurrent streams cannot interleave into one another's output.
+"""
+
+logger = logging.getLogger("evalstand.runner")
 
 DEFAULT_CONCURRENCY = 8
 """Enough to hide network latency, low enough not to trip a rate limit on the
@@ -62,6 +78,10 @@ class RunConfig:
 
     bypass_cache: bool = False
     """The user's explicit `--no-cache`. Repeats bypass regardless."""
+
+    on_chunk: ChunkSink | None = None
+    """Receives (case_id, chunk) as a streaming task produces text, so a live
+    view can show partial output rather than waiting for the case to finish."""
 
     def __post_init__(self) -> None:
         if self.concurrency < 1:
@@ -149,6 +169,7 @@ async def _run_one(
     """
     async with semaphore:
         collector = TraceCollector()
+        sink_token = current_sink.set(_case_sink(config.on_chunk, case.id))
         output: Any = None
         error: str | None = None
 
@@ -172,6 +193,8 @@ async def _run_one(
                 else [await _score(fn, output, case.expected, case) for fn in declared.scorers]
             )
 
+        current_sink.reset(sink_token)
+
         return Result(
             id=f"{declared.name}-{case.id}-{repeat_index}",
             case_id=case.id,
@@ -184,6 +207,25 @@ async def _run_one(
             output_tokens=collector.total_output_tokens or None,
             cost_usd=collector.total_cost_usd,
         )
+
+
+def _case_sink(on_chunk: ChunkSink | None, case_id: str) -> ChunkSink | None:
+    """Bind a sink to one case, and make it unable to break the run.
+
+    A watcher is an observer. If a renderer raises, the run — and the money
+    already spent on it — must survive; losing results to a display bug would be
+    the tail wagging the dog.
+    """
+    if on_chunk is None:
+        return None
+
+    def sink(_case_id: str, text: str) -> None:
+        try:
+            on_chunk(case_id, text)
+        except Exception:
+            logger.debug("chunk sink raised for case %s", case_id, exc_info=True)
+
+    return sink
 
 
 async def _call_task(task: Any, case_input: Any, timeout_seconds: float | None) -> Any:

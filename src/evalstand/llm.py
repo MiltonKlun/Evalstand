@@ -337,10 +337,21 @@ class StreamedCall:
             text = _extract_delta(chunk)
             if text:
                 chunks.append(text)
+                _emit(text)
                 yield text
 
         latency_ms = int((time.perf_counter() - started) * 1000)
         self.response = _build_streamed("".join(chunks), model, latency_ms, usage)
+        _trace(self.response, self._messages, cached=False)
+
+
+def _emit(text: str) -> None:
+    """Hand a chunk to whatever is watching this case, if anything is."""
+    from evalstand.runner import current_sink
+
+    sink = current_sink.get()
+    if sink is not None:
+        sink("", text)
 
 
 def _extract_delta(chunk: Any) -> str:
