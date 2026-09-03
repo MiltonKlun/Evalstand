@@ -17,10 +17,12 @@ import asyncio
 import contextvars
 import inspect
 import logging
+import traceback
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from evalstand.api import Eval
@@ -95,12 +97,23 @@ async def run_eval(
     config: RunConfig | None = None,
     *,
     batch_id: str = "local",
+    only: set[tuple[str, int]] | None = None,
 ) -> Run:
-    """Execute every case of one Eval and return its Run."""
+    """Execute one Eval's cases and return its Run.
+
+    `only` restricts execution to the given `(case_id, repeat_index)` pairs,
+    which is how selection (`-k`, or a single node id) reaches the runner. It
+    filters *before* anything executes rather than discarding results
+    afterwards, because a deselected case must cost nothing — the user asked for
+    one case and a provider bill for thirty would be a bug with a price tag.
+    """
     config = config or RunConfig()
     started_at = datetime.now(UTC)
 
     cases = await declared.aload_cases()
+    units = _units(cases, declared.repeat)
+    if only is not None:
+        units = [unit for unit in units if (unit[1].id, unit[2]) in only]
     semaphore = asyncio.Semaphore(config.concurrency)
 
     # Repeats bypass unconditionally. The runner cannot inspect the task's
@@ -115,7 +128,7 @@ async def run_eval(
         results = await asyncio.gather(
             *(
                 _run_one(declared, case, repeat_index, config, semaphore)
-                for _, case, repeat_index in _units(cases, declared.repeat)
+                for _, case, repeat_index in units
             )
         )
     finally:
@@ -173,6 +186,8 @@ async def _run_one(
         output: Any = None
         error: str | None = None
 
+        frames: list[str] = []
+
         with collector:
             try:
                 output = await _call_task(declared.task, case.input, config.timeout_seconds)
@@ -184,6 +199,7 @@ async def _run_one(
                 )
             except Exception as exc:
                 error = f"{type(exc).__name__}: {exc}"
+                frames = _user_frames(exc)
 
             # A task that failed has no output worth scoring. Inventing a zero
             # would claim it performed badly, when in truth it never finished.
@@ -201,12 +217,51 @@ async def _run_one(
             repeat_index=repeat_index,
             output=output,
             error=error,
+            error_frames=frames,
             scores=scores,
             traces=collector.traces,
             input_tokens=collector.total_input_tokens or None,
             output_tokens=collector.total_output_tokens or None,
             cost_usd=collector.total_cost_usd,
         )
+
+
+def _user_frames(exc: BaseException) -> list[str]:
+    """The frames from the user's own code, rendered for a report.
+
+    Everything from evalstand, asyncio and threading is dropped: the user cannot
+    act on our call machinery, and burying the one line that matters under eight
+    frames of it is exactly the failure pytest's default output makes.
+
+    Formatted here rather than stored as a traceback object because a Result is
+    serialised to SQLite and sent to the UI, and a traceback holds references to
+    every frame's locals — which would keep the whole run's objects alive and
+    could carry an API key into the database.
+    """
+    frames = []
+    for frame in traceback.extract_tb(exc.__traceback__):
+        if _is_library_frame(frame.filename):
+            continue
+        line = f"  {Path(frame.filename).name}:{frame.lineno} in {frame.name}"
+        frames.append(line if not frame.line else f"{line}\n    {frame.line}")
+    return frames
+
+
+def _is_library_frame(filename: str) -> bool:
+    """Frames belonging to the machinery that called the task, not to the task.
+
+    `concurrent/futures/thread.py` is here because offloading a sync task with
+    `asyncio.to_thread` puts a worker frame on top of every traceback — an
+    implementation detail of how we avoid blocking the event loop, which would
+    otherwise appear in every user's error report.
+    """
+    lowered = filename.replace("\\", "/").lower()
+    return (
+        "/evalstand/" in lowered
+        or "/asyncio/" in lowered
+        or "/concurrent/futures/" in lowered
+        or lowered.endswith("/threading.py")
+    )
 
 
 def _case_sink(on_chunk: ChunkSink | None, case_id: str) -> ChunkSink | None:

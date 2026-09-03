@@ -142,6 +142,14 @@ class Result(_Model):
     repeat_index: Annotated[int, Field(ge=0)] = 0
     output: Any = None
     error: str | None = None
+    error_frames: list[str] = Field(default_factory=list)
+    """The user's own stack frames, when the task raised.
+
+    Captured at the raise, because whoever catches an exception to keep the run
+    alive is also the last place the traceback still exists. Without this a
+    report can say *what* broke but never *where*, which is the difference
+    between a message and a fix.
+    """
     latency_ms: int | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None

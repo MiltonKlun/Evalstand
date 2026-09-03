@@ -1,8 +1,10 @@
 # evalstand
 
-> **Status: in development.** Phase 0 of 7. This release is a **name
-> reservation placeholder** and contains no working code. The example below
-> shows the intended API, which is not implemented yet.
+> **Status: in development.** Phases 0-3 of 7 complete: evals run through
+> pytest or the CLI, concurrently, with response caching, nested traces, and
+> per-run token and cost totals. The scorer library, persistence, and the live
+> TUI are not built yet, so the published release remains a placeholder — build
+> from source to try it.
 
 Evaluating an LLM application should feel like running a test suite.
 
@@ -13,7 +15,7 @@ machine and persists to a local SQLite database, so you can compare a run
 against the one before it.
 
 ```python
-from evalstand import Case, evaluate
+from evalstand import Case, evaluate, llm
 from evalstand.scorers import exact, levenshtein
 
 
@@ -37,12 +39,27 @@ evaluate(
 )
 ```
 
+`levenshtein` arrives with the scorer library in Phase 4; `exact` works today.
+
 Save that as `qa_eval.py` and run it either way:
 
 ```bash
 evalstand run qa_eval.py     # live TUI, watch mode, traces
 pytest qa_eval.py            # plain test runner, CI-friendly
 ```
+
+Both go through the same runner, so both accept the same execution controls:
+
+```bash
+pytest qa_eval.py --concurrency 4   # cases in flight at once (default 8)
+pytest qa_eval.py --timeout 30      # abandon a case after 30s; the rest continue
+pytest qa_eval.py --no-cache        # call the provider even when a response is cached
+```
+
+These control *how* a run executes, never what it measures. One case failing —
+raising, or timing out — never ends the run: it is recorded as that case's
+result and the others carry on, because discarding twenty-nine good
+measurements to punish the thirtieth wastes the money already spent on them.
 
 ## Why
 

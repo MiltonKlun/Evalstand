@@ -35,6 +35,17 @@ def run(
     select: Annotated[
         str | None, typer.Option("-k", help="Only run cases matching this expression.")
     ] = None,
+    concurrency: Annotated[
+        int | None, typer.Option("--concurrency", help="Cases to execute at once (default: 8).")
+    ] = None,
+    timeout: Annotated[
+        float | None,
+        typer.Option("--timeout", help="Abandon a case after this many seconds."),
+    ] = None,
+    no_cache: Annotated[
+        bool,
+        typer.Option("--no-cache", help="Call the provider even when a cached response exists."),
+    ] = False,
 ) -> None:
     """Run evals and print a summary."""
     import pytest
@@ -44,6 +55,15 @@ def run(
         args.append("-q")
     if select:
         args += ["-k", select]
+
+    # Forwarded rather than re-validated: the plugin owns these, and a second
+    # copy of the rules here would be a second thing to keep in step.
+    if concurrency is not None:
+        args += ["--concurrency", str(concurrency)]
+    if timeout is not None:
+        args += ["--timeout", str(timeout)]
+    if no_cache:
+        args.append("--no-cache")
 
     # Evals are not tests-with-assertions; a failing case is a reported result,
     # not a stack trace worth printing twice.

@@ -308,6 +308,10 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
 
 **Exit criteria:** the toy example runs concurrently with repeats, and a trace tree is captured and printable. **— met 2026-09-02**, demonstrated against the committed cassette: 3 repeats at concurrency 3, cache correctly bypassed (6 calls rather than 2), and a two-level trace tree whose node costs sum to the case total of $0.00000510.
 
+- [x] **3.6 Wire the runner into the execution path.** Everything above was reachable only by calling `run_eval()` directly; neither `pytest` nor `evalstand run` went through it, so users had none of it. The plugin now takes over `pytest_runtestloop` and delegates execution to the runner, and `--concurrency`, `--timeout` and `--no-cache` are exposed on both entry points. See [ADR 0008](docs/adr/0008-plugin-delegates-execution-to-the-runner.md).
+  - The risk register's *"plugin fights the runner's async model"* is resolved rather than waived: only one component executes, so parity item 19 stands.
+  - *Acceptance:* the same eval file run through bare `pytest` reports token totals and cost where it previously printed `-`; `--concurrency 1` measurably serialises what the default runs in parallel; `-k` executes only the selected cases. **— met 2026-09-03.** 8 cases x 0.5s: 2.52s at the default concurrency against 6.01s at `--concurrency 1`. A model-calling eval that reported `cost: -` now reports `$0.0004` and `20 in / 10 out tokens`. 18 mutants aimed at the new seam: 7/18 killed before its tests were written, 18/18 after.
+
 ---
 
 ## Phase 4 — Scorers
