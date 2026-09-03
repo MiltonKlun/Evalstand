@@ -506,3 +506,26 @@ class TestRunTotals:
             ],
         )
         assert run.total_cost_usd == pytest.approx(0.01)
+
+
+class TestCacheHitRate:
+    """A run that made no calls did not have a 0% hit rate; it had no rate."""
+
+    def test_no_calls_means_no_rate(self) -> None:
+        run = Run(id="r", batch_id="b", name="n", filepath="f")
+        assert run.cache_hit_rate is None
+
+    def test_a_zero_rate_is_distinguishable_from_no_rate(self) -> None:
+        """A run that called ten times and hit nothing genuinely did score 0%.
+        That is a different fact from having called nothing at all."""
+        missed = Run(id="r", batch_id="b", name="n", filepath="f", model_calls=10, cache_hits=0)
+        assert missed.cache_hit_rate == 0.0
+        assert Run(id="r", batch_id="b", name="n", filepath="f").cache_hit_rate is None
+
+    def test_the_rate_is_hits_over_calls(self) -> None:
+        run = Run(id="r", batch_id="b", name="n", filepath="f", model_calls=10, cache_hits=7)
+        assert run.cache_hit_rate == pytest.approx(0.7)
+
+    def test_a_fully_cached_run_reports_one(self) -> None:
+        run = Run(id="r", batch_id="b", name="n", filepath="f", model_calls=5, cache_hits=5)
+        assert run.cache_hit_rate == 1.0

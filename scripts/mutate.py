@@ -147,6 +147,42 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "if not priced:\n        return UNKNOWN",
         "if not priced:\n        return '$0.0000'",
     ),
+    (
+        "src/evalstand/runner.py",
+        "repeats no longer bypass the cache",
+        "bypass = config.bypass_cache or declared.repeat > 1",
+        "bypass = config.bypass_cache",
+    ),
+    (
+        "src/evalstand/runner.py",
+        "the concurrency semaphore is removed",
+        "async with semaphore:",
+        "if True:",
+    ),
+    (
+        "src/evalstand/runner.py",
+        "a failed case is scored anyway",
+        "if error is not None",
+        "if False",
+    ),
+    (
+        "src/evalstand/tracing.py",
+        "the span contextvar token is never reset",
+        "        current_span.reset(token)",
+        "        pass  # current_span.reset(token)",
+    ),
+    (
+        "src/evalstand/tracing.py",
+        "unpriced calls count as free in the case total",
+        "        if self.unpriced_call_count:\n            return None",
+        "        if False:\n            return None",
+    ),
+    (
+        "src/evalstand/models.py",
+        "cache_hit_rate reports 0.0 when nothing was called",
+        "        if not self.model_calls:\n            return None",
+        "        if not self.model_calls:\n            return 0.0",
+    ),
 ]
 
 
