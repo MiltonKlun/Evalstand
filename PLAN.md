@@ -288,7 +288,7 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
 **Goal:** concurrent execution with the nested-call visibility that makes the UI useful.
 **Estimate:** 14 hours.
 
-- [ ] **3.1 Build `runner.py`.** Async execution with an `asyncio.Semaphore` (default concurrency 8, `--concurrency` flag). Deterministic ordered result collection. Per-case timeout. Errors are captured on the result rather than aborting the run.
+- [x] **3.1 Build `runner.py`.** Async execution with an `asyncio.Semaphore` (default concurrency 8, `--concurrency` flag). Deterministic ordered result collection. Per-case timeout. Errors are captured on the result rather than aborting the run.
   - *Acceptance:* a suite where one case raises still completes and records the error; changing concurrency measurably changes wall time.
 - [x] **3.2 Implement tracing** in `tracing.py`. This is the feature most worth porting carefully. Two mechanisms:
   - A `trace(name)` context manager the user can wrap around any operation.

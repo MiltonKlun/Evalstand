@@ -1,1 +1,181 @@
-"""evalstand.runner — implemented in a later phase."""
+"""The runner: execute an Eval's cases concurrently and collect Results.
+
+The governing rule is that one bad case never takes down the others. An eval is
+a measurement, and discarding 29 good measurements because the 30th timed out
+would waste the time and money already spent on them. Every failure — a raising
+task, a timeout, a broken scorer — is recorded on its own Result and the run
+continues.
+
+Ordering is by case, not by completion. Cases finish in whatever order the
+provider answers, but a report whose rows shuffle between runs cannot be read or
+diffed, so results are collected back into declaration order.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
+
+from evalstand.api import Eval
+from evalstand.models import Case, Result, Run, RunStatus, Score
+from evalstand.tracing import TraceCollector
+
+__all__ = ["RunConfig", "run_eval"]
+
+DEFAULT_CONCURRENCY = 8
+"""Enough to hide network latency, low enough not to trip a rate limit on the
+first run. Overridable with --concurrency."""
+
+
+@dataclass(frozen=True)
+class RunConfig:
+    """How a run executes, as opposed to what it measures."""
+
+    concurrency: int = DEFAULT_CONCURRENCY
+    timeout_seconds: float | None = None
+    """No default limit: a slow model is normal, and a default would fail
+    honest work. The user sets one when they know what "too slow" means."""
+
+    bypass_cache: bool = False
+
+    def __post_init__(self) -> None:
+        if self.concurrency < 1:
+            raise ValueError(f"concurrency must be at least 1, got {self.concurrency}")
+        if self.timeout_seconds is not None and self.timeout_seconds <= 0:
+            raise ValueError(f"timeout must be positive, got {self.timeout_seconds}")
+
+
+async def run_eval(
+    declared: Eval,
+    config: RunConfig | None = None,
+    *,
+    batch_id: str = "local",
+) -> Run:
+    """Execute every case of one Eval and return its Run."""
+    config = config or RunConfig()
+    started_at = datetime.now(UTC)
+
+    cases = await declared.aload_cases()
+    semaphore = asyncio.Semaphore(config.concurrency)
+
+    # One unit of work per (case, repeat), which is also what the pytest plugin
+    # collects: an execution is the thing with an outcome.
+    units = [
+        (index, case, repeat_index)
+        for index, case in enumerate(cases)
+        for repeat_index in range(declared.repeat)
+    ]
+
+    results = await asyncio.gather(
+        *(
+            _run_one(declared, case, repeat_index, config, semaphore)
+            for _, case, repeat_index in units
+        )
+    )
+
+    # gather preserves input order, so this is already case-then-repeat order.
+    return Run(
+        id=f"run-{uuid.uuid4().hex[:12]}",
+        batch_id=batch_id,
+        name=declared.name,
+        filepath=declared.filepath,
+        status=RunStatus.COMPLETED,
+        started_at=started_at,
+        finished_at=datetime.now(UTC),
+        repeat_n=declared.repeat,
+        results=list(results),
+    )
+
+
+async def _run_one(
+    declared: Eval,
+    case: Case,
+    repeat_index: int,
+    config: RunConfig,
+    semaphore: asyncio.Semaphore,
+) -> Result:
+    """Execute one case once, capturing whatever happens.
+
+    A fresh TraceCollector per case, so concurrent cases never pool their
+    traces into one another.
+    """
+    async with semaphore:
+        collector = TraceCollector()
+        output: Any = None
+        error: str | None = None
+
+        with collector:
+            try:
+                output = await _call_task(declared.task, case.input, config.timeout_seconds)
+            except TimeoutError:
+                error = (
+                    f"timed out after {config.timeout_seconds}s"
+                    if config.timeout_seconds
+                    else "timed out"
+                )
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+
+            # A task that failed has no output worth scoring. Inventing a zero
+            # would claim it performed badly, when in truth it never finished.
+            scores = (
+                []
+                if error is not None
+                else [await _score(fn, output, case.expected, case) for fn in declared.scorers]
+            )
+
+        return Result(
+            id=f"{declared.name}-{case.id}-{repeat_index}",
+            case_id=case.id,
+            repeat_index=repeat_index,
+            output=output,
+            error=error,
+            scores=scores,
+            traces=collector.traces,
+            input_tokens=collector.total_input_tokens or None,
+            output_tokens=collector.total_output_tokens or None,
+            cost_usd=collector.total_cost_usd,
+        )
+
+
+async def _call_task(task: Any, case_input: Any, timeout_seconds: float | None) -> Any:
+    """Run the task, sync or async, under an optional timeout.
+
+    A sync task is offloaded with `asyncio.to_thread` rather than called
+    directly: a blocking call on the event loop would stall every other case,
+    turning concurrency into a lie. `to_thread` also copies context, so tracing
+    still works inside it.
+    """
+    if inspect.iscoroutinefunction(task):
+        coroutine = task(case_input)
+    else:
+        coroutine = asyncio.to_thread(task, case_input)
+
+    if timeout_seconds is None:
+        return await coroutine
+
+    async with asyncio.timeout(timeout_seconds):
+        return await coroutine
+
+
+async def _score(fn: Any, output: Any, expected: Any, case: Case) -> Score:
+    """Run one scorer, recording a raise rather than letting it end the case.
+
+    A scorer that broke is not evidence the task did badly, so the error lives
+    on the Score and is excluded from means.
+    """
+    name = getattr(fn, "__name__", "scorer")
+    try:
+        result = fn(output, expected, case)
+        if inspect.isawaitable(result):
+            result = await result
+    except Exception as exc:
+        return Score.from_error(name, f"{type(exc).__name__}: {exc}")
+
+    if isinstance(result, Score):
+        return result
+    return Score(scorer_name=name, value=float(result))
