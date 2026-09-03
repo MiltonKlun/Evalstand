@@ -27,16 +27,23 @@ pytest_plugins = ["pytester"]
 # run. Counting provider calls is the only way to catch a selection bug: the
 # outcome of a deselected case looks identical whether or not it was executed.
 SPY_EVAL = """
-import pathlib
+import itertools, pathlib
 from evalstand import Case, evaluate
 from evalstand.scorers import exact
 
-LOG = pathlib.Path(__file__).parent / "executed.log"
+RUNS = pathlib.Path(__file__).parent / "executed"
+_serial = itertools.count()
 
 
 def task(value):
-    with LOG.open("a") as fh:
-        fh.write(value + chr(10))
+    # One file per execution, not appends to a shared log. Cases run
+    # concurrently, and concurrent append-to-one-file is a real race on Windows:
+    # two writes interleave and a line is lost, so the test fails intermittently
+    # for a reason that has nothing to do with what it is checking. The counter
+    # makes repeated executions of the same case distinct, which is exactly what
+    # this test needs to detect.
+    RUNS.mkdir(exist_ok=True)
+    (RUNS / ("%s-%d" % (value, next(_serial)))).write_text(value)
     return value
 
 
@@ -90,9 +97,9 @@ evaluate(
 
 
 def _executed(pytester: pytest.Pytester) -> list[str]:
-    """Which case inputs the task actually ran for."""
-    log = pytester.path / "executed.log"
-    return log.read_text().split() if log.exists() else []
+    """Which case inputs the task actually ran for, one entry per execution."""
+    runs = pytester.path / "executed"
+    return sorted(path.read_text() for path in runs.iterdir()) if runs.is_dir() else []
 
 
 class TestSelectionIsHonoured:
@@ -359,16 +366,17 @@ class TestOneExecutionPerCase:
     def test_repeats_execute_once_each(self, pytester: pytest.Pytester) -> None:
         pytester.makepyfile(
             rep_eval="""
-import pathlib
+import itertools, pathlib
 from evalstand import Case, evaluate
 from evalstand.scorers import exact
 
-LOG = pathlib.Path(__file__).parent / "executed.log"
+RUNS = pathlib.Path(__file__).parent / "executed"
+_serial = itertools.count()
 
 
 def task(value):
-    with LOG.open("a") as fh:
-        fh.write(value + chr(10))
+    RUNS.mkdir(exist_ok=True)
+    (RUNS / ("%s-%d" % (value, next(_serial)))).write_text(value)
     return value
 
 

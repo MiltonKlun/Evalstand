@@ -306,17 +306,10 @@ async def _call_task(task: Any, case_input: Any, timeout_seconds: float | None) 
 async def _score(fn: Any, output: Any, expected: Any, case: Case) -> Score:
     """Run one scorer, recording a raise rather than letting it end the case.
 
-    A scorer that broke is not evidence the task did badly, so the error lives
-    on the Score and is excluded from means.
+    The adapting and normalising live in `scorers.base`, which is where a user
+    writing their own scorer will look for the rules. Imported lazily to keep
+    the runner from depending on the scorer library at module scope.
     """
-    name = getattr(fn, "__name__", "scorer")
-    try:
-        result = fn(output, expected, case)
-        if inspect.isawaitable(result):
-            result = await result
-    except Exception as exc:
-        return Score.from_error(name, f"{type(exc).__name__}: {exc}")
+    from evalstand.scorers.base import call_scorer
 
-    if isinstance(result, Score):
-        return result
-    return Score(scorer_name=name, value=float(result))
+    return await call_scorer(fn, output, expected, case)
