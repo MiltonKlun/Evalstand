@@ -239,6 +239,45 @@ class TestConcurrency:
         assert peak <= 3, f"ran {peak} cases at once with concurrency=3"
 
     @pytest.mark.anyio
+    async def test_a_blocking_sync_task_does_not_stall_the_others(self) -> None:
+        """Sync tasks are offloaded with asyncio.to_thread. Called directly they
+        would block the event loop, and the concurrency would be a lie.
+
+        Every other concurrency test uses an async task with asyncio.sleep, which
+        interleaves whether or not the offload exists — so only a genuinely
+        blocking task can prove it.
+        """
+        import time as clock
+
+        def blocking(value: str) -> str:
+            clock.sleep(0.05)
+            return value
+
+        cases = [Case(id=f"q{i}", input=str(i)) for i in range(8)]
+
+        started = clock.perf_counter()
+        await run_eval(_eval(blocking, cases), RunConfig(concurrency=8))
+        elapsed = clock.perf_counter() - started
+
+        # Serial would be 8 x 50ms = 400ms; offloaded should be near 50ms.
+        assert elapsed < 0.25, (
+            f"blocking sync tasks serialized ({elapsed:.2f}s): the event loop was blocked"
+        )
+
+    @pytest.mark.anyio
+    async def test_a_blocking_sync_task_still_traces(self) -> None:
+        """to_thread was chosen over a raw executor because it copies context.
+        A plain ThreadPoolExecutor would run concurrently but lose the traces."""
+        from evalstand.tracing import trace
+
+        def blocking(value: str) -> str:
+            with trace("inside-the-thread"):
+                return value
+
+        run = await run_eval(_eval(blocking))
+        assert [t.name for t in run.results[0].traces] == ["inside-the-thread"]
+
+    @pytest.mark.anyio
     async def test_concurrency_of_one_is_serial(self) -> None:
         order: list[str] = []
 
