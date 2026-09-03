@@ -7,6 +7,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- Phase 3 complete: the runner, tracing, repeats, and streaming. Concurrent
+  execution behind a semaphore, nested trace trees with per-node cost, repeats
+  that bypass the cache in both directions, and streamed chunks reaching a live
+  view as they arrive. 367 tests.
 - Phase 2 complete: the authoring API and pytest collection. `evaluate()`,
   the pytest plugin, console reporting, a minimal `evalstand run`, and the toy
   example. 263 tests, 98% coverage.

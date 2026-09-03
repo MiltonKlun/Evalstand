@@ -302,11 +302,11 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
   - This spends real money, N times over. The run summary must show it (`repeats bypassed cache: 5 x 30 calls`), because it is the easiest way to run up a bill by accident.
   - **Bypass runs in both directions:** a bypassed call is neither read from nor written to the Cache. Writing one would let a later non-repeat run serve an arbitrary sample from a repeat set as though it were the answer for that key.
   - *Acceptance:* `--repeat 5` on a temperature-0.7 task produces at least one case with 5 distinct outputs; a cache-hit counter shows zero hits for repeated cases.
-- [ ] **3.4 Wire streaming through the runner** so partial output is available to the reporting layer as it arrives.
+- [x] **3.4 Wire streaming through the runner** so partial output is available to the reporting layer as it arrives.
   - *Acceptance:* a streaming task shows incremental output in console reporting.
 - [x] **3.5 Aggregate per-run totals:** total cost, total tokens, cache hit rate, wall time, pass count.
 
-**Exit criteria:** the toy example runs concurrently with repeats, and a trace tree is captured and printable.
+**Exit criteria:** the toy example runs concurrently with repeats, and a trace tree is captured and printable. **— met 2026-09-02**, demonstrated against the committed cassette: 3 repeats at concurrency 3, cache correctly bypassed (6 calls rather than 2), and a two-level trace tree whose node costs sum to the case total of $0.00000510.
 
 ---
 
