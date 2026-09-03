@@ -233,11 +233,14 @@ def evaluate(
 def scorer(fn: ScorerFn) -> ScorerFn:
     """Mark a plain function as a scorer.
 
-    A placeholder in Phase 2: the real protocol, including async scorers and
-    `Score` normalisation, arrives with the scorer library in Phase 4.
+    Re-exported from `scorers.base`, where the protocol lives. Applying it is
+    optional — a plain function passed to `evaluate(scorers=[...])` is already
+    treated as a scorer — but it validates the signature at import time, so a
+    scorer that could never be called fails before a run spends money.
     """
-    fn.__evalstand_scorer__ = True  # type: ignore[attr-defined]
-    return fn
+    from evalstand.scorers.base import scorer as _scorer
+
+    return _scorer(fn)
 
 
 def trace(name: str) -> Any:
