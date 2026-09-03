@@ -119,6 +119,14 @@ def render_summary(
     parts.append(table)
 
     footer_bits: list[str] = []
+
+    tokens_in = sum(r.input_tokens or 0 for run in runs for r in run.results)
+    tokens_out = sum(r.output_tokens or 0 for run in runs for r in run.results)
+    if tokens_in or tokens_out:
+        footer_bits.append(f"{tokens_in} in / {tokens_out} out tokens")
+
+    footer_bits.extend(_cache_note(runs))
+
     errored = sum(run.errored_score_count for run in runs)
     if errored:
         # A mean computed over fewer scores than expected is a different claim
@@ -134,6 +142,25 @@ def render_summary(
         parts.append(Text("  |  ".join(footer_bits), style="dim"))
 
     return Group(*parts)
+
+
+def _cache_note(runs: list[Run]) -> list[str]:
+    """What the cache did, or why it did nothing.
+
+    A bypassed run paid for every call. Showing a 0% hit rate would read as a
+    cache that missed, when in truth it was deliberately skipped — and the plan
+    calls repeats the easiest way to run up a bill by accident, so the number of
+    calls actually paid for is stated.
+    """
+    calls = sum(run.model_calls for run in runs)
+    if not calls:
+        return []
+
+    if any(run.cache_bypassed for run in runs):
+        return [f"cache bypassed: {calls} calls made"]
+
+    hits = sum(run.cache_hits for run in runs)
+    return [f"cache {hits}/{calls} ({hits / calls:.0%})"]
 
 
 def render_failures(runs: list[Run]) -> RenderableType | None:

@@ -228,6 +228,13 @@ class Run(_Model):
     repeat_n: Annotated[int, Field(ge=1)] = 1
     results: list[Result] = Field(default_factory=list)
 
+    model_calls: Annotated[int, Field(ge=0)] = 0
+    cache_hits: Annotated[int, Field(ge=0)] = 0
+    cache_bypassed: bool = False
+    """True when this run skipped the cache — repeats always do. Recorded
+    because a bypassed run spends the full amount every time, and the plan
+    calls that the easiest way to run up a bill by accident."""
+
     def _successful_scores(self) -> list[Score]:
         return [s for r in self.results for s in r.scores if s.counts_towards_mean]
 
@@ -242,6 +249,17 @@ class Run(_Model):
     @property
     def total_cost_usd(self) -> float:
         return sum(r.total_cost_usd for r in self.results)
+
+    @property
+    def cache_hit_rate(self) -> float | None:
+        """Hits over model calls, or None when nothing was called.
+
+        None rather than 0.0: a run that made no calls did not have a 0% hit
+        rate, it had no rate at all.
+        """
+        if not self.model_calls:
+            return None
+        return self.cache_hits / self.model_calls
 
     def mean_scores_by_scorer(self) -> dict[str, float]:
         """Per-scorer means. Reported separately because averaging across
