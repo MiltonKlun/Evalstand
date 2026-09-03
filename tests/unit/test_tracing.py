@@ -76,9 +76,15 @@ class TestSyncNesting:
 
     def test_three_levels_nest(self) -> None:
         """Task 3.2's acceptance shape: a task making nested calls."""
-        with TraceCollector() as collector, trace("task"), trace("retrieve"):
-            with trace("embed"):
-                pass
+        # Written flat rather than nested: `with a, b, c` nests identically for
+        # context managers, and the assertions below are what prove the shape.
+        with (
+            TraceCollector() as collector,
+            trace("task"),
+            trace("retrieve"),
+            trace("embed"),
+        ):
+            pass
 
         task = _named(collector.traces, "task")
         retrieve = _named(collector.traces, "retrieve")
