@@ -314,6 +314,59 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "    import asyncio as _a\n"
         "    return list(await _a.gather(*(run_eval(d, config, only=u) for d, u in wanted.values())))",
     ),
+    # --- Phase 4: the scorer library ---
+    # Was SURVIVED as an equivalent mutant; this version is real.
+    (
+        "src/evalstand/scorers/base.py",
+        "a defaulted parameter counts as one the runner supplies",
+        "        if parameter.default is inspect.Parameter.empty:\n            positional += 1",
+        "        if True:\n            positional += 1",
+    ),
+    # Was SURVIVED for real: endpoints-only tests could not see it.
+    (
+        "src/evalstand/scorers/fuzzy.py",
+        "ratio is clamped instead of rescaled from percent",
+        '    return Score(scorer_name="ratio", value=fuzz.ratio(left, right) / 100.0)',
+        '    return Score(scorer_name="ratio", value=min(fuzz.ratio(left, right), 1.0))',
+    ),
+    (
+        "src/evalstand/scorers/fuzzy.py",
+        "levenshtein collapses to a binary check",
+        "    similarity = Levenshtein.normalized_similarity(left, right)",
+        "    similarity = 1.0 if left == right else 0.0",
+    ),
+    # The defect found in this audit: over-eager punctuation folding.
+    (
+        "src/evalstand/scorers/text.py",
+        "punctuation is stripped everywhere, so -5 matches 5",
+        '    tokens = (_EDGE_PUNCTUATION.sub("", token) for token in folded.split())',
+        '    import re as _re\n'
+        '    tokens = (_re.sub(r"[^\\w\\s]", "", token) for token in folded.split())',
+    ),
+    (
+        "src/evalstand/scorers/text.py",
+        "the trimmed set is widened to swallow signs and currency",
+        '        "\\"\'`.,;:!?()[]{}<>",',
+        '        "\\"\'`.,;:!?()[]{}<>+-$%=",',
+    ),
+    (
+        "src/evalstand/scorers/text.py",
+        "punctuation is not folded at all",
+        '    tokens = (_EDGE_PUNCTUATION.sub("", token) for token in folded.split())',
+        "    tokens = (token for token in folded.split())",
+    ),
+    (
+        "src/evalstand/scorers/text.py",
+        "tokens are joined without a separator",
+        '    return " ".join(token for token in tokens if token)',
+        '    return "".join(token for token in tokens if token)',
+    ),
+    (
+        "src/evalstand/scorers/text.py",
+        "empty tokens are kept, doubling separators",
+        '    return " ".join(token for token in tokens if token)',
+        '    return " ".join(tokens)',
+    ),
 ]
 
 

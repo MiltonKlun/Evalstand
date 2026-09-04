@@ -22,8 +22,37 @@ from evalstand.models import Score
 
 __all__ = ["contains", "exact", "normalised_exact", "regex_match"]
 
-_PUNCTUATION = re.compile(r"[^\w\s]", re.UNICODE)
-_WHITESPACE = re.compile(r"\s+")
+TRIMMED_PUNCTUATION = "".join(
+    [
+        "\"'`.,;:!?()[]{}<>",
+        # Typographic quotes, guillemets and dashes. Written as codepoints:
+        # they are visually near-identical to their ASCII counterparts, so a
+        # literal here reads as a duplicate and a linter flags it as a typo.
+        *(chr(code) for code in (0x00AB, 0x00BB)),  # guillemets
+        *(chr(code) for code in (0x201C, 0x201D)),  # curly double quotes
+        *(chr(code) for code in (0x2018, 0x2019)),  # curly single quotes
+        *(chr(code) for code in (0x2014, 0x2013)),  # em dash, en dash
+    ]
+)
+"""Punctuation that is presentation rather than content.
+
+Deliberately a **closed list** rather than "everything that is not a word
+character". The broad rule reads well until you see what it does: `-5` folds to
+`5`, `$100` and `100%` both fold to `100`, and `C++` folds to `C`. Each of those
+is a wrong answer scored as a perfect match — a false pass, which is the most
+damaging way for a scorer to fail because it looks like success and invites no
+investigation.
+
+A character not named here is assumed to be part of the answer. That is the safe
+direction to be wrong in: keeping a stray character costs a case that should
+have passed, and the user sees it and adjusts. Dropping a meaningful one hides a
+failure for good.
+"""
+
+_EDGE_PUNCTUATION = re.compile(
+    f"^[{re.escape(TRIMMED_PUNCTUATION)}]+|[{re.escape(TRIMMED_PUNCTUATION)}]+$"
+)
+"""Only at the edges of a token, so `don't` and `3.14` keep their insides."""
 
 
 def exact(output: Any, expected: Any) -> Score:
@@ -50,12 +79,16 @@ def normalise(text: Any) -> str:
     Case whose expected value is the literal text "None" — a false pass, which
     is the most damaging thing a scorer can produce because it looks like
     success and needs no investigating.
+
+    Punctuation is trimmed from the *edges* of each token and only from the
+    closed set in `TRIMMED_PUNCTUATION`. See that constant for why the obvious
+    "strip everything non-alphanumeric" rule is wrong.
     """
     if text is None:
         return ""
     folded = unicodedata.normalize("NFKC", str(text)).casefold()
-    folded = _PUNCTUATION.sub(" ", folded)
-    return _WHITESPACE.sub(" ", folded).strip()
+    tokens = (_EDGE_PUNCTUATION.sub("", token) for token in folded.split())
+    return " ".join(token for token in tokens if token)
 
 
 def normalised_exact(output: Any, expected: Any) -> Score:
