@@ -329,8 +329,13 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
   - **An ambiguous output is unparseable, not a guess.** `"42 or 43"`, `"between 10 and 20"` and `"5 + 5"` all refuse rather than pick a candidate, because a score nobody can audit is worse than an honest failure to read.
   - Refuses `nan`/`inf` (which `float()` accepts, and which then compare false against every tolerance, reading as a wrong answer rather than an unreadable one) and `bool` (which subclasses `int`, so `float(True)` is 1.0).
   - *Acceptance:* verified through the real runner — a model answering `"The widget costs $19.99."` against an expected 20.00 passes at `rel_tol=0.01`, `"I'd estimate roughly 1,000."` parses the separator, and `"somewhere between 10 and 20"` reports as unreadable rather than guessing. **— met 2026-09-03.** 18 mutants against the scorer, 18/18 killed.
-- [ ] **4.5 Structured scorer** in `json_field.py`: compare two dicts field by field, returning both a macro-average and a per-field breakdown in `Score.metadata`.
-  - *Acceptance:* a partial match on 3 of 5 fields returns 0.6 with the failing field names in metadata.
+- [x] **4.5 Structured scorer** in `json_field.py`: compare two dicts field by field, returning both a macro-average and a per-field breakdown in `Score.metadata`.
+  - Shipped as `json_fields(require_all=False)`. The value is a macro-average, so every field counts equally regardless of how much text it holds; `passed` stays absent unless `require_all=True`, where "every field correct" is a verdict the scorer genuinely knows.
+  - **The denominator is the expected keys.** A field the model volunteered is reported in metadata but never counted — otherwise a verbose model scores worse than a terse one that answered exactly as badly.
+  - **Nested dicts flatten to dotted paths**, so one wrong leaf costs one field rather than a whole subtree, and the metadata can name `person.born` instead of `person`.
+  - **Missing is reported separately from wrong.** Both score zero, but a wrong field means the model answered and erred while a missing one means it never answered — different fixes.
+  - Parses JSON returned as text, including ``` fences, since refusing to unwrap them would measure presentation rather than content.
+  - *Acceptance:* a partial match on 3 of 5 fields returns 0.6 with the failing field names in metadata. **— met 2026-09-04**, and verified through the real runner on a four-case extraction eval. 17 mutants against the scorer, 17/17 killed.
 - [ ] **4.6 LLM scorers** in `llm.py`: a `judge` factory taking a rubric and returning a scorer, plus a `factuality`-style scorer comparing output against expected. Judge calls must go through `llm.py` so they are cached, traced, and costed like any other call.
   - *Acceptance:* a judge scorer's LLM call appears in the case's trace tree.
   - *Note:* these scorers are unvalidated by design in this version. `docs/scorers.md` must say so plainly.
