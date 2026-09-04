@@ -11,14 +11,17 @@ implementation detail, and moving one should not break their eval file.
 
 from evalstand.scorers.base import Scorer, scorer
 from evalstand.scorers.fuzzy import levenshtein, ratio
+from evalstand.scorers.numeric import close_to, parse_number
 from evalstand.scorers.text import contains, exact, normalised_exact, regex_match
 
 __all__ = [
     "Scorer",
+    "close_to",
     "contains",
     "exact",
     "levenshtein",
     "normalised_exact",
+    "parse_number",
     "ratio",
     "regex_match",
     "scorer",

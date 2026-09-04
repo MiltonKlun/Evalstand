@@ -319,12 +319,16 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
 **Goal:** enough built-in scorers that a user never writes one on day one, plus a clean path when they do.
 **Estimate:** 10 hours.
 
-- [ ] **4.1 Define the `Scorer` protocol** in `scorers/base.py` and a `@scorer` decorator that adapts a plain function. Support sync and async scorers.
+- [x] **4.1 Define the `Scorer` protocol** in `scorers/base.py` and a `@scorer` decorator that adapts a plain function. Support sync and async scorers.
   - *Acceptance:* a user-defined 3-line scorer works without importing any base class.
-- [ ] **4.2 String scorers** in `text.py`: `exact`, `normalised_exact` (case, whitespace, and punctuation folding), `contains`, `regex_match`.
-- [ ] **4.3 Fuzzy scorers** in `fuzzy.py` using `rapidfuzz`: `levenshtein` (normalised to `[0, 1]`; this is `evalstand`'s default scorer) and `ratio`.
+- [x] **4.2 String scorers** in `text.py`: `exact`, `normalised_exact` (case, whitespace, and punctuation folding), `contains`, `regex_match`.
+- [x] **4.3 Fuzzy scorers** in `fuzzy.py` using `rapidfuzz`: `levenshtein` (normalised to `[0, 1]`; this is `evalstand`'s default scorer) and `ratio`.
   - *Acceptance:* `levenshtein("kitten", "sitting")` returns the documented normalised value.
-- [ ] **4.4 Numeric scorer** in `numeric.py`: absolute and relative tolerance, with sensible handling of `None` and unparseable output.
+- [x] **4.4 Numeric scorer** in `numeric.py`: absolute and relative tolerance, with sensible handling of `None` and unparseable output.
+  - Shipped as `close_to(rel_tol=..., abs_tol=...)`, a factory like `regex_match`: the tolerance is a property of the check, not of the data. Both default to 0, so a user who forgets one is not silently given slack.
+  - **An ambiguous output is unparseable, not a guess.** `"42 or 43"`, `"between 10 and 20"` and `"5 + 5"` all refuse rather than pick a candidate, because a score nobody can audit is worse than an honest failure to read.
+  - Refuses `nan`/`inf` (which `float()` accepts, and which then compare false against every tolerance, reading as a wrong answer rather than an unreadable one) and `bool` (which subclasses `int`, so `float(True)` is 1.0).
+  - *Acceptance:* verified through the real runner — a model answering `"The widget costs $19.99."` against an expected 20.00 passes at `rel_tol=0.01`, `"I'd estimate roughly 1,000."` parses the separator, and `"somewhere between 10 and 20"` reports as unreadable rather than guessing. **— met 2026-09-03.** 18 mutants against the scorer, 18/18 killed.
 - [ ] **4.5 Structured scorer** in `json_field.py`: compare two dicts field by field, returning both a macro-average and a per-field breakdown in `Score.metadata`.
   - *Acceptance:* a partial match on 3 of 5 fields returns 0.6 with the failing field names in metadata.
 - [ ] **4.6 LLM scorers** in `llm.py`: a `judge` factory taking a rubric and returning a scorer, plus a `factuality`-style scorer comparing output against expected. Judge calls must go through `llm.py` so they are cached, traced, and costed like any other call.

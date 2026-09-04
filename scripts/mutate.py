@@ -340,7 +340,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "src/evalstand/scorers/text.py",
         "punctuation is stripped everywhere, so -5 matches 5",
         '    tokens = (_EDGE_PUNCTUATION.sub("", token) for token in folded.split())',
-        '    import re as _re\n'
+        "    import re as _re\n"
         '    tokens = (_re.sub(r"[^\\w\\s]", "", token) for token in folded.split())',
     ),
     (
@@ -366,6 +366,115 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "empty tokens are kept, doubling separators",
         '    return " ".join(token for token in tokens if token)',
         '    return " ".join(tokens)',
+    ),
+    # --- Phase 4.4: the numeric scorer ---
+    (
+        "src/evalstand/scorers/numeric.py",
+        "an ambiguous output takes the first number instead of refusing",
+        "    if len(matches) != 1:",
+        "    if not matches:",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "ambiguity is judged on distinct values, so 5 + 5 reads as 5",
+        "    if len(matches) != 1:",
+        "    if len(set(matches)) != 1:",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "nan and infinity are accepted as measurements",
+        "    return number if math.isfinite(number) else None",
+        "    return number",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "a bool is scored as the number one",
+        "    if value is None or isinstance(value, bool):\n        return None",
+        "    if value is None:\n        return None",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "the thousands separator is left in, so 1,000 fails to parse",
+        '    return _finite(float(matches[0].replace(",", "")))',
+        "    return _finite(float(matches[0]))",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "the default tolerance silently allows 1%",
+        "    rel_tol: float = 0.0,",
+        "    rel_tol: float = 0.01,",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "a negative tolerance is accepted",
+        "    if rel_tol < 0 or abs_tol < 0:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "abs_tol is ignored, reintroducing the zero trap",
+        "        within = math.isclose(actual, target, rel_tol=rel_tol, abs_tol=abs_tol)",
+        "        within = math.isclose(actual, target, rel_tol=rel_tol)",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "rel_tol is ignored",
+        "        within = math.isclose(actual, target, rel_tol=rel_tol, abs_tol=abs_tol)",
+        "        within = math.isclose(actual, target, abs_tol=abs_tol)",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "magnitudes are compared, so -5 matches 5",
+        "        within = math.isclose(actual, target, rel_tol=rel_tol, abs_tol=abs_tol)",
+        "        within = math.isclose(abs(actual), abs(target), rel_tol=rel_tol, abs_tol=abs_tol)",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "an unreadable output is reported as a pass",
+        "        actual = parse_number(output)\n        if actual is None:",
+        "        actual = parse_number(output)\n        if False:",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "an unreadable expected value is reported as a pass",
+        "        target = parse_number(expected)\n        if target is None:",
+        "        target = parse_number(expected)\n        if False:",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "the scorer stops claiming a verdict",
+        "            value=1.0 if within else 0.0,\n            passed=within,",
+        "            value=1.0 if within else 0.0,",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "digits inside a token are read as numbers",
+        '    (?<![\\w.])          # not mid-token: the "5" in "a5" is not a number',
+        '    (?:)          # not mid-token: the "5" in "a5" is not a number',
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "a number ending a sentence fails to parse (the shipped regression)",
+        "    (?!\\w)              # not followed by more of a token",
+        "    (?![\\w.])           # the original buggy lookahead",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "a dotted sequence like 1.2.3 parses as a number",
+        "    (?!\\.\\d)            # nor by more number",
+        "    (?:)                # no guard against more number",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "the sign is dropped when parsing",
+        "    [+-]?               # sign, which is part of the value",
+        "    (?:)               # sign, which is part of the value",
+    ),
+    (
+        "src/evalstand/scorers/numeric.py",
+        "the parsed number is not reported in metadata",
+        '                "parsed_output": actual,',
+        '                "parsed_output": None,',
     ),
 ]
 
