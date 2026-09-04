@@ -140,6 +140,13 @@ class TestLevenshtein:
     def test_completely_different_strings_score_low(self) -> None:
         assert levenshtein("abc", "xyz").value == 0.0
 
+    def test_a_partial_match_is_neither_endpoint(self) -> None:
+        """Guards against a scorer that has collapsed to a binary check: both
+        `exact`-like mutants and clamping bugs pass an endpoints-only test."""
+        value = levenshtein("colour", "color").value
+        assert 0.0 < value < 1.0
+        assert value == pytest.approx(5 / 6, abs=1e-6)
+
     def test_a_near_miss_scores_near_one(self) -> None:
         """The reason this is the default scorer: a nearly-right answer scores
         nearly 1.0 instead of falling off the cliff `exact` presents."""
@@ -160,9 +167,17 @@ class TestRatio:
     def test_identical_strings_score_one(self) -> None:
         assert ratio("Paris", "Paris").value == 1.0
 
+    def test_a_partial_match_lands_between_the_endpoints(self) -> None:
+        """The value itself, not just its range.
+
+        Asserting only that 0.0 <= v <= 1.0 passes for any clamped nonsense: a
+        mutant returning `min(fuzz.ratio(...), 1.0)` — which reports 1.0 for
+        every non-empty pair — survived exactly that check. `fuzz.ratio`
+        reports a percentage, so only a middle value proves the rescaling.
+        """
+        assert ratio("kitten", "sitting").value == pytest.approx(0.61538, abs=1e-5)
+
     def test_it_stays_within_the_score_range(self) -> None:
-        """`fuzz.ratio` reports a percentage; a missing division by 100 would
-        produce 61.5 and be rejected by the Score model."""
         assert 0.0 <= ratio("kitten", "sitting").value <= 1.0
 
     def test_unrelated_strings_score_low(self) -> None:
@@ -269,3 +284,64 @@ class TestNormalise:
         compare a once-folded needle against a twice-folded haystack."""
         once = normalise("  Héllo,  World!  ")
         assert normalise(once) == once
+
+
+class TestNormalisationDoesNotDestroyMeaning:
+    """Folding must not turn a wrong answer into a right one.
+
+    The first version of `normalise` replaced every non-word character with a
+    space, which reads sensibly until you see what it does: `-5` scored a
+    perfect match against `5`, `$100` against `100%`, and `C++` against `C`.
+
+    These are false passes, and a false pass is the most damaging thing a scorer
+    can produce: a wrong answer marked correct is never investigated, whereas a
+    right answer marked wrong is seen immediately and fixed. So the punctuation
+    that gets folded is a closed, named list, and anything not on it is treated
+    as part of the answer.
+    """
+
+    @pytest.mark.parametrize(
+        "output,expected,why",
+        [
+            ("-5", "5", "a sign error is a wrong answer, not a formatting choice"),
+            ("$100", "100%", "money and a percentage are different quantities"),
+            ("C++", "C", "a different language"),
+            ("2+2", "2 2", "an expression is not two separate numbers"),
+            ("3.14", "314", "the decimal point carries the magnitude"),
+            ("1,000", "1000", "the separator is part of how the number was written"),
+            ("x=1", "x 1", "an assignment is not two tokens"),
+        ],
+    )
+    def test_meaningful_characters_survive_normalisation(
+        self, output: str, expected: str, why: str
+    ) -> None:
+        assert normalised_exact(output, expected).passed is False, why
+
+    @pytest.mark.parametrize(
+        "output",
+        ["Paris.", "Paris!", "Paris?", "Paris,", '"Paris"', "'Paris'", "(Paris)", "yes"],
+    )
+    def test_presentation_punctuation_still_folds(self, output: str) -> None:
+        """The other half. Trimming too little would make the scorer useless for
+        the case it exists to handle: a model that ends its answer with a stop."""
+        assert normalised_exact(output, output.strip("\"'.,!?()")).passed is True
+
+    def test_punctuation_inside_a_word_is_kept(self) -> None:
+        """Only the edges are trimmed, so contractions and decimals survive."""
+        assert normalise("don't") == "don't"
+        assert normalise("3.14") == "3.14"
+
+    def test_a_pure_punctuation_output_normalises_to_nothing(self) -> None:
+        """Two contentless outputs are equivalently contentless. Unavoidable,
+        and defensible: neither says anything."""
+        assert normalise("...") == ""
+        assert normalise("!!!") == ""
+
+    def test_a_token_that_folds_away_entirely_leaves_no_gap(self) -> None:
+        """A word made only of trimmed punctuation disappears rather than
+        becoming an empty token. Without the filter, "hi ... there" normalises
+        with a double space and stops matching "hi there" -- the ellipsis a
+        model uses mid-sentence would silently fail the case."""
+        assert normalise("hi ... there") == "hi there"
+        assert normalise("!!! yes !!!") == "yes"
+        assert normalised_exact("hi ... there", "hi there").passed is True
