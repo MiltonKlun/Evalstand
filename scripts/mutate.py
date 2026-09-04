@@ -476,6 +476,113 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '                "parsed_output": actual,',
         '                "parsed_output": None,',
     ),
+    # --- Phase 4.5: the structured scorer ---
+    (
+        "src/evalstand/scorers/json_field.py",
+        "the denominator counts volunteered fields, penalising verbosity",
+        "        value = len(matched) / len(fields)",
+        "        value = len(matched) / max(len(set(fields) | set(given)), 1)",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "a missing field is reported as wrong",
+        "            if path not in given:\n                missing.append(path)",
+        "            if False:\n                missing.append(path)",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "nested dicts are compared whole rather than flattened",
+        '        if isinstance(value, Mapping) and value:\n            flat.update(flatten(value, f"{path}."))',
+        '        if False:\n            flat.update(flatten(value, f"{path}."))',
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "an empty nested dict silently drops the requirement",
+        "        if isinstance(value, Mapping) and value:",
+        "        if isinstance(value, Mapping):",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "an empty expected object scores 1.0 instead of erroring",
+        "        if not fields:",
+        "        if False:",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "a non-object expected value is treated as a task failure",
+        "        target = parse_object(expected)\n        if target is None:",
+        "        target = parse_object(expected)\n        if False:",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "a fenced JSON block is not unwrapped",
+        "    fenced = _FENCE.match(text)\n    if fenced:",
+        "    fenced = _FENCE.match(text)\n    if False:",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "a JSON array is accepted as an object",
+        "    return parsed if isinstance(parsed, dict) else None",
+        "    return parsed",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "a null matches an empty string",
+        "        return output_value is None and expected_value is None",
+        "        return normalise(output_value) == normalise(expected_value)",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "numbers are compared as text, so 1843 misses 1843.0",
+        "    left, right = _as_number(output_value), _as_number(expected_value)",
+        "    left, right = None, None",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "a number inside prose makes two answers equal",
+        "def _as_number(value: Any) -> float | None:",
+        "def _as_number(value: Any) -> float | None:\n"
+        "    from evalstand.scorers.numeric import parse_number\n"
+        "    return parse_number(value)\n"
+        "\n"
+        "def _unused(value: Any) -> float | None:",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "a bool matches the number one",
+        "    if isinstance(value, bool):\n        return None",
+        "    if False:\n        return None",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "lists ignore order",
+        "        return len(output_value) == len(expected_value) and all(\n            _matches(a, b) for a, b in zip(output_value, expected_value, strict=True)\n        )",
+        "        return sorted(map(str, output_value)) == sorted(map(str, expected_value))",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "require_all is ignored, so nothing ever claims a verdict",
+        "            passed=(not wrong and not missing) if require_all else None,",
+        "            passed=None,",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "a partial score claims a verdict it was never given",
+        "            passed=(not wrong and not missing) if require_all else None,",
+        "            passed=(not wrong and not missing),",
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "the failing field names are not reported",
+        '                "wrong": sorted(wrong),',
+        '                "wrong": [],',
+    ),
+    (
+        "src/evalstand/scorers/json_field.py",
+        "an unreadable output reports no missing fields",
+        '                    "missing": sorted(fields),',
+        '                    "missing": [],',
+    ),
 ]
 
 
