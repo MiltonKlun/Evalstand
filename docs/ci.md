@@ -49,8 +49,8 @@ jobs:
 
 ## What CI can and cannot check
 
-**A threshold is an absolute bar.** `--threshold` (Phase 7) fails a run whose mean
-score falls below a number you choose. That number is a human decision taken from
+**A threshold is an absolute bar.** `--threshold` fails a run whose mean score
+falls below a number you choose. That number is a human decision taken from
 a committed baseline — never computed from the most recent run, which would let
 the bar drift downward every time quality dropped.
 
@@ -65,6 +65,36 @@ reports the plain difference between their means. It does not call a change a
 regression or an improvement, because it has no significance testing: a difference
 between two runs of a stochastic system may be noise, and asserting otherwise
 would be a claim the tool cannot support.
+
+```
+$ evalstand compare run-old run-new
+
+ scorer | before | after | changed by
+ exact  |   0.75 |  0.50 |      -0.25
+
+ cases whose pass state changed
+ q1     | fail -> pass
+ q3     | pass -> fail
+
+evalstand has no significance testing: a delta is an arithmetic difference,
+not evidence of a real change.
+```
+
+That last line is printed on every comparison, not left to this document. A
+reader who takes a delta as proof of a change has been misled by the tool, and
+the tool is the only thing present at the moment they might do so.
+
+**An edited case is not evidence about the task.** If a case's input or expected
+value changed between two runs, its pass state may have moved for a reason that
+has nothing to do with the model. Those cases are listed separately, under
+"cases edited between these runs", and are never counted as flips. `evalstand`
+knows which is which because it snapshots every case's content hash with the run
+that used it.
+
+**Two runs may not be comparable at all.** `compare` says so when the runs are of
+different evals, when the task's source changed between them, or when they did
+not cover the same set of cases — each of which makes a mean-to-mean difference
+mean something other than it appears to.
 
 **Errored scores are excluded, and counted.** A scorer that raised — a rate-limited
 judge, an unparseable output — is not evidence the task did badly. Those scores are

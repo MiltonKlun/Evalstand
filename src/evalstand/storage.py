@@ -442,6 +442,22 @@ class RunStore:
             rows = self.connection.execute(" ".join(query), parameters).fetchall()
             return [self._build_run(row) for row in rows]
 
+    def case_hashes(self, run_id: str) -> dict[str, str]:
+        """Each case's content hash as it was when this run executed.
+
+        What makes an Amended Case distinguishable from a Flip: a pass state
+        that moved because somebody edited the expected value says nothing
+        about the task, and reporting it as evidence would be a false claim.
+        """
+        with self._lock:
+            return {
+                row[0]: row[1]
+                for row in self.connection.execute(
+                    "SELECT case_id, content_hash FROM case_snapshots WHERE run_id = ?",
+                    (run_id,),
+                )
+            }
+
     def eval_names(self) -> list[str]:
         with self._lock:
             return [
