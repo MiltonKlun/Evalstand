@@ -480,9 +480,15 @@ Harness now at 116 mutants; 861 tests.
   - Ground truth is verified **internally consistent**: all 30 totals equal the sum of their line items, and every line amount equals quantity x unit price. Decimal throughout, because 0.1 + 0.2 is not 0.3 in binary floating point and a truth that disagrees with itself by a cent makes every extraction look wrong.
   - **A trap worth recording: `pypdfium2` is not thread-safe.** The runner offloads sync tasks to a thread pool, and eight threads in the same C library killed the interpreter with an access violation — not a Python exception the runner could record. `read_pdf` holds a lock, and the README says so, because any user with a C-backed library in their task will hit this.
   - Verified end to end against a mocked provider: 30/30 cases run, and a model that invents a plausible due date for the three invoices that have none scores 0.833 on those, with `json_fields` naming `due_date` as the wrong field.
-- [ ] **5.7 Commit baseline results** as `examples/pdf_extraction/BASELINE.md` with per-field accuracy, cost per document, and observed failure modes.
+- [~] **5.7 Commit baseline results** as `examples/pdf_extraction/BASELINE.md` with per-field accuracy, cost per document, and observed failure modes.
+  - **Tooling complete; the measurement itself awaits an API key.** `baseline.py <run_id>` reads a stored run and writes the whole document — scorer means, per-field accuracy from `json_fields`' own metadata, cost per document, and every failing case with the field names that failed on it. Verified end to end against a mocked run.
+  - **Generated, never typed.** A hand-written figure drifts from the code the moment either changes, and a baseline that disagrees with the tool is worse than none — it is the number people quote.
+  - The committed `BASELINE.md` is a **placeholder that states no numbers**. Filling it with plausible figures would make it a measurement nobody made; a test asserts the placeholder carries no rate or cost in any table cell, and fails if someone adds one.
+  - Two ways it refuses to be quietly wrong: a run whose calls all cost exactly the same is **labelled as coming from a mocked provider** (real completions vary in length and therefore price), and a run with no priced calls reports `-` rather than `$0.0000`.
+  - Uses no verdict language, for the same reason `compare` does not — asserted by test.
+  - **Remaining:** `pytest extraction_eval.py` with `OPENAI_API_KEY` set (~60 calls), then `python baseline.py <run_id>`.
 
-**Exit criteria:** runs persist, history and comparison work, the showcase example runs from a clean clone.
+**Exit criteria:** runs persist, history and comparison work, the showcase example runs from a clean clone. **— met 2026-09-05**, except the recorded baseline in 5.7, which needs an API key. Runs persist with provenance; `history`, `show` and `compare` all read them back; the example generates a byte-identical corpus and runs end to end.
 
 ---
 

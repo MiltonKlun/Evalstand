@@ -290,3 +290,239 @@ class TestTheEvalIsWiredCorrectly:
         # Each invoice's own number must appear in its own text: a race that
         # returned another document's page would pass a length check.
         assert all(f"INV-{2026000 + index:07d}" in texts[index] for index in range(10))
+
+
+class TestTheBaselineGenerator:
+    """`baseline.py` turns a stored run into BASELINE.md (task 5.7).
+
+    Generated rather than typed: a hand-written figure drifts from the code the
+    moment either changes, and a baseline that quietly disagrees with the tool
+    is worse than none — it is the number people quote.
+
+    These tests build Runs directly. The real baseline needs an API key; the
+    machinery that turns a run into a document does not.
+    """
+
+    @staticmethod
+    def _run(results: list[Any]) -> Any:
+        from datetime import UTC, datetime
+
+        from evalstand.models import Run, RunStatus
+
+        return Run(
+            id="run-baseline",
+            batch_id="b1",
+            name="invoice-extraction",
+            filepath="extraction_eval.py",
+            status=RunStatus.COMPLETED,
+            started_at=datetime.now(UTC),
+            results=results,
+        )
+
+    @staticmethod
+    def _result(case_id: str, matched: list[str], wrong: list[str], **kwargs: Any) -> Any:
+        from evalstand.models import Result, Score, Trace
+
+        return Result(
+            id=f"r-{case_id}",
+            case_id=case_id,
+            scores=[
+                Score(
+                    scorer_name="json_fields",
+                    value=len(matched) / max(len(matched) + len(wrong), 1),
+                    metadata={"matched": matched, "wrong": wrong, "missing": []},
+                )
+            ],
+            traces=[
+                Trace(
+                    id=f"t-{case_id}",
+                    name="model call",
+                    model="gpt-4o-mini",
+                    duration_ms=10,
+                    cost_usd=kwargs.get("cost", 0.0003),
+                )
+            ],
+        )
+
+    def test_per_field_accuracy_counts_each_field(self) -> None:
+        baseline = _load("baseline")
+        run = self._run(
+            [
+                self._result("a", matched=["total", "vendor"], wrong=[]),
+                self._result("b", matched=["vendor"], wrong=["total"]),
+            ]
+        )
+
+        assert baseline.field_accuracy(run) == {"total": (1, 2), "vendor": (2, 2)}
+
+    def test_a_missing_field_counts_as_attempted_and_wrong(self) -> None:
+        """The model was asked for it and did not supply it. A different
+        failure from supplying the wrong value, but not a better one."""
+        from evalstand.models import Result, Score
+
+        baseline = _load("baseline")
+        run = self._run(
+            [
+                Result(
+                    id="r",
+                    case_id="a",
+                    scores=[
+                        Score(
+                            scorer_name="json_fields",
+                            value=0.5,
+                            metadata={"matched": ["total"], "wrong": [], "missing": ["vendor"]},
+                        )
+                    ],
+                )
+            ]
+        )
+
+        assert baseline.field_accuracy(run) == {"total": (1, 1), "vendor": (0, 1)}
+
+    def test_an_errored_score_does_not_count_against_a_field(self) -> None:
+        """A scorer that broke is not evidence the model got a field wrong —
+        the same rule that keeps errored scores out of every mean."""
+        from evalstand.models import Result, Score
+
+        baseline = _load("baseline")
+        run = self._run(
+            [
+                Result(
+                    id="r",
+                    case_id="a",
+                    scores=[Score.from_error("json_fields", "the output was not JSON")],
+                )
+            ]
+        )
+
+        assert baseline.field_accuracy(run) == {}
+
+    def test_failure_modes_group_by_document(self) -> None:
+        """A document that got three fields wrong is usually one problem, and
+        listing them apart hides that."""
+        baseline = _load("baseline")
+        run = self._run(
+            [
+                self._result("good", matched=["total"], wrong=[]),
+                self._result("bad", matched=[], wrong=["total", "vendor"]),
+            ]
+        )
+
+        modes = baseline.failure_modes(run)
+
+        assert [case_id for case_id, _ in modes] == ["bad"]
+        assert "total, vendor" in modes[0][1][0]
+
+    def test_the_rendered_document_carries_the_three_required_sections(self) -> None:
+        """Task 5.7 asks for per-field accuracy, cost per document, and
+        observed failure modes."""
+        baseline = _load("baseline")
+        text = baseline.render(
+            self._run([self._result("a", matched=["total"], wrong=["vendor"])]),
+            "gpt-4o-mini",
+        )
+
+        assert "Per-field accuracy" in text
+        assert "cost per document" in text
+        assert "Observed failure modes" in text
+
+    def test_it_states_that_the_judge_is_unvalidated(self) -> None:
+        """The baseline is where a number gets quoted, so the caveat belongs
+        beside it rather than only in the scorer documentation."""
+        baseline = _load("baseline")
+        text = baseline.render(self._run([self._result("a", ["total"], [])]), "gpt-4o-mini")
+
+        assert "unvalidated" in text
+
+    def test_it_refuses_to_call_a_number_good_or_bad(self) -> None:
+        """The same restraint `compare` observes. A baseline that graded itself
+        would assert more than one run can support."""
+        baseline = _load("baseline")
+        text = baseline.render(self._run([self._result("a", [], ["total"])]), "gpt-4o-mini").lower()
+
+        for word in ("regress", "improve", "excellent", "poor", "acceptable"):
+            assert word not in text, f"the baseline editorialised: {word}"
+
+        # "target" appears, but only in the disclaimer that says this is not
+        # one. Asserted rather than banned, because the sentence carrying it is
+        # the whole point.
+        assert "not a target" in text
+
+    def test_a_run_with_no_priced_calls_is_not_reported_as_free(self) -> None:
+        """`$0.0000` claims a run cost nothing. `-` says nobody knows."""
+        from evalstand.models import Result
+
+        baseline = _load("baseline")
+        run = self._run([Result(id="r", case_id="a")])
+        text = baseline.render(run, "gpt-4o-mini")
+
+        assert "$0.0000" not in text
+
+    def test_a_mocked_run_is_labelled_as_one(self) -> None:
+        """A baseline generated from fixtures and committed as though it were a
+        measurement would be the most misleading document in the repository.
+        Every call costing exactly the same is the signal: real completions
+        vary in length and therefore in price."""
+        baseline = _load("baseline")
+        run = self._run(
+            [self._result(f"case{index}", ["total"], [], cost=0.0003) for index in range(5)]
+        )
+
+        assert "mocked provider" in baseline.render(run, "gpt-4o-mini")
+
+    def test_a_real_looking_run_is_not_labelled(self) -> None:
+        """The other half: varying costs must not trip the warning, or it
+        becomes noise on every real baseline."""
+        baseline = _load("baseline")
+        run = self._run(
+            [
+                self._result(f"case{index}", ["total"], [], cost=0.0003 + index * 0.00001)
+                for index in range(5)
+            ]
+        )
+
+        assert "mocked provider" not in baseline.render(run, "gpt-4o-mini")
+
+
+class TestTheCommittedBaseline:
+    """BASELINE.md is a placeholder until a real run exists.
+
+    Tested because the failure mode is specific and quiet: someone fills it in
+    with plausible numbers, or regenerates it from a mocked run, and the file
+    becomes a measurement nobody made.
+    """
+
+    def test_it_does_not_state_numbers_it_has_not_measured(self) -> None:
+        text = (EXAMPLE / "BASELINE.md").read_text(encoding="utf-8")
+
+        if "Not yet recorded" not in text:
+            return
+
+        # Scoped to table cells. A figure inside a table reads as a result
+        # whatever the surrounding prose says; the same characters in a
+        # sentence explaining why `$0.0000` is never printed do not.
+        cells = [line for line in text.splitlines() if line.strip().startswith("|")]
+        joined = "\n".join(cells)
+
+        assert not re.search(r"\d+%", joined), "the placeholder quotes a rate"
+        assert not re.search(r"\$\d+\.\d{2}", joined), "the placeholder quotes a cost"
+
+    def test_a_real_baseline_names_the_run_it_came_from(self) -> None:
+        """So a reader can open it with `evalstand show` and check."""
+        text = (EXAMPLE / "BASELINE.md").read_text(encoding="utf-8")
+
+        if "Not yet recorded" not in text:
+            assert re.search(r"run-[0-9a-f]{12}", text), "no run id to trace it back to"
+
+    def test_it_says_the_judge_is_unvalidated(self) -> None:
+        """True of both the placeholder and any generated version: a baseline
+        is where a number gets quoted, so the caveat belongs beside it."""
+        text = (EXAMPLE / "BASELINE.md").read_text(encoding="utf-8")
+
+        assert "unvalidated" in text
+
+    def test_it_says_a_difference_is_not_a_verdict(self) -> None:
+        """The same restraint the tool itself observes."""
+        text = (EXAMPLE / "BASELINE.md").read_text(encoding="utf-8")
+
+        assert "significance testing" in text
