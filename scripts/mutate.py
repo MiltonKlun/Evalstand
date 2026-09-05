@@ -43,6 +43,10 @@ EXTRA_PRELUDES = {
         _never_raised("_NeverRaised", "_NeverRaisedP"),
         "_TIMEOUT_SECONDS = 10",
     ),
+    "src/evalstand/storage.py": (
+        _never_raised("_NeverRaisedS"),
+        'logger = logging.getLogger("evalstand.storage")',
+    ),
     "src/evalstand/recording.py": (
         _never_raised("_NeverRaisedR"),
         'logger = logging.getLogger("evalstand.recording")',
@@ -980,6 +984,97 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "the recorder closes a store it does not own",
         "        if self._owns_store:\n            self.store.close()",
         "        self.store.close()",
+    ),
+    # --- Phase 5.3: reading history back ---
+    (
+        "src/evalstand/reporting/console.py",
+        "a run that made no calls is reported as free",
+        "    if not priced:\n        # Either no calls were made",
+        "    if False:\n        # Either no calls were made",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "a partly-priced run is shown as an exact total",
+        '    return formatted if run.cost_is_complete else f"{formatted}+"',
+        "    return formatted",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "every cost is marked as a lower bound",
+        '    return formatted if run.cost_is_complete else f"{formatted}+"',
+        '    return f"{formatted}+"',
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "a dirty tree is not marked in the commit column",
+        '    return f"{short}*" if batch.git_dirty else short',
+        "    return short",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "every commit is marked dirty",
+        '    return f"{short}*" if batch.git_dirty else short',
+        '    return f"{short}*"',
+    ),
+    (
+        "src/evalstand/storage.py",
+        "cancelled batches are listed alongside completed ones",
+        "            \"WHERE b.status != 'cancelled'\",",
+        '            "WHERE 1=1",',
+    ),
+    (
+        "src/evalstand/storage.py",
+        "history is ordered oldest first",
+        '        query.append("ORDER BY r.started_at DESC, r.id DESC LIMIT ?")',
+        '        query.append("ORDER BY r.started_at ASC, r.id ASC LIMIT ?")',
+    ),
+    (
+        "src/evalstand/storage.py",
+        "the name filter is ignored, so every eval is listed",
+        '            query.append("AND r.name = ?")',
+        '            query.append("AND ? IS NOT NULL")',
+    ),
+    (
+        "src/evalstand/storage.py",
+        "an absent verdict is read back as a failure",
+        '                passed=None if score_row["passed"] is None else bool(score_row["passed"]),',
+        '                passed=bool(score_row["passed"]),',
+    ),
+    (
+        "src/evalstand/storage.py",
+        "a trace loses its parent, flattening the tree",
+        '            parent_id=row["parent_id"],',
+        "            parent_id=None,",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "an unpriced trace is read back as free",
+        '            output_tokens=tokens.get("output"),',
+        '            output_tokens=tokens.get("output"),\n            cost_usd=row["cost_usd"] or 0.0,  # mutant\n            #',
+    ),
+    (
+        "src/evalstand/storage.py",
+        "a structured output is read back as text",
+        '            output=_unjson(row["output_json"], fallback=row["output_text"]),',
+        '            output=row["output_text"],',
+    ),
+    (
+        "src/evalstand/storage.py",
+        "error frames are dropped on read",
+        '            error_frames=_unjson(row["error_frames"]) or [],',
+        "            error_frames=[],",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "an unreadable timestamp takes down the whole run",
+        '    except ValueError:\n        logger.debug("could not parse a stored timestamp',
+        '    except _NeverRaisedS:\n        logger.debug("could not parse a stored timestamp',
+    ),
+    (
+        "src/evalstand/storage.py",
+        "git_dirty None is read back as clean",
+        '            git_dirty=None if row["git_dirty"] is None else bool(row["git_dirty"]),',
+        '            git_dirty=bool(row["git_dirty"]),',
     ),
 ]
 

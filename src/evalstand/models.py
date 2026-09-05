@@ -310,6 +310,24 @@ class Run(_Model):
         return sum(r.total_cost_usd for r in self.results)
 
     @property
+    def unpriced_call_count(self) -> int:
+        """Model calls whose cost could not be determined.
+
+        `total_cost_usd` sums what is known, so a run with unpriced calls
+        reports a **lower bound** rather than a total. A reader shown that
+        figure as exact would understate their bill, which is the same class of
+        error as a false pass: quietly wrong in the direction that matters.
+
+        Callers that display a cost must consult this and say so.
+        """
+        return sum(1 for r in self.results for t in r.traces if t.cost_usd is None)
+
+    @property
+    def cost_is_complete(self) -> bool:
+        """Whether `total_cost_usd` is the whole cost or only part of it."""
+        return self.unpriced_call_count == 0
+
+    @property
     def cache_hit_rate(self) -> float | None:
         """Hits over model calls, or None when nothing was called.
 

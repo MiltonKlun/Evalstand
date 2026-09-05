@@ -79,6 +79,60 @@ def run(
 
 
 @app.command()
+def history(
+    name: Annotated[
+        str | None,
+        typer.Argument(help="Only show runs of this eval. Omit for all of them."),
+    ] = None,
+    limit: Annotated[int, typer.Option("--limit", "-n", help="How many runs to show.")] = 20,
+    database: Annotated[
+        Path | None,
+        typer.Option("--db", help="Read a database other than the project's own."),
+    ] = None,
+) -> None:
+    """List past runs: when they ran, from which commit, and what they measured."""
+    from rich.console import Console
+
+    from evalstand.reporting.console import render_history
+    from evalstand.storage import DatabaseTooNewError, RunStore
+
+    console = Console()
+
+    try:
+        store = RunStore(database) if database is not None else RunStore()
+    except DatabaseTooNewError as exc:
+        # Refused rather than read best-effort: a partial read would produce a
+        # table that looks right and answers a different question.
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    except OSError as exc:
+        console.print(f"[red]could not open the history database: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    with store:
+        runs = store.runs_for(name, limit=limit)
+        if not runs:
+            # Told apart deliberately. "No runs yet" and "no runs of *that*
+            # eval" send a user looking in completely different places.
+            known = store.eval_names()
+            if name is not None and known:
+                console.print(f"no runs recorded for [bold]{name}[/bold].")
+                console.print(f"known evals: {', '.join(known)}")
+            else:
+                console.print("no runs recorded yet.")
+            return
+
+        entries = [(run, store.batch_for(run.id)) for run in runs]
+
+    console.print(render_history(entries))
+    if any(batch is not None and batch.git_dirty for _, batch in entries):
+        console.print(
+            "[dim]* the working tree had uncommitted changes, so that run "
+            "cannot be reproduced from its commit[/dim]"
+        )
+
+
+@app.command()
 def version() -> None:
     """Print the installed version."""
     from evalstand import __version__
