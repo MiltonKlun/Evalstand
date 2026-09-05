@@ -492,6 +492,35 @@ Harness now at 116 mutants; 861 tests.
 
 ---
 
+### Pre-Phase-6 audit — 2026-09-05
+
+A review before the TUI lands, on the layer where a defect now costs most:
+before Phase 5 a wrong number was on screen and gone, and now it is written
+down, quoted by three commands, and compared against months later. Three
+defects, none caught by the 1058 tests passing at the time.
+
+- **`compare` printed "nothing differs" while every case was crashing.** A flip
+  needs a verdict on both sides and a move needs a value on both sides, so a
+  case that errored fell through every branch — and `is_empty` then made an
+  explicitly false statement. A user comparing a nightly run against a baseline
+  would read it and move on while the eval was completely broken. Fixed with a
+  fourth section, *cases whose measurement changed*, kept apart from flips
+  because "was passing, now crashes" is not the task getting worse.
+- **Stored results came back in the wrong order.** `runner.py` promises
+  declaration order; storage read them `ORDER BY case_id`, so `q10` sorted
+  before `q2` and a 30-case report could not be matched against its eval file.
+  Fixed with a stored ordinal, migration 2, nullable so old databases still
+  read.
+- **`BatchRecorder.record()` silently discarded a mismatched run.** The
+  never-lose-a-measurement policy was swallowing a programming error it was
+  never meant to cover, leaving a batch row with no runs beneath it — the same
+  shape as the 5.2 bug. Now raised.
+
+12 mutants reintroducing these, 12/12 killed. Harness at 202 mutants; 1075
+tests.
+
+---
+
 ## Phase 6 — TUI and watch mode
 
 **Goal:** the live feedback loop that is the whole point of the tool.

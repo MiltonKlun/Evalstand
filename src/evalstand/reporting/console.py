@@ -19,7 +19,14 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from evalstand.comparison import AmendedCase, Comparison, Flip, ScoreMove, ScorerDelta
+from evalstand.comparison import (
+    AmendedCase,
+    Comparison,
+    Flip,
+    MeasurementChange,
+    ScoreMove,
+    ScorerDelta,
+)
 from evalstand.models import Batch, BatchStatus, Result, Run, Score, Trace
 
 __all__ = [
@@ -493,6 +500,13 @@ def render_comparison(comparison: Comparison) -> RenderableType:
     parts.append(Text())
     parts.append(_delta_table(comparison.scorer_deltas))
 
+    # First, because a case that did not run cannot also have flipped — and
+    # because a run whose cases all stopped being measured is the finding, not
+    # a footnote to one.
+    if comparison.measurement_changes:
+        parts.append(Text())
+        parts.append(_measurement_table(comparison.measurement_changes))
+
     if comparison.flips:
         parts.append(Text())
         parts.append(_flip_table(comparison.flips))
@@ -601,6 +615,33 @@ def _flip_table(flips: list[Flip]) -> RenderableType:
             "pass" if flip.passed_after else "fail",
             _truncate(flip.output_before, 40),
             _truncate(flip.output_after, 40),
+        )
+
+    return table
+
+
+def _measurement_table(changes: list[MeasurementChange]) -> RenderableType:
+    """Cases that gained or lost a measurement.
+
+    Separate from the flip table on purpose. "Was passing, now crashes" is not
+    the task getting worse — the task did not run, and saying otherwise would
+    attribute an infrastructure failure to the model.
+    """
+    table = Table(
+        title="cases whose measurement changed",
+        show_header=True,
+        header_style="bold yellow",
+        expand=False,
+    )
+    table.add_column("case")
+    table.add_column("change")
+    table.add_column("detail")
+
+    for change in changes:
+        table.add_row(
+            change.case_id,
+            change.description,
+            _truncate(change.detail or "", 60),
         )
 
     return table

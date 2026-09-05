@@ -479,3 +479,80 @@ class TestTheReadPathPreservesUncertainty:
         assert loaded is not None, "one bad timestamp discarded the whole run"
         assert loaded.started_at is None
         assert loaded.mean_score == 1.0, "the measurement survived"
+
+
+class TestResultsComeBackInDeclarationOrder:
+    """`runner.py` promises it: "a report whose rows shuffle between runs
+    cannot be read or diffed, so results are collected back into declaration
+    order."
+
+    Storage broke that promise as soon as a suite had ten cases, because it
+    read them back `ORDER BY case_id` and text ordering puts q10 before q2. A
+    user reading a 30-case report could not match it against their eval file.
+    """
+
+    def test_ten_or_more_cases_keep_their_order(self, store: RunStore) -> None:
+        """Ten is where it starts: with nine cases, alphabetical and
+        declaration order happen to agree, and the bug is invisible."""
+        declared = [f"q{index}" for index in range(1, 13)]
+        store.save_batch(_batch())
+        store.save_run(
+            _run(
+                results=[Result(id=f"run-1-{case}", case_id=case, output=case) for case in declared]
+            )
+        )
+
+        loaded = store.load_run("run-1")
+        assert loaded is not None
+        assert [r.case_id for r in loaded.results] == declared
+
+    def test_an_arbitrary_declared_order_is_preserved(self, store: RunStore) -> None:
+        """Cases are not always named in a sortable way. Whatever order the
+        eval file declared is the order the report must show."""
+        declared = ["zebra", "apple", "monkey", "banana"]
+        store.save_batch(_batch())
+        store.save_run(
+            _run(
+                results=[Result(id=f"run-1-{case}", case_id=case, output=case) for case in declared]
+            )
+        )
+
+        loaded = store.load_run("run-1")
+        assert loaded is not None
+        assert [r.case_id for r in loaded.results] == declared
+
+    def test_repeats_of_one_case_stay_in_index_order(self, store: RunStore) -> None:
+        store.save_batch(_batch())
+        store.save_run(
+            _run(
+                results=[
+                    Result(id=f"run-1-q1-{index}", case_id="q1", repeat_index=index)
+                    for index in range(4)
+                ]
+            )
+        )
+
+        loaded = store.load_run("run-1")
+        assert loaded is not None
+        assert [r.repeat_index for r in loaded.results] == [0, 1, 2, 3]
+
+    def test_rows_written_before_the_ordinal_existed_still_load(self, store: RunStore) -> None:
+        """The column is nullable so the migration needs no backfill. A row
+        with no ordinal sorts last rather than jumbling the ones that have
+        one — a database that could not be read after upgrading would be a
+        worse failure than a wrong order."""
+        store.save_batch(_batch())
+        store.save_run(
+            _run(
+                results=[
+                    Result(id="run-1-q1", case_id="q1"),
+                    Result(id="run-1-q2", case_id="q2"),
+                ]
+            )
+        )
+        store.connection.execute("UPDATE results SET ordinal = NULL WHERE case_id = 'q1'")
+
+        loaded = store.load_run("run-1")
+        assert loaded is not None
+        assert {r.case_id for r in loaded.results} == {"q1", "q2"}
+        assert loaded.results[-1].case_id == "q1", "an unordered row should sort last"
