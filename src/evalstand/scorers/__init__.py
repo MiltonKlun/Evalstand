@@ -12,6 +12,7 @@ implementation detail, and moving one should not break their eval file.
 from evalstand.scorers.base import Scorer, scorer
 from evalstand.scorers.fuzzy import levenshtein, ratio
 from evalstand.scorers.json_field import json_fields, parse_object
+from evalstand.scorers.llm import factuality, judge
 from evalstand.scorers.numeric import close_to, parse_number
 from evalstand.scorers.text import contains, exact, normalised_exact, regex_match
 
@@ -20,7 +21,9 @@ __all__ = [
     "close_to",
     "contains",
     "exact",
+    "factuality",
     "json_fields",
+    "judge",
     "levenshtein",
     "normalised_exact",
     "parse_number",
