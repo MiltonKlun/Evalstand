@@ -250,6 +250,18 @@ class Run(_Model):
     repeat_n: Annotated[int, Field(ge=1)] = 1
     results: list[Result] = Field(default_factory=list)
 
+    model_config_used: dict[str, Any] = Field(default_factory=dict)
+    """What the run was configured with, for provenance (task 5.2).
+
+    Named `model_config_used` because pydantic reserves `model_config` on every
+    BaseModel; using that name would silently shadow the class's own settings.
+    """
+
+    task_source_hash: str | None = None
+    """A hash of the task's source, so a comparison can tell a changed model
+    from a changed task. Two runs with different hashes measured different
+    code, whatever else stayed the same."""
+
     model_calls: Annotated[int, Field(ge=0)] = 0
     cache_hits: Annotated[int, Field(ge=0)] = 0
     cache_bypassed: bool = False
