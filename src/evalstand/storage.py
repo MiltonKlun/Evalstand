@@ -279,18 +279,19 @@ class RunStore:
             ),
         )
         for score in result.scores:
-            self._insert_score(result.id, score)
+            self._insert_score(run_id, result.id, score)
         for trace in result.traces:
-            self._insert_trace(result.id, trace)
+            self._insert_trace(run_id, result.id, trace)
 
-    def _insert_score(self, result_id: str, score: Score) -> None:
+    def _insert_score(self, run_id: str, result_id: str, score: Score) -> None:
         self.connection.execute(
             """
-            INSERT INTO scores (result_id, scorer_name, value_float, passed,
+            INSERT INTO scores (run_id, result_id, scorer_name, value_float, passed,
                                 error, metadata_json)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                run_id,
                 result_id,
                 score.scorer_name,
                 score.value,
@@ -303,16 +304,17 @@ class RunStore:
             ),
         )
 
-    def _insert_trace(self, result_id: str, trace: Trace) -> None:
+    def _insert_trace(self, run_id: str, result_id: str, trace: Trace) -> None:
         self.connection.execute(
             """
-            INSERT INTO traces (id, result_id, parent_id, name, started_at,
+            INSERT INTO traces (id, run_id, result_id, parent_id, name, started_at,
                                 duration_ms, input_json, output_json, model,
                                 tokens_json, cost_usd)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 trace.id,
+                run_id,
                 result_id,
                 trace.parent_id,
                 trace.name,
