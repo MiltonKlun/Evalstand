@@ -470,11 +470,16 @@ Harness now at 116 mutants; 861 tests.
   - Also warns when two runs are not comparable at all: different evals, a changed task source, or a different set of cases.
   - `docs/ci.md` states the limitation, and its claims are under test.
   - 16 mutants, 16/16 killed — three of them try to insert verdict language.
-- [ ] **5.6 Build the showcase example** at `examples/pdf_extraction/`: extract `invoice_number`, `vendor_name`, `invoice_date`, `total`, and `line_items[]` from documents.
+- [x] **5.6 Build the showcase example** at `examples/pdf_extraction/`: extract `invoice_number`, `vendor_name`, `invoice_date`, `total`, and `line_items[]` from documents.
   - Generate 30 synthetic invoices with `reportlab` + `faker` at a fixed seed. Ground truth is written at generation time and is therefore true by construction — programmatic, not LLM-generated.
   - Vary deliberately: multi-page documents, two currencies, a missing due date, an ambiguous date format.
   - Use `json_field` and `numeric_tolerance` scorers plus one judge scorer for line-item completeness.
-  - *Acceptance:* `python generate.py --seed 42` reproduces byte-identical PDFs and golden JSON; the eval runs end to end from a clean clone with one API key set.
+  - *Acceptance:* `python generate.py --seed 42` reproduces byte-identical PDFs and golden JSON; the eval runs end to end from a clean clone with one API key set. **— met 2026-09-05.**
+  - **A PDF embeds a creation timestamp by default**, so two runs of the same code produce different bytes and a "reproducible" corpus drifts every time anybody regenerates it. `invariant=1` pins it to a fixed epoch. Found by building the same document twice a second apart and comparing digests, not by reading documentation and hoping. `generate.py --check` regenerates and compares against the committed checksums; removing `invariant=1` fails two tests.
+  - Ground truth is committed and reviewable; PDFs are gitignored and rebuilt on demand. So a dependency upgrade that changes the generator's output fails loudly rather than shifting the corpus underneath a committed baseline.
+  - Ground truth is verified **internally consistent**: all 30 totals equal the sum of their line items, and every line amount equals quantity x unit price. Decimal throughout, because 0.1 + 0.2 is not 0.3 in binary floating point and a truth that disagrees with itself by a cent makes every extraction look wrong.
+  - **A trap worth recording: `pypdfium2` is not thread-safe.** The runner offloads sync tasks to a thread pool, and eight threads in the same C library killed the interpreter with an access violation — not a Python exception the runner could record. `read_pdf` holds a lock, and the README says so, because any user with a C-backed library in their task will hit this.
+  - Verified end to end against a mocked provider: 30/30 cases run, and a model that invents a plausible due date for the three invoices that have none scores 0.833 on those, with `json_fields` naming `due_date` as the wrong field.
 - [ ] **5.7 Commit baseline results** as `examples/pdf_extraction/BASELINE.md` with per-field accuracy, cost per document, and observed failure modes.
 
 **Exit criteria:** runs persist, history and comparison work, the showcase example runs from a clean clone.

@@ -1,0 +1,5 @@
+# Rebuilt by `python generate.py --seed 42`, and byte-identical every time.
+# The ground truth and checksums beside them ARE committed: the truth is
+# reviewable in a diff, and the checksums fail loudly if a dependency upgrade
+# changes what the generator produces.
+invoices/
