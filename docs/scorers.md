@@ -279,6 +279,32 @@ derives it from a value, and an absent flag stays absent. A case whose scorers
 set no flag is reported as unjudged rather than as a pass — a green tick for a
 case nobody graded is the most misleading thing an eval tool can produce.
 
+**A Score cannot contradict itself.** `passed=True` with a value of 0.0 is
+rejected, as is `passed=False` with 1.0. Between the endpoints the verdict is
+the scorer's own: it may pass at 0.8 or fail at 0.3, and nothing second-guesses
+that.
+
+## Failing a run
+
+Continuous scorers never set `passed`, so on their own they can never fail a
+run — a model answering every case badly would still exit zero. Two things
+prevent that being silent:
+
+- Any case scoring **0.00** is listed under *needs attention*, described as
+  "scored 0.00" rather than "failed", because the scorer gave no verdict.
+- `--threshold` fails the run when an eval's mean falls below a value **you**
+  choose:
+
+```bash
+pytest qa_eval.py --threshold 0.7      # exit 1 if the mean drops below 0.7
+evalstand run qa_eval.py --threshold 0.7
+```
+
+It is opt-in because `evalstand` will not invent a pass mark, and it judges the
+aggregate only — it never marks an individual case as failed, since no scorer
+said it was. A run whose scorers all errored has no mean, and is reported as
+unmeasured rather than as below the threshold.
+
 ## Choosing one
 
 - Comparing against a known answer, and formatting should not matter?

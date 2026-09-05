@@ -695,6 +695,73 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '        _raw = await _l.acompletion(model=model, messages=[{"role": "user", "content": prompt}])\n'
         "        response = _R(text=_raw.choices[0].message.content, model=model, latency_ms=1)",
     ),
+    # --- Pre-Phase-5 audit: report honesty ---
+    (
+        "src/evalstand/models.py",
+        "F2: a Score may pass with a value of 0.0 (the shipped behaviour)",
+        "        if self.passed is True and self.value == 0.0:",
+        "        if False:",
+    ),
+    (
+        "src/evalstand/models.py",
+        "F2b: a Score may fail with a value of 1.0",
+        "        if self.passed is False and self.value == 1.0:",
+        "        if False:",
+    ),
+    (
+        "src/evalstand/models.py",
+        "F3: a Run may hold the same execution twice",
+        "        if duplicates:\n            named =",
+        "        if False:\n            named =",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "F1a: a case scoring 0.0 is invisible in the report",
+        "            zeroed = [s for s in result.scores if s.passed is None and s.value == 0.0]",
+        "            zeroed = []",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "F1a-inverse: every partial score floods the table",
+        "            zeroed = [s for s in result.scores if s.passed is None and s.value == 0.0]",
+        "            zeroed = [s for s in result.scores if s.passed is None]",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "F1b: --threshold is ignored, so a garbage run exits zero",
+        "        session.exitstatus = pytest.ExitCode.TESTS_FAILED",
+        "        pass",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "F1b-inverse: the threshold fails runs that are above it",
+        "        if run.mean_score is not None and run.mean_score < threshold",
+        "        if run.mean_score is not None",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "an unmeasured run is reported as below the threshold",
+        "        if run.mean_score is not None and run.mean_score < threshold",
+        "        if (run.mean_score or 0.0) < threshold",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "the threshold breach is never explained to the user",
+        "        session.config._evalstand_breaches = breaches  # type: ignore[attr-defined]",
+        "        pass",
+    ),
+    (
+        "src/evalstand/runner.py",
+        "F4: the stored output aliases a task's mutable object",
+        "            output=_snapshot(output),",
+        "            output=output,",
+    ),
+    (
+        "src/evalstand/runner.py",
+        "F4b: an uncopyable output kills the case instead of falling back",
+        '    except Exception:\n        logger.debug("could not copy a task output; storing its repr", exc_info=True)\n        return repr(output)',
+        "    except _NeverRaised:\n        return repr(output)",
+    ),
 ]
 
 

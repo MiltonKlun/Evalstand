@@ -46,6 +46,10 @@ def run(
         bool,
         typer.Option("--no-cache", help="Call the provider even when a cached response exists."),
     ] = False,
+    threshold: Annotated[
+        float | None,
+        typer.Option("--threshold", help="Fail when an eval's mean score falls below this."),
+    ] = None,
 ) -> None:
     """Run evals and print a summary."""
     import pytest
@@ -64,6 +68,8 @@ def run(
         args += ["--timeout", str(timeout)]
     if no_cache:
         args.append("--no-cache")
+    if threshold is not None:
+        args += ["--threshold", str(threshold)]
 
     # Evals are not tests-with-assertions; a failing case is a reported result,
     # not a stack trace worth printing twice.

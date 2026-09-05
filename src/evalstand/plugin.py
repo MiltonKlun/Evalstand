@@ -64,6 +64,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Call the provider even when a cached response exists.",
     )
+    group.addoption(
+        "--threshold",
+        type=float,
+        default=None,
+        metavar="MEAN",
+        help="Fail the run when an eval's mean score falls below this value.",
+    )
 
 
 def _run_config(config: pytest.Config) -> RunConfig:
@@ -442,6 +449,42 @@ class EvalItem(pytest.Item):
 # mistake. The live versions are `runner._call_task` and `runner._score`.
 
 
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Fail the session when an eval's mean falls below `--threshold`.
+
+    Without this, a continuous scorer can never fail a run: `levenshtein` and
+    friends deliberately leave `passed` unset — they report where an answer sits
+    on a scale and do not know where the line is — so a model answering every
+    case with garbage exited zero and CI went green. The whole point of the tool
+    is to notice when a model got worse.
+
+    The threshold is the user supplying the judgement the scorer declined to
+    make, which is why it is opt-in: `evalstand` will not invent a pass mark.
+    It judges the aggregate only and never sets any Score's pass flag, per
+    CONTEXT.md.
+    """
+    threshold = session.config.getoption("--threshold", default=None)
+    if threshold is None:
+        return
+
+    runs = _collected_runs(session.config)
+    if not runs:
+        return
+
+    breaches = [
+        (run.name, run.mean_score)
+        for run in runs
+        if run.mean_score is not None and run.mean_score < threshold
+    ]
+
+    # A run that measured nothing is not below the threshold — it is unmeasured,
+    # and reporting it as a breach would put a number where there is none. It
+    # already fails through its unmeasured cases.
+    if breaches:
+        session.config._evalstand_breaches = breaches  # type: ignore[attr-defined]
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
 def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pytest.Config) -> None:
     """Print the eval summary after pytest's own report.
 
@@ -462,6 +505,18 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
     failures = render_failures(runs)
     if failures is not None:
         console.print(failures)
+
+    # Printed here rather than left to the exit code alone: a run that fails
+    # for a reason the output never states is indistinguishable from a bug in
+    # the tool, and the user would go looking for the wrong thing.
+    breaches = getattr(config, "_evalstand_breaches", [])
+    if breaches:
+        threshold = config.getoption("--threshold", default=None)
+        for name, mean in breaches:
+            console.print(
+                f"[red]FAILED[/red] {name}: mean {mean:.2f} is below the "
+                f"threshold of {threshold:.2f}"
+            )
 
 
 def _session_seconds(terminalreporter: Any) -> float | None:

@@ -402,3 +402,100 @@ class TestRunTotals:
         ]
         run = await run_eval(_eval(lambda value: value, cases))
         assert run.mean_score == pytest.approx(0.5)
+
+
+class TestTheStoredOutputIsWhatWasScored:
+    """A task returning a shared object it goes on mutating corrupted every
+    earlier Result.
+
+    Found in the pre-Phase-5 audit. Three cases scored 1.0, 1.0 and 0.0, but
+    every stored output held the *last* value -- so the report showed two cases
+    marked correct while their output column displayed the wrong answer. The
+    scores were right and the evidence for them was gone, which makes a failure
+    undebuggable and will matter more in Phase 5, where these outputs are
+    persisted and compared across runs.
+    """
+
+    @pytest.mark.anyio
+    async def test_a_shared_mutable_output_is_snapshotted(self) -> None:
+        shared: dict[str, str] = {}
+
+        def mutating_task(value: str) -> dict[str, str]:
+            shared["answer"] = value
+            return shared
+
+        declared = Eval(
+            name="aliased",
+            cases=[Case(id=f"q{i}", input=str(i), expected=str(i)) for i in range(3)],
+            task=mutating_task,
+            scorers=[],
+            filepath="f",
+        )
+
+        run = await run_eval(declared, RunConfig(concurrency=1))
+
+        stored = [r.output for r in run.results]
+        assert stored == [{"answer": "0"}, {"answer": "1"}, {"answer": "2"}], (
+            f"earlier outputs were retroactively rewritten: {stored}"
+        )
+
+    @pytest.mark.anyio
+    async def test_a_list_the_task_keeps_appending_to_is_snapshotted(self) -> None:
+        accumulating: list[str] = []
+
+        def appending_task(value: str) -> list[str]:
+            accumulating.append(value)
+            return accumulating
+
+        declared = Eval(
+            name="growing",
+            cases=[Case(id=f"q{i}", input=str(i)) for i in range(3)],
+            task=appending_task,
+            scorers=[],
+            filepath="f",
+        )
+
+        run = await run_eval(declared, RunConfig(concurrency=1))
+
+        assert [r.output for r in run.results] == [["0"], ["0", "1"], ["0", "1", "2"]]
+
+    @pytest.mark.anyio
+    async def test_an_uncopyable_output_falls_back_to_its_repr(self) -> None:
+        """A file handle or a live client cannot be deep-copied. Losing the
+        measurement over it would be worse than storing a description of it."""
+
+        class Uncopyable:
+            def __deepcopy__(self, memo: object) -> object:
+                raise TypeError("cannot copy a live connection")
+
+            def __repr__(self) -> str:
+                return "<live connection>"
+
+        declared = Eval(
+            name="uncopyable",
+            cases=[Case(id="q1", input="x")],
+            task=lambda value: Uncopyable(),
+            scorers=[],
+            filepath="f",
+        )
+
+        run = await run_eval(declared, RunConfig())
+
+        assert run.results[0].output == "<live connection>"
+        assert run.results[0].error is None, "the case must still be measured"
+
+    @pytest.mark.anyio
+    async def test_ordinary_immutable_outputs_are_untouched(self) -> None:
+        """Strings and numbers cannot be mutated, so copying them buys nothing
+        and must not change what is stored."""
+        declared = Eval(
+            name="plain",
+            cases=[Case(id="q1", input="x"), Case(id="q2", input="y")],
+            task=lambda value: value.upper(),
+            scorers=[],
+            filepath="f",
+        )
+
+        run = await run_eval(declared, RunConfig())
+
+        assert [r.output for r in run.results] == ["X", "Y"]

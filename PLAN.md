@@ -355,6 +355,36 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
 
 ---
 
+### Pre-Phase-5 audit — 2026-09-05
+
+A full review before persistence lands, hunting the failure mode that had
+repeatedly slipped past a green suite: something wrong that looked right. Four
+defects, none caught by the 829 tests passing at the time.
+
+- **A continuous scorer could never fail a run.** A model answering every case
+  with garbage reported `3 passed` and **exit code 0**. `render_failures` listed
+  a case only when `passed is False`, and continuous scorers correctly never set
+  it — so the worst possible result produced an empty table and a green CI.
+  Fixed by listing zero-scoring cases as "scored 0.00" (not "failed" — the
+  scorer gave no verdict), and by bringing the Threshold forward as an opt-in
+  `--threshold` flag.
+- **A Score could contradict itself.** `passed=True, value=0.0` was accepted and
+  reached the report: counted in the pass column *and* omitted from failures, so
+  a wrong answer was reported as correct and made invisible. Now rejected at the
+  endpoints only; between them the verdict stays the scorer's own.
+- **A Run could hold the same execution twice.** Duplicate
+  `(case_id, repeat_index)` averaged both into the mean and read `1/2` for a
+  single case.
+- **A task returning a shared mutable object corrupted earlier Results.** All
+  three stored outputs held the last value while their scores were right, so the
+  report contradicted itself and the failure was undebuggable. Outputs are now
+  snapshotted at capture, falling back to a repr for anything uncopyable.
+
+Each fix carries a mutant that reintroduces the shipped behaviour: 11/11 killed.
+Harness now at 116 mutants; 861 tests.
+
+---
+
 ## Phase 5 — Storage, history, and the showcase example
 
 **Goal:** runs persist and can be compared; there is a realistic example to demo.

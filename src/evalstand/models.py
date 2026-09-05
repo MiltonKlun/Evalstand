@@ -88,6 +88,20 @@ class Score(_Model):
             raise ValueError("a Score carries either a value or an error, not both")
         if self.value is None and self.error is None:
             raise ValueError("a Score must carry either a value or an error")
+
+        # A verdict that contradicts its own value is the most dangerous thing a
+        # Score can hold: `passed=True, value=0.0` is counted in the pass column
+        # and omitted from the failures table, so a wrong answer is reported as
+        # correct *and* made invisible. Rejected here rather than reconciled,
+        # because there is no way to know which half the scorer meant.
+        #
+        # Only the endpoints are constrained. A scorer is free to pass at 0.8 or
+        # fail at 0.3 — where the line sits is its judgement to make — but
+        # nothing can both score zero and have passed.
+        if self.passed is True and self.value == 0.0:
+            raise ValueError("a Score cannot pass with a value of 0.0")
+        if self.passed is False and self.value == 1.0:
+            raise ValueError("a Score cannot fail with a value of 1.0")
         return self
 
     @classmethod
@@ -242,6 +256,31 @@ class Run(_Model):
     """True when this run skipped the cache — repeats always do. Recorded
     because a bypassed run spends the full amount every time, and the plan
     calls that the easiest way to run up a bill by accident."""
+
+    @model_validator(mode="after")
+    def _results_are_distinct_executions(self) -> Self:
+        """Reject two Results claiming to be the same execution.
+
+        `(case_id, repeat_index)` names one execution, so a duplicate means the
+        Run holds two answers to a question that has one. The mean would average
+        both and the pass count would read 1/2 for a single case — a report that
+        cannot be reconciled with what actually ran.
+
+        The runner cannot produce this, but the model is what guarantees it, and
+        Runs are also assembled from stored rows and from user code.
+        """
+        seen: set[tuple[str, int]] = set()
+        duplicates: set[tuple[str, int]] = set()
+        for result in self.results:
+            key = (result.case_id, result.repeat_index)
+            if key in seen:
+                duplicates.add(key)
+            seen.add(key)
+
+        if duplicates:
+            named = ", ".join(f"{case}#{index}" for case, index in sorted(duplicates))
+            raise ValueError(f"duplicate executions in one run: {named}")
+        return self
 
     def _successful_scores(self) -> list[Score]:
         return [s for r in self.results for s in r.scores if s.counts_towards_mean]
