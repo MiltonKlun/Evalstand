@@ -341,7 +341,10 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
   - **A reply naming no known choice, or two, is an errored Score.** Excluded from the mean rather than scored 0.0, which would report that the task did badly when what failed was the judge.
   - *Acceptance:* a judge scorer's LLM call appears in the case's trace tree. **— met 2026-09-05.** Verified through `run_eval`: a case whose task called the model once and whose judge called it once produced two traces, 70 in / 9 out tokens (20/8 from the task plus 50/1 from the judge) and a case cost summing both. A mutant that makes the judge call the provider directly, escaping capture, is killed by the suite.
   - *Note:* these scorers are unvalidated by design in this version. `docs/scorers.md` must say so plainly — and every judge Score carries `unvalidated: True` in its metadata, so the caveat travels with the number into any report that quotes it.
-- [ ] **4.7 Every scorer gets unit tests** covering the happy path, empty output, and `None` expected.
+- [x] **4.7 Every scorer gets unit tests** covering the happy path, empty output, and `None` expected.
+  - Each scorer has its own test file, plus `test_scorer_coverage.py`, which enumerates the public surface and applies the three inputs to every scorer without exception. It also asserts the library-wide Score contract: values stay in `[0, 1]`, scores are filed under the scorer's own name, a stated verdict agrees with its value, and a continuous scorer never invents one.
+  - The inventory exists because per-scorer files can only test the scorers someone remembered to write tests for. This one **fails when a scorer is added without them**, naming it — which a checklist in a plan document cannot do. Verified by adding a scorer to the package and watching the suite name it as untested.
+  - **— met 2026-09-05.** 92 tests across ten scorers.
 - [ ] **4.8 Write `docs/scorers.md`** documenting each built-in scorer and how to write a custom one.
 
 **Exit criteria:** eight or more built-in scorers, all tested and documented.
