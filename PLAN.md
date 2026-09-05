@@ -449,7 +449,12 @@ Harness now at 116 mutants; 861 tests.
   - A storage failure never costs a measurement: by the time a run is written the money is spent, so a locked database degrades to one warning per batch. The single exception is `DatabaseTooNewError`, which stays a hard refusal.
   - New flags: `--no-store` and `--allow-dirty`.
   - 16 mutants, 16/16 killed.
-- [ ] **5.3 Build `evalstand history [name]`** listing runs with name, SHA, date, mean score, pass count, and cost.
+- [x] **5.3 Build `evalstand history [name]`** listing runs with name, SHA, date, mean score, pass count, and cost. **— met 2026-09-05.**
+  - **Whole Runs are loaded and the model's own properties compute every figure.** Aggregating in SQL would define "mean" a second time, in another language, and a history table quietly disagreeing with a fresh run about the same data is exactly the silent wrongness this project keeps finding. Measured at ~1ms for 50 runs, so there was no reason to trade correctness for speed.
+  - The cost column distinguishes three claims that a single number would flatten: `$0.0002` (exact), `$0.0002+` (a lower bound — some calls were never priced), and `-` (nothing priced, so nothing has been shown to be free).
+  - A dirty tree is marked `*` **and explained in a legend**: an asterisk with no legend is a puzzle, not information.
+  - Cancelled batches are excluded; their aggregates describe a subset of the cases.
+  - 15 mutants, 15/15 killed. Two were real gaps in the *read* path: `git_dirty=None` and an unpriced `cost_usd` were both preserved on write and silently coerced on read — a distinction that survives storage and dies on retrieval is no distinction at all.
 - [ ] **5.4 Build `evalstand show <run_id>`** rendering a full run: summary, per-case scores, and trace trees.
 - [ ] **5.5 Build `evalstand compare <run_a> <run_b>`.** Report per-scorer means for both runs, the delta, and the list of cases whose pass state flipped, with old and new output side by side.
   - **Important:** report the delta as a plain difference. Do **not** label it a regression or an improvement — this version has no significance testing, and asserting a verdict without one would be a false claim. Say "changed" and show the flipped cases. `docs/ci.md` must state this limitation explicitly.

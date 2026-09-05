@@ -11,6 +11,7 @@ than a zero.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from rich.console import Group, RenderableType
@@ -19,7 +20,7 @@ from rich.text import Text
 
 from evalstand.models import Batch, BatchStatus, Run
 
-__all__ = ["render_failures", "render_summary"]
+__all__ = ["render_failures", "render_history", "render_summary"]
 
 UNKNOWN = "-"
 """Shown where a value is genuinely unknown. Never 0, which is a claim.
@@ -233,3 +234,77 @@ def render_failures(runs: list[Run]) -> RenderableType | None:
     for row in rows:
         table.add_row(*row)
     return table
+
+
+def render_history(entries: list[tuple[Run, Batch | None]]) -> RenderableType:
+    """Past runs, newest first: when, from which commit, and what they measured.
+
+    Every figure comes from the Run object's own properties, which are the same
+    ones the live summary uses. Recomputing them in SQL would create a second
+    definition of "mean" that could drift from the first, and a history table
+    quietly disagreeing with a fresh run is the exact failure this project keeps
+    finding.
+    """
+    table = Table(title=None, show_header=True, header_style="bold", expand=False)
+    table.add_column("run")
+    table.add_column("eval")
+    table.add_column("when")
+    table.add_column("commit")
+    table.add_column("mean", justify="right")
+    table.add_column("passed", justify="right")
+    table.add_column("cost", justify="right")
+
+    for run, batch in entries:
+        passed, judged = _pass_counts(run)
+        table.add_row(
+            run.id,
+            run.name,
+            _when(run.started_at),
+            _commit(batch),
+            _format_score(run.mean_score),
+            f"{passed}/{judged}" if judged else UNKNOWN,
+            _run_cost(run),
+        )
+
+    return table
+
+
+def _when(moment: datetime | None) -> str:
+    """A timestamp a human can scan. Local time, because history is read by the
+    person who produced it and UTC would make them do arithmetic."""
+    if moment is None:
+        return UNKNOWN
+    return moment.astimezone().strftime("%Y-%m-%d %H:%M")
+
+
+def _commit(batch: Batch | None) -> str:
+    """The commit a run came from, or an honest gap.
+
+    A dirty tree is marked, because a run recorded against a SHA whose tree it
+    did not reflect looks reproducible and is not.
+    """
+    if batch is None or batch.git_sha is None:
+        return UNKNOWN
+    short = batch.git_sha[:8]
+    return f"{short}*" if batch.git_dirty else short
+
+
+def _run_cost(run: Run) -> str:
+    """One run's cost, marked when it is only part of the story.
+
+    `total_cost_usd` sums what was priced, so a run with unpriced calls reports
+    a lower bound. Showing that as an exact figure would understate a bill --
+    the same class of error as a false pass, and in the direction that costs
+    money. The `+` says "at least this much".
+    """
+    priced = [
+        trace for result in run.results for trace in result.traces if trace.cost_usd is not None
+    ]
+    if not priced:
+        # Either no calls were made, or none could be priced. Neither has been
+        # shown to be free, and `$0.0000` would claim exactly that — the same
+        # rule `_format_cost` already applies to the live summary.
+        return UNKNOWN
+
+    formatted = f"${run.total_cost_usd:.4f}"
+    return formatted if run.cost_is_complete else f"{formatted}+"

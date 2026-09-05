@@ -22,11 +22,22 @@ import json
 import logging
 import sqlite3
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from evalstand.migrations import LATEST_VERSION, MIGRATIONS
-from evalstand.models import Batch, Case, Result, Run, Score, Trace
+from evalstand.models import (
+    Batch,
+    BatchKind,
+    BatchStatus,
+    Case,
+    Result,
+    Run,
+    RunStatus,
+    Score,
+    Trace,
+)
 
 __all__ = ["DatabaseTooNewError", "RunStore"]
 
@@ -43,6 +54,38 @@ class DatabaseTooNewError(RuntimeError):
     not read, and a comparison built from a partial read would look right while
     answering a different question — the one failure this tool must never have.
     """
+
+
+def _datetime(value: str | None) -> datetime | None:
+    """Parse a stored ISO timestamp, or None when absent or unreadable.
+
+    A malformed timestamp must not make a whole run unreadable. The scores are
+    the measurement; losing them to a formatting problem would be a worse
+    failure than an unknown time.
+    """
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        logger.debug("could not parse a stored timestamp: %r", value)
+        return None
+
+
+def _unjson(value: str | None, *, fallback: Any = None) -> Any:
+    """Read a stored JSON column, falling back rather than raising.
+
+    Writing deliberately never fails over an unencodable value, so a column may
+    hold a description of an object rather than real JSON. Refusing to read it
+    back would turn that graceful degradation into a hard failure one step
+    later.
+    """
+    if value is None:
+        return fallback
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return fallback if fallback is not None else value
 
 
 def _text(value: Any) -> str | None:
@@ -357,3 +400,152 @@ class RunStore:
                 row[0]
                 for row in self.connection.execute("SELECT id FROM batches ORDER BY started_at")
             ]
+
+    def load_run(self, run_id: str) -> Run | None:
+        """Rebuild one Run, with its Results, Scores and Traces.
+
+        Whole objects rather than SQL aggregates, deliberately. The model
+        already defines what a mean is — errored scores excluded, None when
+        nothing was measured — and writing those rules a second time in SQL
+        would create two definitions that can drift apart. A history table
+        disagreeing with the live summary about the same run, with neither
+        saying so, is precisely the silent wrongness this project keeps finding.
+        """
+        with self._lock:
+            row = self.connection.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+            if row is None:
+                return None
+            return self._build_run(row)
+
+    def runs_for(self, name: str | None = None, *, limit: int = 20) -> list[Run]:
+        """Recent Runs, newest first, optionally filtered by eval name.
+
+        Cancelled batches are excluded: their aggregates describe a subset of
+        the cases, so listing one beside a full run invites a comparison
+        between two different questions.
+        """
+        query = [
+            "SELECT r.* FROM runs r JOIN batches b ON b.id = r.batch_id",
+            "WHERE b.status != 'cancelled'",
+        ]
+        parameters: list[Any] = []
+        if name is not None:
+            query.append("AND r.name = ?")
+            parameters.append(name)
+        # NULLs sort last under DESC in SQLite, so a run with no timestamp
+        # falls to the bottom rather than displacing real history. The id is a
+        # tiebreaker, so the order is stable between calls.
+        query.append("ORDER BY r.started_at DESC, r.id DESC LIMIT ?")
+        parameters.append(limit)
+
+        with self._lock:
+            rows = self.connection.execute(" ".join(query), parameters).fetchall()
+            return [self._build_run(row) for row in rows]
+
+    def eval_names(self) -> list[str]:
+        with self._lock:
+            return [
+                row[0]
+                for row in self.connection.execute("SELECT DISTINCT name FROM runs ORDER BY name")
+            ]
+
+    def batch_for(self, run_id: str) -> Batch | None:
+        """The Batch a Run belongs to, which is where provenance lives."""
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT b.* FROM batches b JOIN runs r ON r.batch_id = b.id WHERE r.id = ?",
+                (run_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return Batch(
+            id=row["id"],
+            kind=BatchKind(row["kind"]),
+            status=BatchStatus(row["status"]),
+            started_at=_datetime(row["started_at"]),
+            finished_at=_datetime(row["finished_at"]),
+            git_sha=row["git_sha"],
+            # None stays None: the tree was never checked, which is not the
+            # same claim as "checked and clean".
+            git_dirty=None if row["git_dirty"] is None else bool(row["git_dirty"]),
+        )
+
+    def _build_run(self, row: sqlite3.Row) -> Run:
+        run_id = row["id"]
+        results = [
+            self._build_result(result_row)
+            for result_row in self.connection.execute(
+                "SELECT * FROM results WHERE run_id = ? ORDER BY case_id, repeat_index",
+                (run_id,),
+            ).fetchall()
+        ]
+        return Run(
+            id=run_id,
+            batch_id=row["batch_id"],
+            name=row["name"],
+            filepath=row["filepath"],
+            status=RunStatus(row["status"]),
+            started_at=_datetime(row["started_at"]),
+            finished_at=_datetime(row["finished_at"]),
+            repeat_n=row["repeat_n"],
+            results=results,
+            model_config_used=_unjson(row["model_config_json"]) or {},
+            task_source_hash=row["task_source_hash"],
+        )
+
+    def _build_result(self, row: sqlite3.Row) -> Result:
+        run_id, result_id = row["run_id"], row["id"]
+        scores = [
+            Score(
+                scorer_name=score_row["scorer_name"],
+                value=score_row["value_float"],
+                # None stays None. A scorer that declined to judge is not the
+                # same as one that failed the case, and flattening the two here
+                # would recreate the false pass the audit removed.
+                passed=None if score_row["passed"] is None else bool(score_row["passed"]),
+                error=score_row["error"],
+                metadata=_unjson(score_row["metadata_json"]) or {},
+            )
+            for score_row in self.connection.execute(
+                "SELECT * FROM scores WHERE run_id = ? AND result_id = ? ORDER BY id",
+                (run_id, result_id),
+            ).fetchall()
+        ]
+        traces = [
+            self._build_trace(trace_row)
+            for trace_row in self.connection.execute(
+                "SELECT * FROM traces WHERE run_id = ? AND result_id = ?", (run_id, result_id)
+            ).fetchall()
+        ]
+        return Result(
+            id=result_id,
+            case_id=row["case_id"],
+            repeat_index=row["repeat_index"],
+            output=_unjson(row["output_json"], fallback=row["output_text"]),
+            error=row["error"],
+            error_frames=_unjson(row["error_frames"]) or [],
+            latency_ms=row["latency_ms"],
+            input_tokens=row["input_tokens"],
+            output_tokens=row["output_tokens"],
+            cost_usd=row["cost_usd"],
+            scores=scores,
+            traces=traces,
+        )
+
+    def _build_trace(self, row: sqlite3.Row) -> Trace:
+        tokens = _unjson(row["tokens_json"]) or {}
+        return Trace(
+            id=row["id"],
+            parent_id=row["parent_id"],
+            name=row["name"],
+            started_at=_datetime(row["started_at"]),
+            duration_ms=row["duration_ms"] or 0,
+            input=_unjson(row["input_json"]),
+            output=_unjson(row["output_json"]),
+            model=row["model"],
+            input_tokens=tokens.get("input"),
+            output_tokens=tokens.get("output"),
+            # Stays None when the call was never priced, so
+            # `Run.cost_is_complete` can tell a total from a lower bound.
+            cost_usd=row["cost_usd"],
+        )
