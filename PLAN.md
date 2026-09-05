@@ -336,9 +336,11 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
   - **Missing is reported separately from wrong.** Both score zero, but a wrong field means the model answered and erred while a missing one means it never answered — different fixes.
   - Parses JSON returned as text, including ``` fences, since refusing to unwrap them would measure presentation rather than content.
   - *Acceptance:* a partial match on 3 of 5 fields returns 0.6 with the failing field names in metadata. **— met 2026-09-04**, and verified through the real runner on a four-case extraction eval. 17 mutants against the scorer, 17/17 killed.
-- [ ] **4.6 LLM scorers** in `llm.py`: a `judge` factory taking a rubric and returning a scorer, plus a `factuality`-style scorer comparing output against expected. Judge calls must go through `llm.py` so they are cached, traced, and costed like any other call.
-  - *Acceptance:* a judge scorer's LLM call appears in the case's trace tree.
-  - *Note:* these scorers are unvalidated by design in this version. `docs/scorers.md` must say so plainly.
+- [x] **4.6 LLM scorers** in `llm.py`: a `judge` factory taking a rubric and returning a scorer, plus a `factuality`-style scorer comparing output against expected. Judge calls must go through `llm.py` so they are cached, traced, and costed like any other call.
+  - The judge picks a **labelled choice**, never a number. Models cluster on 0.0/0.5/1.0 and cannot justify 0.7 over 0.8, but choose reliably between described options. The caller supplies what each label is worth, so the mapping from judgement to score is made once in the eval file rather than improvised per case.
+  - **A reply naming no known choice, or two, is an errored Score.** Excluded from the mean rather than scored 0.0, which would report that the task did badly when what failed was the judge.
+  - *Acceptance:* a judge scorer's LLM call appears in the case's trace tree. **— met 2026-09-05.** Verified through `run_eval`: a case whose task called the model once and whose judge called it once produced two traces, 70 in / 9 out tokens (20/8 from the task plus 50/1 from the judge) and a case cost summing both. A mutant that makes the judge call the provider directly, escaping capture, is killed by the suite.
+  - *Note:* these scorers are unvalidated by design in this version. `docs/scorers.md` must say so plainly — and every judge Score carries `unvalidated: True` in its metadata, so the caveat travels with the number into any report that quotes it.
 - [ ] **4.7 Every scorer gets unit tests** covering the happy path, empty output, and `None` expected.
 - [ ] **4.8 Write `docs/scorers.md`** documenting each built-in scorer and how to write a custom one.
 

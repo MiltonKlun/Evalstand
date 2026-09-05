@@ -583,6 +583,118 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '                    "missing": sorted(fields),',
         '                    "missing": [],',
     ),
+    # --- Phase 4.6: LLM judges ---
+    (
+        "src/evalstand/scorers/llm.py",
+        "an unreadable judgement is laundered into a zero",
+        "            return Score.from_error(",
+        "            return Score(scorer_name=name, value=0.0)\n        if False:\n            return Score.from_error(",
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "an ambiguous reply takes the first choice named",
+        "    if len(named) == 1:\n        return named.pop()",
+        "    if named:\n        return sorted(named)[0]",
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "the unvalidated caveat is dropped from the score",
+        '                "unvalidated": True,',
+        '                "unvalidated": False,',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "the judge's own words are not kept",
+        '                "judge_reply": response.text.strip(),',
+        '                "judge_reply": "",',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "the judging model is not recorded",
+        '                "judge_model": response.model,',
+        '                "judge_model": None,',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "the caller's choice mapping is ignored, every choice scores 1.0",
+        "            value=choices[choice],",
+        "            value=1.0,",
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "a judge with no choices is accepted",
+        "    if not choices:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "a choice outside the score range is accepted",
+        "        if not 0.0 <= value <= 1.0:",
+        "        if False:",
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "the rubric is never sent to the judge",
+        '    sections = [rubric, "", f"[Question]\\n{case.input}", "", f"[Submission]\\n{output}"]',
+        '    sections = ["", f"[Question]\\n{case.input}", "", f"[Submission]\\n{output}"]',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "the submission is never sent to the judge",
+        'f"[Submission]\\n{output}"]',
+        '"[Submission]"]',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "include_expected=False still leaks the reference answer",
+        "    if include_expected:",
+        "    if True:",
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "the available choices are not named in the prompt",
+        '        f"Reply with a single letter, one of: {labels}. Give no other text.",',
+        '        "Reply with a single letter.",',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "a label inside a word counts as a choice",
+        '        if re.search(\n            rf"(?<![A-Za-z0-9]){re.escape(label)}(?![A-Za-z0-9])", text, flags=re.IGNORECASE\n        )',
+        "        if re.search(re.escape(label), text, flags=re.IGNORECASE)",
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "choice matching becomes case sensitive, so 'Yes.' is unreadable",
+        '            rf"(?<![A-Za-z0-9]){re.escape(label)}(?![A-Za-z0-9])", text, flags=re.IGNORECASE',
+        '            rf"(?<![A-Za-z0-9]){re.escape(label)}(?![A-Za-z0-9])", text',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "factuality treats a superset answer as a disagreement",
+        '    "B": 1.0,',
+        '    "B": 0.0,',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "factuality treats a disagreement as consistent",
+        '    "D": 0.0,',
+        '    "D": 1.0,',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "factuality reports under the generic judge name",
+        '        name="factuality",',
+        '        name="judge",',
+    ),
+    (
+        "src/evalstand/scorers/llm.py",
+        "the judge calls the provider directly, escaping trace and cost capture",
+        '        response = await acall(model, [{"role": "user", "content": prompt}], **params)',
+        "        import litellm as _l\n"
+        "        from evalstand.llm import LLMResponse as _R\n"
+        '        _raw = await _l.acompletion(model=model, messages=[{"role": "user", "content": prompt}])\n'
+        "        response = _R(text=_raw.choices[0].message.content, model=model, latency_ms=1)",
+    ),
 ]
 
 
