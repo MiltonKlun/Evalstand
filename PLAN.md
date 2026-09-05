@@ -390,7 +390,7 @@ Harness now at 116 mutants; 861 tests.
 **Goal:** runs persist and can be compared; there is a realistic example to demo.
 **Estimate:** 14 hours.
 
-- [ ] **5.1 Design the SQLite schema** in `storage.py` with a `schema_version` table and sequential migrations under `src/evalstand/migrations/`:
+- [x] **5.1 Design the SQLite schema** in `storage.py` with a `schema_version` table and sequential migrations under `src/evalstand/migrations/`:
 
   ```sql
   batches(id, kind, status, started_at, finished_at, git_sha, git_dirty)
@@ -434,7 +434,13 @@ Harness now at 116 mutants; 861 tests.
   opened best-effort, because a silently degraded read would corrupt exactly the
   comparison data the tool exists to provide. This is unrelated to
   `cache.evalstand_version`: the Cache is disposable, run history is not.
-  - *Acceptance:* the migration applies to an empty database and is idempotent; a second run does not corrupt the first; opening a database with a higher `schema_version` exits with a clear error.
+  - *Acceptance:* the migration applies to an empty database and is idempotent; a second run does not corrupt the first; opening a database with a higher `schema_version` exits with a clear error. **— met 2026-09-05.**
+  - Three SQLite behaviours were verified directly rather than assumed, each a trap that would corrupt history silently:
+    - **Foreign keys are OFF by default.** Without `PRAGMA foreign_keys = ON` every `ON DELETE CASCADE` is decoration and an orphan row is accepted. The pragma is per-connection, so it is set on every open.
+    - **`executescript` issues an implicit COMMIT**, ending the transaction wrapping a migration — a later failure then cannot roll back. Statements are executed one at a time instead. Verified: a script inside `BEGIN` left its tables behind and the ROLLBACK raised "cannot rollback - no transaction is active".
+    - **`isolation_level=None`** is required, because Python's default opens a transaction before DML but not before DDL.
+  - Storage never loses a run to a bad value: a cyclic output, or one whose `__repr__` raises, is stored as a description rather than taking down every other result in the save.
+  - 15 mutants against the store, 15/15 killed — including the one bug that actually occurred (`Case.content_hash` is a method; storing it uncalled put a bound-method object in the hash column).
 - [ ] **5.2 Record provenance** on every run: git SHA, dirty-tree flag, model config, and a hash of the task source. Refuse to persist without a SHA unless `--allow-dirty` is passed.
 - [ ] **5.3 Build `evalstand history [name]`** listing runs with name, SHA, date, mean score, pass count, and cost.
 - [ ] **5.4 Build `evalstand show <run_id>`** rendering a full run: summary, per-case scores, and trace trees.

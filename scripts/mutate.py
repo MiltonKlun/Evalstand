@@ -762,6 +762,103 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '    except Exception:\n        logger.debug("could not copy a task output; storing its repr", exc_info=True)\n        return repr(output)',
         "    except _NeverRaised:\n        return repr(output)",
     ),
+    # --- Phase 5.1: the run store ---
+    # --- the bug that really happened ---
+    (
+        "src/evalstand/storage.py",
+        "content_hash is stored uncalled, so the column holds a method repr",
+        "                case.content_hash(),",
+        "                str(case.content_hash),",
+    ),
+    # --- migration safety ---
+    (
+        "src/evalstand/storage.py",
+        "a newer database is opened best-effort instead of refused",
+        "        if current > LATEST_VERSION:",
+        "        if False:",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "migrations run through executescript, so a failure cannot roll back",
+        "            for statement in statements:\n                self.connection.execute(statement)",
+        "            self.connection.executescript(';\\n'.join(statements))",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "an already-applied migration is re-run on every open",
+        "            if version <= current:\n                continue",
+        "            if False:\n                continue",
+    ),
+    # --- the pragmas, each per-connection and each easy to omit ---
+    (
+        "src/evalstand/storage.py",
+        "foreign keys are left off, so cascades are decoration",
+        '            self.connection.execute("PRAGMA foreign_keys = ON")',
+        "            pass",
+    ),
+    # --- write atomicity ---
+    (
+        "src/evalstand/storage.py",
+        "a failed save leaves partial rows behind",
+        '                self.connection.execute("ROLLBACK")\n                logger.exception("failed to save run',
+        '                self.connection.execute("COMMIT")\n                logger.exception("failed to save run',
+    ),
+    # --- what is stored must be what was measured ---
+    (
+        "src/evalstand/storage.py",
+        "an absent verdict is stored as a failure",
+        "                None if score.passed is None else int(score.passed),",
+        "                int(bool(score.passed)),",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "an unknown git state is recorded as clean",
+        "                    None if batch.git_dirty is None else int(batch.git_dirty),",
+        "                    int(bool(batch.git_dirty)),",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "a structured output loses its structure",
+        "                _json(result.output),",
+        "                None,",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "a cyclic output kills the whole save",
+        "        return json.dumps(value, default=str, sort_keys=True)\n    except Exception:\n        pass",
+        "        return json.dumps(value, default=str, sort_keys=True)\n    except _NeverRaised:\n        pass",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "a repr that raises escapes the json fallback",
+        "        return json.dumps(repr(value))\n    except Exception:",
+        "        return json.dumps(repr(value))\n    except _NeverRaised:",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "a str() that raises kills the save",
+        "        return str(value)\n    except Exception:",
+        "        return str(value)\n    except _NeverRaised:",
+    ),
+    # --- schema constraints ---
+    (
+        "src/evalstand/migrations/__init__.py",
+        "duplicate executions are allowed by the schema",
+        "        UNIQUE (run_id, case_id, repeat_index)",
+        "        UNIQUE (run_id, case_id, repeat_index, id)",
+    ),
+    (
+        "src/evalstand/migrations/__init__.py",
+        "results do not cascade when their run is deleted",
+        "        run_id        TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,\n        case_id       TEXT NOT NULL,\n        repeat_index",
+        "        run_id        TEXT NOT NULL,\n        case_id       TEXT NOT NULL,\n        repeat_index",
+    ),
+    (
+        "src/evalstand/migrations/__init__.py",
+        "scores.value_float is NOT NULL, so an errored score cannot be stored",
+        "        value_float   REAL,",
+        "        value_float   REAL NOT NULL DEFAULT 0.0,",
+    ),
 ]
 
 
