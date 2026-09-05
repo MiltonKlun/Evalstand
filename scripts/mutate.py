@@ -1171,6 +1171,109 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "    if run.task_source_hash:",
         "    if False:",
     ),
+    # --- Phase 5.5: comparing two runs ---
+    # --- the acceptance criterion itself ---
+    (
+        "src/evalstand/reporting/console.py",
+        "the delta table calls a fall a regression",
+        '    table.add_column("changed by", justify="right")',
+        '    table.add_column("regression", justify="right")',
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "the flip table is titled as regressions",
+        '        title="cases whose pass state changed",',
+        '        title="regressions and improvements",',
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "the significance-testing caveat is dropped",
+        '            "evalstand has no significance testing: a delta is an arithmetic "',
+        '            "" if True else "evalstand has no significance testing: a delta is an arithmetic "',
+    ),
+    # --- Flip vs Amended Case: the evidence rule ---
+    (
+        "src/evalstand/comparison.py",
+        "an edited case is reported as a flip",
+        "        if case_id in amended_ids:",
+        "        if False:",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "every case is treated as edited, so no flip is ever reported",
+        "        if case_id in amended_ids:",
+        "        if True:",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "only the expected value is hashed, so an edited input is missed",
+        "        if case_id in hashes_after and hashes_after[case_id] != digest",
+        "        if False",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "missing snapshots mark every case as amended",
+        "    if not hashes_before or not hashes_after:\n        return set()",
+        "    if not hashes_before or not hashes_after:\n        return set(hashes_before or {})",
+    ),
+    # --- verdicts must not be invented ---
+    (
+        "src/evalstand/comparison.py",
+        "a case with no verdict is treated as failing",
+        "    verdicts = [score.passed for score in result.scores if score.passed is not None]\n    if not verdicts:\n        return None",
+        "    verdicts = [score.passed for score in result.scores if score.passed is not None]\n    if not verdicts:\n        return False",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "a case passes if any scorer passed it, not all",
+        "    return all(verdicts)",
+        "    return any(verdicts)",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "an unmeasured run's delta is computed as if it were zero",
+        "        if self.before is None or self.after is None:\n            return None",
+        "        if False:\n            return None",
+    ),
+    # --- repeats ---
+    (
+        "src/evalstand/comparison.py",
+        "a repeated case is compared using its last result",
+        "    return {case_id: result for case_id, result in seen.items() if case_id not in repeated}",
+        "    return seen",
+    ),
+    # --- score moves ---
+    (
+        "src/evalstand/comparison.py",
+        "every score move is listed, however small",
+        "        if abs(scores_after[name] - scores_before[name]) >= threshold",
+        "        if True",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "score moves are ordered smallest first",
+        "        moves=sorted(moves, key=lambda m: abs(m.delta), reverse=True),",
+        "        moves=sorted(moves, key=lambda m: abs(m.delta)),",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "cases present in only one run are not flagged",
+        "        only_before=sorted(set(results_before) - set(results_after)),",
+        "        only_before=[],",
+    ),
+    # --- the warnings a reader needs ---
+    (
+        "src/evalstand/reporting/console.py",
+        "comparing two different evals is not flagged",
+        "    if before.name != after.name:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "a changed task source is not flagged",
+        "        and before.task_source_hash != after.task_source_hash",
+        "        and False",
+    ),
 ]
 
 

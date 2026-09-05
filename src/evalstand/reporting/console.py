@@ -19,9 +19,16 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
+from evalstand.comparison import AmendedCase, Comparison, Flip, ScoreMove, ScorerDelta
 from evalstand.models import Batch, BatchStatus, Result, Run, Score, Trace
 
-__all__ = ["render_failures", "render_history", "render_run_detail", "render_summary"]
+__all__ = [
+    "render_comparison",
+    "render_failures",
+    "render_history",
+    "render_run_detail",
+    "render_summary",
+]
 
 UNKNOWN = "-"
 """Shown where a value is genuinely unknown. Never 0, which is a claim.
@@ -469,3 +476,201 @@ def _describe(value: Any) -> str:
     if isinstance(value, list):
         return f"{len(value)} message{'' if len(value) == 1 else 's'} ({len(str(value))} chars)"
     return f"{len(str(value))} chars"
+
+
+def render_comparison(comparison: Comparison) -> RenderableType:
+    """Two runs, side by side, with no claim about what the difference means.
+
+    Every word here is chosen to withhold a verdict. A delta is "changed", not
+    "improved" or "regressed"; a flip is "pass -> fail", not "a regression".
+    `evalstand` has no significance testing, so it cannot tell a real change
+    from noise — and a tool that said "regression" without being able to
+    support it would be worse than one that stayed quiet, because the word
+    would be believed.
+    """
+    parts: list[RenderableType] = [_comparison_header(comparison)]
+
+    parts.append(Text())
+    parts.append(_delta_table(comparison.scorer_deltas))
+
+    if comparison.flips:
+        parts.append(Text())
+        parts.append(_flip_table(comparison.flips))
+
+    if comparison.moves:
+        parts.append(Text())
+        parts.append(_move_table(comparison.moves))
+
+    if comparison.amended:
+        parts.append(Text())
+        parts.append(_amended_table(comparison.amended))
+
+    if comparison.only_before or comparison.only_after:
+        parts.append(Text())
+        parts.append(_membership_note(comparison))
+
+    if comparison.is_empty:
+        parts.append(Text())
+        parts.append(Text("nothing differs between these runs.", style="dim"))
+
+    # Stated every time, not buried in documentation. A reader who takes a
+    # delta as proof of a change has been misled by the tool, and the tool is
+    # the only thing present at the moment they might do so.
+    parts.append(Text())
+    parts.append(
+        Text(
+            "evalstand has no significance testing: a delta is an arithmetic "
+            "difference, not evidence of a real change.",
+            style="dim",
+        )
+    )
+
+    return Group(*parts)
+
+
+def _comparison_header(comparison: Comparison) -> RenderableType:
+    table = Table(title=None, show_header=False, box=None, expand=False)
+    table.add_column(style="dim")
+    table.add_column()
+
+    before, after = comparison.before, comparison.after
+    table.add_row("before", f"{before.id}  ({_when(before.started_at)})")
+    table.add_row("after", f"{after.id}  ({_when(after.started_at)})")
+
+    if before.name != after.name:
+        # Two different evals measure different things, so their means are not
+        # comparable at all. Said plainly rather than left for the reader to
+        # notice in the ids.
+        table.add_row(
+            "note",
+            Text(
+                f"these are different evals ({before.name} and {after.name}); "
+                f"their scores measure different things",
+                style="yellow",
+            ),
+        )
+
+    if (
+        before.task_source_hash
+        and after.task_source_hash
+        and before.task_source_hash != after.task_source_hash
+    ):
+        # Without this a reader would attribute a code change to the model.
+        table.add_row("note", Text("the task's source changed between these runs", style="yellow"))
+
+    return table
+
+
+def _delta_table(deltas: list[ScorerDelta]) -> RenderableType:
+    table = Table(title="scorer means", show_header=True, header_style="bold", expand=False)
+    table.add_column("scorer")
+    table.add_column("before", justify="right")
+    table.add_column("after", justify="right")
+    table.add_column("changed by", justify="right")
+
+    for delta in deltas:
+        table.add_row(
+            delta.scorer_name,
+            _format_score(delta.before),
+            _format_score(delta.after),
+            # A scorer measured in only one run has not moved; the comparison
+            # cannot be made, and a number here would invent one.
+            f"{delta.delta:+.2f}" if delta.delta is not None else UNKNOWN,
+        )
+
+    return table
+
+
+def _flip_table(flips: list[Flip]) -> RenderableType:
+    table = Table(
+        title="cases whose pass state changed",
+        show_header=True,
+        header_style="bold",
+        expand=False,
+    )
+    table.add_column("case")
+    table.add_column("was")
+    table.add_column("now")
+    table.add_column("output before")
+    table.add_column("output after")
+
+    for flip in flips:
+        table.add_row(
+            flip.case_id,
+            "pass" if flip.passed_before else "fail",
+            "pass" if flip.passed_after else "fail",
+            _truncate(flip.output_before, 40),
+            _truncate(flip.output_after, 40),
+        )
+
+    return table
+
+
+def _move_table(moves: list[ScoreMove]) -> RenderableType:
+    """Cases whose score moved without any pass state to flip.
+
+    Titled by what happened rather than by what it might mean: continuous
+    scorers declined to give a verdict, and this table must not supply one on
+    their behalf.
+    """
+    table = Table(
+        title="largest score changes", show_header=True, header_style="bold", expand=False
+    )
+    table.add_column("case")
+    table.add_column("scorer")
+    table.add_column("before", justify="right")
+    table.add_column("after", justify="right")
+    table.add_column("changed by", justify="right")
+
+    for move in moves:
+        table.add_row(
+            move.case_id,
+            move.scorer_name,
+            f"{move.before:.2f}",
+            f"{move.after:.2f}",
+            f"{move.delta:+.2f}",
+        )
+
+    return table
+
+
+def _amended_table(amended: list[AmendedCase]) -> RenderableType:
+    """Cases whose test itself changed.
+
+    Kept apart from flips because a pass state that moved because the
+    expectation moved says nothing about the task. Folding these in would
+    attribute a dataset edit to the model.
+    """
+    table = Table(
+        title="cases edited between these runs",
+        show_header=True,
+        header_style="bold",
+        expand=False,
+    )
+    table.add_column("case")
+    table.add_column("note")
+
+    for case in amended:
+        note = (
+            "its input or expected value changed, and so did its pass state"
+            if case.verdict_moved
+            else "its input or expected value changed"
+        )
+        table.add_row(case.case_id, note)
+
+    return table
+
+
+def _membership_note(comparison: Comparison) -> RenderableType:
+    """Cases present in one run and not the other.
+
+    A mean computed over a different set of cases is a different measurement,
+    so the reader is told the sets differ rather than left to assume they match.
+    """
+    lines: list[str] = []
+    if comparison.only_before:
+        lines.append(f"only in the earlier run: {', '.join(comparison.only_before)}")
+    if comparison.only_after:
+        lines.append(f"only in the later run: {', '.join(comparison.only_after)}")
+    lines.append("the two runs did not cover the same cases, so their means are not like-for-like")
+    return Text("\n".join(lines), style="yellow")

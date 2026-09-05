@@ -461,9 +461,15 @@ Harness now at 116 mutants; 861 tests.
   - **Prompts and completions are withheld by default**, shown as a size; `--full` prints them. One 4000-token prompt buries the tree it belongs to, and a trace input can hold a customer record nobody meant to display on a shared terminal.
   - Every figure comes from the same Run properties `history` and the live summary use, so the three views cannot disagree about one run.
   - 12 mutants, 12/12 killed — including one that reintroduces the recursive walk.
-- [ ] **5.5 Build `evalstand compare <run_a> <run_b>`.** Report per-scorer means for both runs, the delta, and the list of cases whose pass state flipped, with old and new output side by side.
+- [x] **5.5 Build `evalstand compare <run_a> <run_b>`.** Report per-scorer means for both runs, the delta, and the list of cases whose pass state flipped, with old and new output side by side.
   - **Important:** report the delta as a plain difference. Do **not** label it a regression or an improvement — this version has no significance testing, and asserting a verdict without one would be a false claim. Say "changed" and show the flipped cases. `docs/ci.md` must state this limitation explicitly.
-  - *Acceptance:* comparing two runs shows the delta and flipped cases with no verdict language.
+  - *Acceptance:* comparing two runs shows the delta and flipped cases with no verdict language. **— met 2026-09-05.** Asserted mechanically rather than by eye: the rendered output is searched for every word CONTEXT.md tells us to avoid, in both directions — a tool that stays quiet about bad news but celebrates good news is not neutral.
+  - **A Flip requires the expected value to be unchanged.** `case_snapshots.content_hash` is what makes that checkable; without it, a dataset edit is reported as evidence about the model. Verified directly: passing the hashes turns two apparent flips into one flip and one Amended Case.
+  - Continuous scorers set no pass state, so a suite scored only by them has nothing to flip. Those cases appear under **"largest score changes"** — named for what happened, not for what it might mean.
+  - The caveat is printed on **every** comparison rather than left in documentation: a reader who takes a delta as proof has been misled by the tool, and the tool is the only thing present at the moment they might do so.
+  - Also warns when two runs are not comparable at all: different evals, a changed task source, or a different set of cases.
+  - `docs/ci.md` states the limitation, and its claims are under test.
+  - 16 mutants, 16/16 killed — three of them try to insert verdict language.
 - [ ] **5.6 Build the showcase example** at `examples/pdf_extraction/`: extract `invoice_number`, `vendor_name`, `invoice_date`, `total`, and `line_items[]` from documents.
   - Generate 30 synthetic invoices with `reportlab` + `faker` at a fixed seed. Ground truth is written at generation time and is therefore true by construction — programmatic, not LLM-generated.
   - Vary deliberately: multi-page documents, two currencies, a missing due date, an ambiguous date format.

@@ -180,6 +180,58 @@ def show(
 
 
 @app.command()
+def compare(
+    run_a: Annotated[str, typer.Argument(help="The earlier run.")],
+    run_b: Annotated[str, typer.Argument(help="The later run.")],
+    database: Annotated[
+        Path | None,
+        typer.Option("--db", help="Read a database other than the project's own."),
+    ] = None,
+) -> None:
+    """Show what differs between two runs.
+
+    Reports differences, never verdicts: `evalstand` has no significance
+    testing, so it cannot tell a real change from noise.
+    """
+    from rich.console import Console
+
+    from evalstand.comparison import compare_runs
+    from evalstand.reporting.console import render_comparison
+    from evalstand.storage import DatabaseTooNewError, RunStore
+
+    console = Console()
+
+    try:
+        store = RunStore(database) if database is not None else RunStore()
+    except DatabaseTooNewError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    except OSError as exc:
+        console.print(f"[red]could not open the history database: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    with store:
+        before, after = store.load_run(run_a), store.load_run(run_b)
+        missing = [run_id for run_id, run in ((run_a, before), (run_b, after)) if run is None]
+        if missing:
+            console.print(f"no run with id [bold]{', '.join(missing)}[/bold].")
+            console.print("run [bold]evalstand history[/bold] to see what is recorded.")
+            raise typer.Exit(code=1)
+
+        assert before is not None and after is not None
+        comparison = compare_runs(
+            before,
+            after,
+            # Passed always, because without them every edited case would be
+            # reported as evidence about the task.
+            hashes_before=store.case_hashes(before.id),
+            hashes_after=store.case_hashes(after.id),
+        )
+
+    console.print(render_comparison(comparison))
+
+
+@app.command()
 def version() -> None:
     """Print the installed version."""
     from evalstand import __version__
