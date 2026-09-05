@@ -96,6 +96,20 @@ different evals, when the task's source changed between them, or when they did
 not cover the same set of cases — each of which makes a mean-to-mean difference
 mean something other than it appears to.
 
+**A case that stopped being measured is a finding, not a silence.** If the task
+began crashing, or every scorer for a case errored, that case has no verdict and
+no value — so it cannot flip and cannot move. Those appear under *cases whose
+measurement changed*, with the error that caused it:
+
+```
+ cases whose measurement changed
+ q1 | was judged, now not run | RuntimeError: the API key expired
+```
+
+Reported apart from flips deliberately. "Was passing, now crashes" is not the
+task getting worse — the task did not run, and saying otherwise would attribute
+an infrastructure failure to the model.
+
 **Errored scores are excluded, and counted.** A scorer that raised — a rate-limited
 judge, an unparseable output — is not evidence the task did badly. Those scores are
 left out of the mean, and the number excluded is always reported alongside it. A

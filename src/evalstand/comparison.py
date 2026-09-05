@@ -27,6 +27,7 @@ __all__ = [
     "AmendedCase",
     "Comparison",
     "Flip",
+    "MeasurementChange",
     "ScoreMove",
     "ScorerDelta",
     "compare_runs",
@@ -109,6 +110,31 @@ class AmendedCase:
 
 
 @dataclass(frozen=True)
+class MeasurementChange:
+    """A case that gained or lost a measurement between the runs.
+
+    The gap that made `compare` print "nothing differs" while every case in the
+    later run was crashing with an expired API key. A flip needs a verdict on
+    both sides and a move needs a value on both sides, so a case that errored
+    has neither and fell through every branch.
+
+    Kept apart from flips deliberately. "Was passing, now crashes" is not the
+    task getting worse — the task did not run. Folding the two together would
+    attribute an infrastructure failure to the model, the same conflation
+    CONTEXT.md rejects for Amended Cases.
+    """
+
+    case_id: str
+    before: str
+    after: str
+    detail: str | None = None
+
+    @property
+    def description(self) -> str:
+        return f"was {self.before}, now {self.after}"
+
+
+@dataclass(frozen=True)
 class ScoreMove:
     """A case whose score moved without any pass state to flip.
 
@@ -138,6 +164,7 @@ class Comparison:
     flips: list[Flip] = field(default_factory=list)
     amended: list[AmendedCase] = field(default_factory=list)
     moves: list[ScoreMove] = field(default_factory=list)
+    measurement_changes: list[MeasurementChange] = field(default_factory=list)
     only_before: list[str] = field(default_factory=list)
     only_after: list[str] = field(default_factory=list)
 
@@ -148,6 +175,7 @@ class Comparison:
             self.flips
             or self.amended
             or self.moves
+            or self.measurement_changes
             or self.only_before
             or self.only_after
             or any(d.delta for d in self.scorer_deltas)
@@ -178,10 +206,19 @@ def compare_runs(
     flips: list[Flip] = []
     amended: list[AmendedCase] = []
     moves: list[ScoreMove] = []
+    measurement_changes: list[MeasurementChange] = []
 
     for case_id in shared:
         first, second = results_before[case_id], results_after[case_id]
         verdict_before, verdict_after = _verdict(first), _verdict(second)
+
+        change = _measurement_change(case_id, first, second)
+        if change is not None:
+            # A case that stopped being measured, or started being. Reported
+            # before anything else, because a run that did not execute cannot
+            # also have flipped.
+            measurement_changes.append(change)
+            continue
 
         if case_id in amended_ids:
             # The test itself changed, so nothing about this case is evidence
@@ -219,6 +256,7 @@ def compare_runs(
         flips=flips,
         amended=amended,
         moves=sorted(moves, key=lambda m: abs(m.delta), reverse=True),
+        measurement_changes=measurement_changes,
         only_before=sorted(set(results_before) - set(results_after)),
         only_after=sorted(set(results_after) - set(results_before)),
     )
@@ -241,6 +279,47 @@ def _amended_ids(
         for case_id, digest in hashes_before.items()
         if case_id in hashes_after and hashes_after[case_id] != digest
     }
+
+
+def _measurement_change(case_id: str, before: Result, after: Result) -> MeasurementChange | None:
+    """Whether this case gained or lost a measurement.
+
+    Four states a case can be in, and any move between them is a finding:
+    the task crashed, every scorer errored, it was scored without a verdict, or
+    it was scored with one. A run whose cases all moved from the last state to
+    the first is completely broken, and before this existed `compare` reported
+    it as "nothing differs".
+    """
+    first, second = _measurement_state(before), _measurement_state(after)
+    if first == second:
+        return None
+
+    return MeasurementChange(
+        case_id=case_id,
+        before=first,
+        after=second,
+        # Whichever side is broken is the one worth quoting: a user seeing
+        # "now errors" needs to know what the error was.
+        detail=_measurement_detail(after) or _measurement_detail(before),
+    )
+
+
+def _measurement_state(result: Result) -> str:
+    """What kind of measurement this case produced, in plain words."""
+    if result.error:
+        return "not run"
+    if result.scores and all(score.error for score in result.scores):
+        return "unmeasured"
+    if _verdict(result) is None:
+        return "scored without a verdict"
+    return "judged"
+
+
+def _measurement_detail(result: Result) -> str | None:
+    if result.error:
+        return result.error
+    errored = [score for score in result.scores if score.error]
+    return f"{errored[0].scorer_name}: {errored[0].error}" if errored else None
 
 
 def _by_case(run: Run) -> dict[str, Result]:

@@ -248,11 +248,11 @@ class TestWritingARun:
         original = store._insert_result
         seen = {"count": 0}
 
-        def failing(run_id: str, result: Result) -> None:
+        def failing(run_id: str, result: Result, ordinal: int) -> None:
             seen["count"] += 1
             if seen["count"] == 3:
                 raise RuntimeError("disk full")
-            original(run_id, result)
+            original(run_id, result, ordinal)
 
         with (
             patch.object(store, "_insert_result", failing),

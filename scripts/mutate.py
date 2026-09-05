@@ -1274,6 +1274,82 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "        and before.task_source_hash != after.task_source_hash",
         "        and False",
     ),
+    # --- Pre-Phase-6 audit: what history loses ---
+    # --- G1: "nothing differs" while every case crashed ---
+    (
+        "src/evalstand/comparison.py",
+        "G1: a case that stopped being measured is invisible (the shipped bug)",
+        "        change = _measurement_change(case_id, first, second)\n        if change is not None:",
+        "        change = _measurement_change(case_id, first, second)\n        if False:",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "G1b: measurement changes are detected but never carried",
+        "        measurement_changes=measurement_changes,",
+        "        measurement_changes=[],",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "G1c: is_empty ignores them, so 'nothing differs' returns",
+        "            or self.measurement_changes",
+        "            or []",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "G1d: a crashed case is folded into flips",
+        '    if result.error:\n        return "not run"',
+        '    if False:\n        return "not run"',
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "G1e: an all-errored case is treated as measured",
+        "    if result.scores and all(score.error for score in result.scores):",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/comparison.py",
+        "G1f: the error is not reported with the change",
+        "        detail=_measurement_detail(after) or _measurement_detail(before),",
+        "        detail=None,",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "G1g: the measurement table is never rendered",
+        "    if comparison.measurement_changes:",
+        "    if False:",
+    ),
+    # --- G2: results come back in the wrong order ---
+    (
+        "src/evalstand/storage.py",
+        "G2: results are read back alphabetically, so q10 precedes q2",
+        '"ORDER BY ordinal IS NULL, ordinal, case_id, repeat_index",',
+        '"ORDER BY case_id, repeat_index",',
+    ),
+    (
+        "src/evalstand/storage.py",
+        "G2b: the ordinal is never written",
+        "                ordinal,\n            ),",
+        "                None,\n            ),",
+    ),
+    (
+        "src/evalstand/storage.py",
+        "G2c: rows with no ordinal sort first, jumbling the rest",
+        '"ORDER BY ordinal IS NULL, ordinal, case_id, repeat_index",',
+        '"ORDER BY ordinal, case_id, repeat_index",',
+    ),
+    # --- G3: a mismatched run is silently discarded ---
+    (
+        "src/evalstand/recording.py",
+        "G3: a run from another batch is swallowed as a warning",
+        "        if run.batch_id != self.batch.id:",
+        "        if False:",
+    ),
+    (
+        "src/evalstand/recording.py",
+        "G3b: every run is refused, including matching ones",
+        "        if run.batch_id != self.batch.id:",
+        "        if True:",
+    ),
 ]
 
 

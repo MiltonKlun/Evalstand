@@ -232,3 +232,41 @@ class TestOpeningTheRecorder:
 
         assert recorder is not None
         recorder.finish()
+
+
+class TestAMismatchedRunIsRefusedLoudly:
+    """The never-lose-a-measurement policy exists for a full disk or a locked
+    database. Letting it swallow a *programming error* leaves a batch row with
+    no runs beneath it and nothing said about why — which is precisely the
+    shape of the bug that made history hold one entry per eval forever.
+    """
+
+    def test_a_run_from_another_batch_raises(self, store: RunStore) -> None:
+        recorder = BatchRecorder(store, git=GitState())
+        stray = _run("run-1", batch_id="some-other-batch")
+
+        with pytest.raises(ValueError, match="belongs to batch"):
+            recorder.record(stray)
+
+    def test_the_error_says_how_to_fix_it(self, store: RunStore) -> None:
+        recorder = BatchRecorder(store, git=GitState())
+
+        with pytest.raises(ValueError) as caught:
+            recorder.record(_run("run-1", batch_id="local"))
+
+        assert "batch_id=recorder.batch_id" in str(caught.value)
+
+    def test_a_matching_run_is_still_recorded(self, store: RunStore) -> None:
+        """The check must not reject the ordinary case."""
+        recorder = BatchRecorder(store, git=GitState())
+        recorder.record(_run("run-1", recorder.batch_id))
+
+        assert store.run_count() == 1
+
+    def test_a_genuine_storage_failure_is_still_downgraded(self, store: RunStore) -> None:
+        """The policy still holds for what it was written for: by the time a
+        run reaches here the money is already spent."""
+        recorder = BatchRecorder(store, git=GitState())
+
+        with patch.object(store, "save_run", side_effect=RuntimeError("database is locked")):
+            recorder.record(_run("run-1", recorder.batch_id))  # must not raise

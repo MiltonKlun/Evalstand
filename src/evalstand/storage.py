@@ -264,8 +264,8 @@ class RunStore:
             self.connection.execute("BEGIN")
             try:
                 self._insert_run(run)
-                for result in run.results:
-                    self._insert_result(run.id, result)
+                for ordinal, result in enumerate(run.results):
+                    self._insert_result(run.id, result, ordinal)
                 for case in cases or []:
                     self._insert_case_snapshot(run.id, case)
                 self.connection.execute("COMMIT")
@@ -298,13 +298,14 @@ class RunStore:
             ),
         )
 
-    def _insert_result(self, run_id: str, result: Result) -> None:
+    def _insert_result(self, run_id: str, result: Result, ordinal: int) -> None:
         self.connection.execute(
             """
             INSERT INTO results (id, run_id, case_id, repeat_index, output_text,
                                  output_json, latency_ms, input_tokens,
-                                 output_tokens, cost_usd, error, error_frames)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 output_tokens, cost_usd, error, error_frames,
+                                 ordinal)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 result.id,
@@ -319,6 +320,7 @@ class RunStore:
                 result.cost_usd,
                 result.error,
                 _json(result.error_frames) if result.error_frames else None,
+                ordinal,
             ),
         )
         for score in result.scores:
@@ -491,7 +493,13 @@ class RunStore:
         results = [
             self._build_result(result_row)
             for result_row in self.connection.execute(
-                "SELECT * FROM results WHERE run_id = ? ORDER BY case_id, repeat_index",
+                # Declaration order, not alphabetical. Sorting by case_id put q10
+                # before q2 and broke the ordering guarantee the runner makes.
+                # Rows written before the ordinal column existed have NULL,
+                # which sorts last under this clause rather than jumbling the
+                # rest.
+                "SELECT * FROM results WHERE run_id = ? "
+                "ORDER BY ordinal IS NULL, ordinal, case_id, repeat_index",
                 (run_id,),
             ).fetchall()
         ]

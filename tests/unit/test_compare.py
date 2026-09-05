@@ -589,3 +589,119 @@ class TestTheDocumentedLimitation:
         quoted = "a delta is an arithmetic difference"
         assert quoted in doc
         assert quoted in rendered
+
+
+class TestACaseThatStoppedBeingMeasured:
+    """The worst finding of the pre-Phase-6 audit.
+
+    A flip needs a verdict on both sides; a move needs a value on both sides. A
+    case that errored has neither, so it fell through every branch — and
+    `is_empty` then printed **"nothing differs between these runs"** for a run
+    whose every case had crashed with an expired API key.
+
+    An explicitly false sentence is worse than silence: a user comparing a
+    nightly run against a baseline reads it and moves on while the eval is
+    completely broken.
+    """
+
+    def _crashed(self, run_id: str, error: str = "RuntimeError: the API key expired") -> Run:
+        return Run(
+            id=run_id,
+            batch_id="b1",
+            name="qa",
+            filepath="qa_eval.py",
+            status=RunStatus.COMPLETED,
+            started_at=datetime.now(UTC),
+            results=[Result(id=f"{run_id}-q1-0", case_id="q1", error=error)],
+        )
+
+    def test_a_task_that_started_crashing_is_reported(self) -> None:
+        comparison = compare_runs(_run("a", {"q1": True}), self._crashed("b"))
+
+        assert not comparison.is_empty, "a broken eval was reported as unchanged"
+        assert [c.case_id for c in comparison.measurement_changes] == ["q1"]
+
+    def test_the_change_names_what_happened_and_why(self) -> None:
+        """A user seeing "now errors" needs the error to act on it."""
+        comparison = compare_runs(_run("a", {"q1": True}), self._crashed("b"))
+        change = comparison.measurement_changes[0]
+
+        assert change.before == "judged"
+        assert change.after == "not run"
+        assert "API key expired" in (change.detail or "")
+
+    def test_a_task_that_stopped_crashing_is_reported_too(self) -> None:
+        """The other direction. An eval that started working again is equally
+        a change in what was measured."""
+        comparison = compare_runs(self._crashed("a"), _run("b", {"q1": True}))
+
+        assert [c.description for c in comparison.measurement_changes] == [
+            "was not run, now judged"
+        ]
+
+    def test_a_scorer_that_started_erroring_is_reported(self) -> None:
+        """The task ran; the judge did not. Different cause, same consequence:
+        the case is no longer measured."""
+        unmeasured = Run(
+            id="b",
+            batch_id="b1",
+            name="qa",
+            filepath="f",
+            status=RunStatus.COMPLETED,
+            results=[
+                Result(
+                    id="b-q1-0",
+                    case_id="q1",
+                    scores=[Score.from_error("judge", "rate limited")],
+                )
+            ],
+        )
+
+        comparison = compare_runs(_run("a", {"q1": True}), unmeasured)
+
+        assert [c.after for c in comparison.measurement_changes] == ["unmeasured"]
+        assert "rate limited" in (comparison.measurement_changes[0].detail or "")
+
+    def test_a_case_that_stopped_being_judged_is_reported(self) -> None:
+        """A binary scorer replaced by a continuous one. The case still has a
+        number, but nobody judges it any more — and the pass count silently
+        loses a denominator."""
+        comparison = compare_runs(
+            _run("a", {"q1": True}), _run("b", {"q1": None}, values={"q1": 0.9})
+        )
+
+        assert [c.description for c in comparison.measurement_changes] == [
+            "was judged, now scored without a verdict"
+        ]
+
+    def test_a_crashed_case_is_not_reported_as_a_flip(self) -> None:
+        """ "Was passing, now crashes" is not the task getting worse — the task
+        did not run. Folding it into flips would attribute an infrastructure
+        failure to the model, the conflation CONTEXT.md rejects for Amended
+        Cases."""
+        comparison = compare_runs(_run("a", {"q1": True}), self._crashed("b"))
+
+        assert comparison.flips == []
+
+    def test_the_table_says_what_happened_without_a_verdict(self) -> None:
+        rendered = _rendered(compare_runs(_run("a", {"q1": True}), self._crashed("b")))
+
+        assert "measurement changed" in rendered
+        assert "nothing differs" not in rendered
+
+        found = [word for word in VERDICT_WORDS if word in rendered.lower()]
+        assert not found, f"the new table asserted a verdict: {found}"
+
+    def test_a_case_measured_the_same_way_twice_is_not_reported(self) -> None:
+        """The check must not fire on every case, or the table becomes noise
+        and gets ignored."""
+        comparison = compare_runs(_run("a", {"q1": True}), _run("b", {"q1": False}))
+
+        assert comparison.measurement_changes == []
+        assert [f.case_id for f in comparison.flips] == ["q1"]
+
+    def test_two_crashed_runs_report_no_change(self) -> None:
+        """Both broken in the same way is not a change between them."""
+        comparison = compare_runs(self._crashed("a"), self._crashed("b"))
+
+        assert comparison.measurement_changes == []

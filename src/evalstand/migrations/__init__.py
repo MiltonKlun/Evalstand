@@ -150,7 +150,21 @@ _V1 = [
     "CREATE INDEX idx_traces_result ON traces(run_id, result_id)",
 ]
 
-MIGRATIONS: dict[int, list[str]] = {1: _V1}
+_V2 = [
+    # Declaration order, recorded because it cannot be recovered afterwards.
+    #
+    # `runner.py` promises results come back in the order their cases were
+    # declared: "a report whose rows shuffle between runs cannot be read or
+    # diffed". Reading them back `ORDER BY case_id` broke that promise as soon
+    # as a suite had ten cases, because text ordering puts q10 before q2.
+    #
+    # Nullable so the migration needs no backfill: rows written before this
+    # column existed sort last, in their old order, rather than being
+    # rewritten to a position nobody recorded.
+    "ALTER TABLE results ADD COLUMN ordinal INTEGER",
+]
+
+MIGRATIONS: dict[int, list[str]] = {1: _V1, 2: _V2}
 """Version number to the statements that take the schema *to* that version.
 
 Applied in ascending order. A migration is never edited once released — a

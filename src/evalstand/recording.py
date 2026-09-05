@@ -65,7 +65,23 @@ class BatchRecorder:
         return self.batch.id
 
     def record(self, run: Run, *, cases: list[Case] | None = None, task: Any = None) -> None:
-        """Store one finished Run, with the provenance of the code that made it."""
+        """Store one finished Run, with the provenance of the code that made it.
+
+        A run belonging to a different batch is a programming error, not an
+        environment problem, so it is raised rather than downgraded. The
+        never-lose-a-measurement policy below exists for a full disk or a
+        locked database; letting it swallow a mismatched id would leave a batch
+        row with no runs beneath it and nothing said about why — which is
+        exactly the shape of the bug that made history hold one entry per eval
+        forever.
+        """
+        if run.batch_id != self.batch.id:
+            raise ValueError(
+                f"run {run.id} belongs to batch {run.batch_id!r}, but this recorder "
+                f"is writing batch {self.batch.id!r}. Pass `batch_id=recorder.batch_id` "
+                f"to `run_eval`."
+            )
+
         run = run.model_copy(update={"task_source_hash": task_source_hash(task) if task else None})
         self._write(lambda: self.store.save_run(run, cases=cases))
 
