@@ -133,6 +133,53 @@ def history(
 
 
 @app.command()
+def show(
+    run_id: Annotated[str, typer.Argument(help="The run to display, from `evalstand history`.")],
+    full: Annotated[
+        bool,
+        typer.Option("--full", help="Print each call's prompts and completions in full."),
+    ] = False,
+    database: Annotated[
+        Path | None,
+        typer.Option("--db", help="Read a database other than the project's own."),
+    ] = None,
+) -> None:
+    """Show one run: its summary, per-case scores, and trace trees."""
+    from rich.console import Console
+
+    from evalstand.reporting.console import render_run_detail
+    from evalstand.storage import DatabaseTooNewError, RunStore
+
+    console = Console()
+
+    try:
+        store = RunStore(database) if database is not None else RunStore()
+    except DatabaseTooNewError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    except OSError as exc:
+        console.print(f"[red]could not open the history database: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    with store:
+        run = store.load_run(run_id)
+        if run is None:
+            # A typo and an empty database send a user looking in different
+            # places, so they are answered differently.
+            console.print(f"no run with id [bold]{run_id}[/bold].")
+            if store.run_count():
+                console.print("run [bold]evalstand history[/bold] to see what is recorded.")
+            else:
+                console.print("no runs recorded yet.")
+            raise typer.Exit(code=1)
+
+        batch = store.batch_for(run.id)
+        rendered = render_run_detail(run, batch, full=full)
+
+    console.print(rendered)
+
+
+@app.command()
 def version() -> None:
     """Print the installed version."""
     from evalstand import __version__

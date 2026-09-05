@@ -31,6 +31,28 @@ PRELUDE = "class _NeverRaised(Exception):\n    pass\n\n\n"
 PRELUDE_ANCHOR = 'EVAL_FILE_SUFFIX = "_eval.py"'
 
 
+def _line_append_full() -> str:
+    """The `--full` prompt line, built from codepoints.
+
+    Written this way because the anchor contains a literal backslash-n: a
+    source edit that turns it into a real newline makes the anchor silently
+    stop matching, which reports ANCHOR MISS rather than testing anything.
+    """
+    quote, backslash = chr(34), chr(92)
+    return (
+        "            line.append(f"
+        + quote
+        + backslash
+        + "n{label}: {value!r}"
+        + quote
+        + ", style="
+        + quote
+        + "dim"
+        + quote
+        + ")"
+    )
+
+
 def _never_raised(*names: str) -> str:
     """Exception classes nothing throws, for making an except-clause dead."""
     return "".join(f"class {name}(Exception):\n    pass\n\n\n" for name in names)
@@ -1075,6 +1097,79 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "git_dirty None is read back as clean",
         '            git_dirty=None if row["git_dirty"] is None else bool(row["git_dirty"]),',
         '            git_dirty=bool(row["git_dirty"]),',
+    ),
+    # --- Phase 5.4: the run-detail view ---
+    (
+        "src/evalstand/reporting/console.py",
+        "the tree walk becomes recursive and overflows on deep chains",
+        "    pending: list[tuple[Tree, Trace]] = [\n        (tree, trace) for trace in reversed(children.get(None, []))\n    ]\n    while pending:\n        parent, trace = pending.pop()\n        node = parent.add(_trace_label(trace, full=full))\n        pending.extend((node, child) for child in reversed(children.get(trace.id, [])))",
+        "    def _walk(parent, trace):\n        node = parent.add(_trace_label(trace, full=full))\n        for child in children.get(trace.id, []):\n            _walk(node, child)\n\n    for trace in children.get(None, []):\n        _walk(tree, trace)",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "only the first root is rendered, dropping the rest of a forest",
+        "        (tree, trace) for trace in reversed(children.get(None, []))",
+        "        (tree, trace) for trace in reversed(children.get(None, [])[:1])",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "siblings come out in reverse order",
+        "        pending.extend((node, child) for child in reversed(children.get(trace.id, [])))",
+        "        pending.extend((node, child) for child in children.get(trace.id, []))",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "children are never attached, flattening the tree",
+        "        node = parent.add(_trace_label(trace, full=full))",
+        "        node = tree.add(_trace_label(trace, full=full))",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "an unpriced call is shown as free",
+        '    line.append(f"  {UNKNOWN if trace.cost_usd is None else f\'${trace.cost_usd:.4f}\'}", style="dim")',
+        '    line.append(f"  ${trace.cost_usd or 0.0:.4f}", style="dim")',
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "prompts are printed by default",
+        "    if not full:\n        # A size rather than the content.",
+        "    if False:\n        # A size rather than the content.",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "--full still withholds the prompt",
+        _line_append_full(),
+        "            pass",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "a score with no verdict is shown as a pass",
+        '    if score.passed is None:\n        # No verdict was given, and the report must not invent one.\n        return f"{score.scorer_name}: {value}"',
+        '    if False:\n        return f"{score.scorer_name}: {value}"',
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "an errored score is rendered as a zero",
+        '    if score.error:\n        return f"{score.scorer_name}: errored ({score.error})"',
+        '    if False:\n        return f"{score.scorer_name}: errored ({score.error})"',
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "the excluded-score count is never stated",
+        "    if run.errored_score_count:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "captured error frames are dropped",
+        '        parts.extend(Text(f"  {frame}", style="dim") for frame in result.error_frames)',
+        "        pass",
+    ),
+    (
+        "src/evalstand/reporting/console.py",
+        "the task source hash is never shown",
+        "    if run.task_source_hash:",
+        "    if False:",
     ),
 ]
 

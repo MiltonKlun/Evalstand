@@ -455,7 +455,12 @@ Harness now at 116 mutants; 861 tests.
   - A dirty tree is marked `*` **and explained in a legend**: an asterisk with no legend is a puzzle, not information.
   - Cancelled batches are excluded; their aggregates describe a subset of the cases.
   - 15 mutants, 15/15 killed. Two were real gaps in the *read* path: `git_dirty=None` and an unpriced `cost_usd` were both preserved on write and silently coerced on read — a distinction that survives storage and dies on retrieval is no distinction at all.
-- [ ] **5.4 Build `evalstand show <run_id>`** rendering a full run: summary, per-case scores, and trace trees.
+- [x] **5.4 Build `evalstand show <run_id>`** rendering a full run: summary, per-case scores, and trace trees. **— met 2026-09-05.**
+  - **The tree is built iteratively.** A recursive walk raises `RecursionError` at about a thousand levels — measured — and losing a whole run's display to a judge that called a judge would be a poor way to fail. Verified against a 3000-deep chain.
+  - The Result validator already guarantees a forest (no cycles, no dangling parents, no duplicate ids), so the renderer trusts the *shape* and only has to survive its *size*. It must still handle several roots and children listed before their parents, both of which the validator permits.
+  - **Prompts and completions are withheld by default**, shown as a size; `--full` prints them. One 4000-token prompt buries the tree it belongs to, and a trace input can hold a customer record nobody meant to display on a shared terminal.
+  - Every figure comes from the same Run properties `history` and the live summary use, so the three views cannot disagree about one run.
+  - 12 mutants, 12/12 killed — including one that reintroduces the recursive walk.
 - [ ] **5.5 Build `evalstand compare <run_a> <run_b>`.** Report per-scorer means for both runs, the delta, and the list of cases whose pass state flipped, with old and new output side by side.
   - **Important:** report the delta as a plain difference. Do **not** label it a regression or an improvement — this version has no significance testing, and asserting a verdict without one would be a false claim. Say "changed" and show the flipped cases. `docs/ci.md` must state this limitation explicitly.
   - *Acceptance:* comparing two runs shows the delta and flipped cases with no verdict language.

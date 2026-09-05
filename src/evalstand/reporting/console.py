@@ -17,10 +17,11 @@ from typing import Any
 from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
+from rich.tree import Tree
 
-from evalstand.models import Batch, BatchStatus, Run
+from evalstand.models import Batch, BatchStatus, Result, Run, Score, Trace
 
-__all__ = ["render_failures", "render_history", "render_summary"]
+__all__ = ["render_failures", "render_history", "render_run_detail", "render_summary"]
 
 UNKNOWN = "-"
 """Shown where a value is genuinely unknown. Never 0, which is a claim.
@@ -308,3 +309,163 @@ def _run_cost(run: Run) -> str:
 
     formatted = f"${run.total_cost_usd:.4f}"
     return formatted if run.cost_is_complete else f"{formatted}+"
+
+
+def render_run_detail(
+    run: Run,
+    batch: Batch | None = None,
+    *,
+    full: bool = False,
+) -> RenderableType:
+    """One run in full: what it was, what each case did, and what it called.
+
+    `full` prints the prompts and completions themselves. They are withheld by
+    default because one 4000-token prompt fills a screen and buries the tree it
+    belongs to — and because a trace input can hold a customer record that
+    nobody meant to display on a shared terminal.
+    """
+    parts: list[RenderableType] = [_run_header(run, batch)]
+
+    for result in run.results:
+        parts.append(Text())
+        parts.append(_case_panel(result, full=full))
+
+    return Group(*parts)
+
+
+def _run_header(run: Run, batch: Batch | None) -> RenderableType:
+    """The run's identity and headline numbers."""
+    table = Table(title=None, show_header=False, box=None, expand=False)
+    table.add_column(style="dim")
+    table.add_column()
+
+    table.add_row("run", run.id)
+    table.add_row("eval", f"{run.name}  ({run.filepath})")
+    table.add_row("when", _when(run.started_at))
+    table.add_row("commit", _commit(batch))
+    if run.task_source_hash:
+        # Short, because its only use is comparing two runs at a glance.
+        table.add_row("task", run.task_source_hash[:12])
+    table.add_row("mean", _format_score(run.mean_score))
+
+    passed, judged = _pass_counts(run)
+    table.add_row("passed", f"{passed}/{judged}" if judged else UNKNOWN)
+    table.add_row("cost", _run_cost(run))
+
+    if run.errored_score_count:
+        # A mean over fewer scores than expected is a different claim from one
+        # over all of them, so the gap is always stated.
+        table.add_row(
+            "note",
+            Text(
+                f"{run.errored_score_count} errored "
+                f"{'score' if run.errored_score_count == 1 else 'scores'} excluded from the mean",
+                style="yellow",
+            ),
+        )
+
+    return table
+
+
+def _case_panel(result: Result, *, full: bool) -> RenderableType:
+    """One case: its verdict, its scores, and the calls it made."""
+    parts: list[RenderableType] = [Text(result.case_id, style="bold")]
+
+    if result.error:
+        parts.append(Text(f"  task error: {result.error}", style="red"))
+        # The frames were captured at the raise precisely so a stored failure
+        # stays debuggable months later.
+        parts.extend(Text(f"  {frame}", style="dim") for frame in result.error_frames)
+    else:
+        parts.append(Text(f"  output: {_truncate(result.output, 200 if full else _MAX_CELL)}"))
+
+    for score in result.scores:
+        parts.append(Text(f"  {_score_line(score)}"))
+
+    if result.traces:
+        parts.append(_trace_tree(result.traces, full=full))
+
+    return Group(*parts)
+
+
+def _score_line(score: Score) -> str:
+    """One score, saying which of the three things it is.
+
+    A verdict, a bare value and an error are different claims, and collapsing
+    any pair of them is how a false pass gets made.
+    """
+    if score.error:
+        return f"{score.scorer_name}: errored ({score.error})"
+
+    value = UNKNOWN if score.value is None else f"{score.value:.3f}"
+    if score.passed is None:
+        # No verdict was given, and the report must not invent one.
+        return f"{score.scorer_name}: {value}"
+    return f"{score.scorer_name}: {value} ({'pass' if score.passed else 'fail'})"
+
+
+def _trace_tree(traces: list[Trace], *, full: bool) -> RenderableType:
+    """The calls a case made, as the tree they actually form.
+
+    Built **iteratively**. A recursive walk overflows the stack at about a
+    thousand levels, and losing a whole run's display to a judge that called a
+    judge would be a poor way to fail. The Result validator has already
+    guaranteed a forest — no cycles, no dangling parents — so this can trust
+    the shape and only has to survive its size.
+
+    Children may appear before their parents in the list, so the index is built
+    in one pass before anything is walked.
+    """
+    children: dict[str | None, list[Trace]] = {}
+    for trace in traces:
+        children.setdefault(trace.parent_id, []).append(trace)
+
+    tree = Tree("traces", guide_style="dim")
+
+    # (parent renderable, trace) pairs, deepest last — a stack, so siblings
+    # come out in the order they were recorded.
+    pending: list[tuple[Tree, Trace]] = [
+        (tree, trace) for trace in reversed(children.get(None, []))
+    ]
+    while pending:
+        parent, trace = pending.pop()
+        node = parent.add(_trace_label(trace, full=full))
+        pending.extend((node, child) for child in reversed(children.get(trace.id, [])))
+
+    return tree
+
+
+def _trace_label(trace: Trace, *, full: bool) -> RenderableType:
+    """One call: what it was and what it cost."""
+    line = Text(trace.name, style="bold")
+    if trace.model:
+        line.append(f"  {trace.model}", style="cyan")
+    line.append(f"  {trace.duration_ms}ms", style="dim")
+
+    if trace.input_tokens is not None or trace.output_tokens is not None:
+        tokens = f"{trace.input_tokens or 0} in / {trace.output_tokens or 0} out"
+        line.append(f"  {tokens}", style="dim")
+
+    # An unpriced call shows a placeholder, never $0.0000: it has not been
+    # shown to be free.
+    line.append(f"  {UNKNOWN if trace.cost_usd is None else f'${trace.cost_usd:.4f}'}", style="dim")
+
+    if not full:
+        # A size rather than the content. Enough to know something was sent,
+        # without spraying a prompt across the terminal.
+        for label, value in (("input", trace.input), ("output", trace.output)):
+            if value is not None:
+                line.append(f"\n{label}: {_describe(value)}", style="dim")
+        return line
+
+    for label, value in (("input", trace.input), ("output", trace.output)):
+        if value is not None:
+            line.append(f"\n{label}: {value!r}", style="dim")
+    return line
+
+
+def _describe(value: Any) -> str:
+    """How much there is, without showing it."""
+    if isinstance(value, list):
+        return f"{len(value)} message{'' if len(value) == 1 else 's'} ({len(str(value))} chars)"
+    return f"{len(str(value))} chars"
