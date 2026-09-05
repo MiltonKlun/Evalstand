@@ -345,9 +345,13 @@ collection. `history`, `show`, and `compare` remain Phase 5; watch mode Phase 6.
   - Each scorer has its own test file, plus `test_scorer_coverage.py`, which enumerates the public surface and applies the three inputs to every scorer without exception. It also asserts the library-wide Score contract: values stay in `[0, 1]`, scores are filed under the scorer's own name, a stated verdict agrees with its value, and a continuous scorer never invents one.
   - The inventory exists because per-scorer files can only test the scorers someone remembered to write tests for. This one **fails when a scorer is added without them**, naming it — which a checklist in a plan document cannot do. Verified by adding a scorer to the package and watching the suite name it as untested.
   - **— met 2026-09-05.** 92 tests across ten scorers.
-- [ ] **4.8 Write `docs/scorers.md`** documenting each built-in scorer and how to write a custom one.
+- [x] **4.8 Write `docs/scorers.md`** documenting each built-in scorer and how to write a custom one.
+  - Leads with writing your own, because that is the normal case rather than the advanced one. Documents all ten built-ins, what each return type means, and why `passed` is set by some scorers and not others.
+  - States the judge caveat as an admonition rather than a footnote: **not calibrated against human labels**, use them to notice changes worth investigating, not to establish correctness.
+  - **`test_docs_scorers.py` asserts every factual claim the doc makes** — the quoted 0.5714, the worked examples, the two behaviour tables, every documented signature and factory call, and that the doc names every exported scorer and advertises none that no longer exist. Its Python blocks are compiled and its import lines executed. Documentation that drifts from the code is worse than none, so the drift fails the suite.
+  - **— met 2026-09-05.** 32 tests over the doc.
 
-**Exit criteria:** eight or more built-in scorers, all tested and documented.
+**Exit criteria:** eight or more built-in scorers, all tested and documented. **— met 2026-09-05.** Ten scorers: `exact`, `normalised_exact`, `contains`, `regex_match`, `levenshtein`, `ratio`, `close_to`, `json_fields`, `judge`, `factuality`. 829 tests passing; the mutation harness carries 105 mutants across the library.
 
 ---
 
