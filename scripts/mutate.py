@@ -30,6 +30,25 @@ ROOT = Path(__file__).resolve().parent.parent
 PRELUDE = "class _NeverRaised(Exception):\n    pass\n\n\n"
 PRELUDE_ANCHOR = 'EVAL_FILE_SUFFIX = "_eval.py"'
 
+
+def _never_raised(*names: str) -> str:
+    """Exception classes nothing throws, for making an except-clause dead."""
+    return "".join(f"class {name}(Exception):\n    pass\n\n\n" for name in names)
+
+
+# Modules whose mutants need a differently named helper, or a different anchor
+# to inject it at. Anything not listed here uses PRELUDE / PRELUDE_ANCHOR.
+EXTRA_PRELUDES = {
+    "src/evalstand/provenance.py": (
+        _never_raised("_NeverRaised", "_NeverRaisedP"),
+        "_TIMEOUT_SECONDS = 10",
+    ),
+    "src/evalstand/recording.py": (
+        _never_raised("_NeverRaisedR"),
+        'logger = logging.getLogger("evalstand.recording")',
+    ),
+}
+
 # (file, description, original, replacement)
 #
 # The anchors are verbatim copies of source lines, so they cannot be wrapped to
@@ -859,6 +878,109 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "        value_float   REAL,",
         "        value_float   REAL NOT NULL DEFAULT 0.0,",
     ),
+    # --- Phase 5.2: provenance and recording ---
+    # --- the bug that made history hold one entry forever ---
+    (
+        "src/evalstand/migrations/__init__.py",
+        "results are keyed by id alone, so a second run of an eval is dropped",
+        "        PRIMARY KEY (run_id, id),",
+        "        PRIMARY KEY (id),",
+    ),
+    (
+        "src/evalstand/migrations/__init__.py",
+        "scores are not scoped by run, moving the collision one level down",
+        '        FOREIGN KEY (run_id, result_id) REFERENCES results(run_id, id) ON DELETE CASCADE\n    )\n    """,\n    # `parent_id` is what makes',
+        '        FOREIGN KEY (result_id) REFERENCES results(id) ON DELETE CASCADE\n    )\n    """,\n    # `parent_id` is what makes',
+    ),
+    # --- the "HEAD" trap ---
+    (
+        "src/evalstand/provenance.py",
+        "anything git prints is stored as a sha",
+        "    if not _looks_like_a_sha(sha):",
+        "    if False:",
+    ),
+    # --- absent is not false ---
+    (
+        "src/evalstand/provenance.py",
+        "an unknown tree state is reported as clean",
+        "        return GitState(sha=sha, dirty=None)",
+        "        return GitState(sha=sha, dirty=False)",
+    ),
+    (
+        "src/evalstand/provenance.py",
+        "untracked files make the tree dirty",
+        '    status = _git("status", "--porcelain", "--untracked-files=no", cwd=directory)',
+        '    status = _git("status", "--porcelain", cwd=directory)',
+    ),
+    (
+        "src/evalstand/provenance.py",
+        "a missing git crashes the run",
+        "    except (OSError, subprocess.SubprocessError):",
+        "    except _NeverRaised:",
+    ),
+    # --- the dirty gate ---
+    (
+        "src/evalstand/provenance.py",
+        "a dirty tree is persisted without --allow-dirty",
+        "    if state.dirty and not allow_dirty:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/provenance.py",
+        "an unknown tree state is refused like a dirty one",
+        "    if state.dirty and not allow_dirty:",
+        "    if not state.dirty and not allow_dirty:",
+    ),
+    # --- the task hash ---
+    (
+        "src/evalstand/provenance.py",
+        "unreadable task source crashes instead of returning None",
+        "    except (OSError, TypeError):",
+        "    except _NeverRaisedP:",
+    ),
+    (
+        "src/evalstand/provenance.py",
+        "indentation is not normalised, so moving a task reads as changing it",
+        "    normalised = inspect.cleandoc(source)",
+        "    normalised = source",
+    ),
+    # --- recording ---
+    (
+        "src/evalstand/recording.py",
+        "a storage failure takes down the run",
+        "        try:\n            action()\n        except Exception:",
+        "        try:\n            action()\n        except _NeverRaisedR:",
+    ),
+    (
+        "src/evalstand/recording.py",
+        "the storage warning repeats for every run",
+        "            if not self._failed:",
+        "            if True:",
+    ),
+    (
+        "src/evalstand/recording.py",
+        "a too-new database is silently downgraded to a warning",
+        "    except DatabaseTooNewError:\n        # Deliberately not downgraded",
+        "    except _NeverRaisedR:\n        # Deliberately not downgraded",
+    ),
+    (
+        "src/evalstand/recording.py",
+        "the task source hash is never recorded",
+        '        run = run.model_copy(update={"task_source_hash": task_source_hash(task) if task else None})',
+        '        run = run.model_copy(update={"task_source_hash": None})',
+    ),
+    (
+        "src/evalstand/recording.py",
+        "an interrupted batch is marked completed",
+        '                "status": BatchStatus.CANCELLED if cancelled else BatchStatus.COMPLETED,',
+        '                "status": BatchStatus.COMPLETED,',
+    ),
+    (
+        "src/evalstand/recording.py",
+        "the recorder closes a store it does not own",
+        "        if self._owns_store:\n            self.store.close()",
+        "        self.store.close()",
+    ),
 ]
 
 
@@ -895,7 +1017,8 @@ def run_mutant(rel: str, description: str, old: str, new: str) -> tuple[bool, st
     try:
         mutated = original.replace(old, new, 1)
         if "_NeverRaised" in new:
-            mutated = mutated.replace(PRELUDE_ANCHOR, PRELUDE + PRELUDE_ANCHOR, 1)
+            prelude, anchor = EXTRA_PRELUDES.get(rel, (PRELUDE, PRELUDE_ANCHOR))
+            mutated = mutated.replace(anchor, prelude + anchor, 1)
         target.write_text(mutated, encoding="utf-8")
         purge_bytecode()
         return (True, "killed") if run_suite() else (False, "SURVIVED")

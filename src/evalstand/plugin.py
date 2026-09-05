@@ -30,6 +30,7 @@ import pytest
 
 from evalstand.api import Eval, _current_eval_file, registry
 from evalstand.models import Case, Result, Run, Score
+from evalstand.recording import BatchRecorder, open_recorder
 from evalstand.runner import RunConfig, run_eval
 
 EVAL_FILE_SUFFIX = "_eval.py"
@@ -63,6 +64,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         default=False,
         help="Call the provider even when a cached response exists.",
+    )
+    group.addoption(
+        "--no-store",
+        action="store_true",
+        default=False,
+        help="Run without recording anything to the local history database.",
+    )
+    group.addoption(
+        "--allow-dirty",
+        action="store_true",
+        default=False,
+        help="Persist results even though the working tree has uncommitted changes.",
     )
     group.addoption(
         "--threshold",
@@ -219,7 +232,12 @@ def pytest_runtestloop(session: pytest.Session) -> bool | None:
         return None
 
     config = _run_config(session.config)
-    runs = _execute_sync(wanted, config)
+
+    # Checked before anything executes. Discovering that results cannot be
+    # recorded *after* paying for them would be the worst possible ordering.
+    recorder = _open_recorder(session.config)
+
+    runs = _execute_sync(wanted, config, recorder)
 
     by_eval: dict[str, dict[tuple[str, int], Result]] = {
         run.name: {(r.case_id, r.repeat_index): r for r in run.results} for run in runs
@@ -229,12 +247,15 @@ def pytest_runtestloop(session: pytest.Session) -> bool | None:
             item.result = by_eval.get(item.declared.name, {}).get((item.case.id, item.repeat_index))
 
     session.config._evalstand_runs = runs  # type: ignore[attr-defined]
+    if recorder is not None:
+        recorder.finish()
     return None
 
 
 def _execute_sync(
     wanted: dict[str, tuple[Eval, set[tuple[str, int]]]],
     config: RunConfig,
+    recorder: BatchRecorder | None = None,
 ) -> list[Run]:
     """Drive the async runner from pytest's synchronous hook.
 
@@ -251,7 +272,7 @@ def _execute_sync(
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(_execute(wanted, config))  # the ordinary path
+        return asyncio.run(_execute(wanted, config, recorder))  # the ordinary path
 
     results: list[Run] = []
     error: BaseException | None = None
@@ -259,7 +280,7 @@ def _execute_sync(
     def target() -> None:
         nonlocal error
         try:
-            results.extend(asyncio.run(_execute(wanted, config)))
+            results.extend(asyncio.run(_execute(wanted, config, recorder)))
         except BaseException as exc:  # re-raised on the calling thread below
             error = exc
 
@@ -274,17 +295,47 @@ def _execute_sync(
     return results
 
 
+def _open_recorder(config: pytest.Config) -> BatchRecorder | None:
+    """Open the history recorder, or None when this run should not persist.
+
+    Called before any case executes: a dirty tree is refused up front, because
+    discovering that results cannot be recorded after paying for them would be
+    the worst possible ordering.
+    """
+    from evalstand.provenance import DirtyTreeError
+
+    try:
+        return open_recorder(
+            enabled=not config.getoption("--no-store", default=False),
+            allow_dirty=bool(config.getoption("--allow-dirty", default=False)),
+            root=config.rootpath,
+        )
+    except DirtyTreeError as exc:
+        raise pytest.UsageError(str(exc)) from exc
+
+
 async def _execute(
     wanted: dict[str, tuple[Eval, set[tuple[str, int]]]],
     config: RunConfig,
+    recorder: BatchRecorder | None = None,
 ) -> list[Run]:
     """Run each eval in turn, concurrent *within* an eval but not across them.
 
     Evals are kept sequential on purpose: `--concurrency` is a promise about how
     many calls are in flight, and running four evals at once would quietly
     multiply it by four and trip the rate limit the flag exists to avoid.
+
+    Each Run is recorded as it finishes rather than at the end, so a crash
+    part-way keeps everything already measured.
     """
-    return [await run_eval(declared, config, only=units) for declared, units in wanted.values()]
+    runs: list[Run] = []
+    for declared, units in wanted.values():
+        batch_id = recorder.batch_id if recorder else "local"
+        run = await run_eval(declared, config, only=units, batch_id=batch_id)
+        runs.append(run)
+        if recorder is not None:
+            recorder.record(run, cases=await declared.aload_cases(), task=declared.task)
+    return runs
 
 
 def _is_internal(filename: str) -> bool:

@@ -441,7 +441,14 @@ Harness now at 116 mutants; 861 tests.
     - **`isolation_level=None`** is required, because Python's default opens a transaction before DML but not before DDL.
   - Storage never loses a run to a bad value: a cyclic output, or one whose `__repr__` raises, is stored as a description rather than taking down every other result in the save.
   - 15 mutants against the store, 15/15 killed — including the one bug that actually occurred (`Case.content_hash` is a method; storing it uncalled put a bound-method object in the hash column).
-- [ ] **5.2 Record provenance** on every run: git SHA, dirty-tree flag, model config, and a hash of the task source. Refuse to persist without a SHA unless `--allow-dirty` is passed.
+- [x] **5.2 Record provenance** on every run: git SHA, dirty-tree flag, model config, and a hash of the task source. Refuse to persist without a SHA unless `--allow-dirty` is passed. **— met 2026-09-05.**
+  - **Absent is not the same as false.** A directory with no repository, or one with no commits yet, records a null SHA *and* a null dirty flag — "unknown", not "clean". Recording `False` there would assert a fact nobody established.
+  - Not being in a repository is **not** refused: it is a normal way to try the tool, and the null SHA already tells a reader the run cannot be tied to a commit. Only a genuinely dirty tree is gated behind `--allow-dirty`.
+  - **Untracked files do not count as dirty.** A scratch file or a `.env` is not a change to the code being measured, and counting it would have users passing `--allow-dirty` reflexively — which defeats the check.
+  - The gate runs **before any case executes**. Discovering that results cannot be recorded after paying for them would be the worst possible ordering.
+  - A storage failure never costs a measurement: by the time a run is written the money is spent, so a locked database degrades to one warning per batch. The single exception is `DatabaseTooNewError`, which stays a hard refusal.
+  - New flags: `--no-store` and `--allow-dirty`.
+  - 16 mutants, 16/16 killed.
 - [ ] **5.3 Build `evalstand history [name]`** listing runs with name, SHA, date, mean score, pass count, and cost.
 - [ ] **5.4 Build `evalstand show <run_id>`** rendering a full run: summary, per-case scores, and trace trees.
 - [ ] **5.5 Build `evalstand compare <run_a> <run_b>`.** Report per-scorer means for both runs, the delta, and the list of cases whose pass state flipped, with old and new output side by side.

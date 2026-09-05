@@ -62,7 +62,11 @@ _V1 = [
     # ability to compare it field by field later.
     """
     CREATE TABLE results (
-        id            TEXT PRIMARY KEY,
+        -- Scoped by run. A Result's own id is `{eval}-{case}-{repeat}`, which
+        -- is stable *within* a run and therefore identical across runs of the
+        -- same eval -- so a bare PRIMARY KEY on it would silently reject every
+        -- run after the first and leave history holding one entry forever.
+        id            TEXT NOT NULL,
         run_id        TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
         case_id       TEXT NOT NULL,
         repeat_index  INTEGER NOT NULL DEFAULT 0,
@@ -74,6 +78,7 @@ _V1 = [
         cost_usd      REAL,
         error         TEXT,
         error_frames  TEXT,
+        PRIMARY KEY (run_id, id),
         UNIQUE (run_id, case_id, repeat_index)
     )
     """,
@@ -84,12 +89,16 @@ _V1 = [
     """
     CREATE TABLE scores (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        result_id     TEXT NOT NULL REFERENCES results(id) ON DELETE CASCADE,
+        -- Both columns, because a Result is identified by (run_id, id): its
+        -- own id repeats across runs of the same eval.
+        run_id        TEXT NOT NULL,
+        result_id     TEXT NOT NULL,
         scorer_name   TEXT NOT NULL,
         value_float   REAL,
         passed        INTEGER,
         error         TEXT,
-        metadata_json TEXT
+        metadata_json TEXT,
+        FOREIGN KEY (run_id, result_id) REFERENCES results(run_id, id) ON DELETE CASCADE
     )
     """,
     # `parent_id` is what makes a Result carry a tree rather than a list. It is
@@ -97,8 +106,9 @@ _V1 = [
     # collection order, and a child may precede its parent.
     """
     CREATE TABLE traces (
-        id          TEXT PRIMARY KEY,
-        result_id   TEXT NOT NULL REFERENCES results(id) ON DELETE CASCADE,
+        id          TEXT NOT NULL,
+        run_id      TEXT NOT NULL,
+        result_id   TEXT NOT NULL,
         parent_id   TEXT,
         name        TEXT NOT NULL,
         started_at  TEXT,
@@ -107,7 +117,9 @@ _V1 = [
         output_json TEXT,
         model       TEXT,
         tokens_json TEXT,
-        cost_usd    REAL
+        cost_usd    REAL,
+        PRIMARY KEY (run_id, id),
+        FOREIGN KEY (run_id, result_id) REFERENCES results(run_id, id) ON DELETE CASCADE
     )
     """,
     # Cases are snapshotted per run so history stays valid when the dataset
@@ -134,8 +146,8 @@ _V1 = [
     "CREATE INDEX idx_runs_name_started ON runs(name, started_at DESC)",
     "CREATE INDEX idx_runs_batch ON runs(batch_id)",
     "CREATE INDEX idx_results_run ON results(run_id)",
-    "CREATE INDEX idx_scores_result ON scores(result_id)",
-    "CREATE INDEX idx_traces_result ON traces(result_id)",
+    "CREATE INDEX idx_scores_result ON scores(run_id, result_id)",
+    "CREATE INDEX idx_traces_result ON traces(run_id, result_id)",
 ]
 
 MIGRATIONS: dict[int, list[str]] = {1: _V1}
