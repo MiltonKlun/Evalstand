@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import copy
 import inspect
 import logging
 import traceback
@@ -215,7 +216,7 @@ async def _run_one(
             id=f"{declared.name}-{case.id}-{repeat_index}",
             case_id=case.id,
             repeat_index=repeat_index,
-            output=output,
+            output=_snapshot(output),
             error=error,
             error_frames=frames,
             scores=scores,
@@ -224,6 +225,31 @@ async def _run_one(
             output_tokens=collector.total_output_tokens or None,
             cost_usd=collector.total_cost_usd,
         )
+
+
+def _snapshot(output: Any) -> Any:
+    """Keep the output as it was when it was scored.
+
+    A task that returns a shared object it goes on mutating — a dict it reuses,
+    a list it appends to — would otherwise leave every stored Result holding the
+    *last* value. The report then contradicts its own scores: two cases marked
+    correct while the output column shows all three answering identically, and
+    no way to tell which reading is true.
+
+    Immutable values are returned as they are, since copying them buys nothing.
+    Anything that cannot be copied — a file handle, a live client, a response
+    object — falls back to its repr rather than failing the case: the point is
+    to keep a faithful record, and a faithful description beats losing the
+    measurement over it.
+    """
+    if isinstance(output, str | int | float | bool | bytes | type(None)):
+        return output
+
+    try:
+        return copy.deepcopy(output)
+    except Exception:
+        logger.debug("could not copy a task output; storing its repr", exc_info=True)
+        return repr(output)
 
 
 def _user_frames(exc: BaseException) -> list[str]:

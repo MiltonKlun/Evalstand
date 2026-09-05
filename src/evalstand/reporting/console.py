@@ -164,10 +164,11 @@ def _cache_note(runs: list[Run]) -> list[str]:
 
 
 def render_failures(runs: list[Run]) -> RenderableType | None:
-    """Cases that failed, errored, or could not be scored. None when all passed.
+    """Cases worth looking at: failed, errored, unscorable, or scored zero.
 
-    A task error and a low score are different events, so the reason column
-    names which one happened rather than showing both as a failure.
+    Each is a different event, and the reason column names which one happened
+    rather than flattening them into "failed". A scorer that declined to give a
+    verdict must not have one put in its mouth by the report.
     """
     rows: list[tuple[str, str, str, str]] = []
 
@@ -199,11 +200,32 @@ def render_failures(runs: list[Run]) -> RenderableType | None:
                         _truncate(result.output),
                     )
                 )
+                continue
+
+            # A case that scored zero without a verdict. Continuous scorers do
+            # not set `passed` — correctly, since they do not know where the
+            # line sits — so listing only `passed is False` made the worst
+            # possible result invisible: a model answering every case with
+            # garbage produced an empty failures table.
+            #
+            # Reported as "scored 0.00" rather than "failed": the scorer
+            # declined to give a verdict and this table must not invent one. It
+            # says what happened and leaves the judgement to the reader.
+            zeroed = [s for s in result.scores if s.passed is None and s.value == 0.0]
+            if zeroed:
+                rows.append(
+                    (
+                        run.name,
+                        result.case_id,
+                        f"scored 0.00 on {', '.join(s.scorer_name for s in zeroed)}",
+                        _truncate(result.output),
+                    )
+                )
 
     if not rows:
         return None
 
-    table = Table(title="failures", show_header=True, header_style="bold red", expand=False)
+    table = Table(title="needs attention", show_header=True, header_style="bold red", expand=False)
     table.add_column("eval")
     table.add_column("case")
     table.add_column("reason")
