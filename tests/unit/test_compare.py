@@ -458,6 +458,120 @@ class TestTheCompareCommand:
         assert not found, f"the command asserted a verdict: {found}"
 
 
+class TestACancelledBatchIsRefused:
+    """Task 6.6: "a cancelled Batch never appears in `history` or `compare`".
+
+    `history` filtered one from the start; `compare` did not. A watch-mode run
+    interrupted part-way covers a subset of its cases, and its aggregate
+    describes that subset — comparing it against a full run compares different
+    questions and drags every mean it touches.
+    """
+
+    @pytest.fixture
+    def interrupted(self, tmp_path: Path) -> Path:
+        """A complete run and a cancelled one that covers *every* case.
+
+        The identical case coverage is the point. The membership note fires
+        only when the two runs cover different cases, so a batch cancelled
+        after everything had scored slipped through it and printed "nothing
+        differs between these runs" — a partial run presented as complete, with
+        nothing on screen to say otherwise.
+        """
+        database = tmp_path / "h.db"
+        with RunStore(database) as store:
+            for batch_id, status in (
+                ("b-full", BatchStatus.COMPLETED),
+                ("b-cancelled", BatchStatus.CANCELLED),
+            ):
+                store.save_batch(
+                    Batch(
+                        id=batch_id,
+                        kind=BatchKind.FULL,
+                        status=status,
+                        started_at=datetime.now(UTC),
+                        finished_at=datetime.now(UTC),
+                    )
+                )
+            store.save_run(
+                _run("run-full", {"q1": True, "q2": True}, batch_id="b-full"),
+                cases=[_case("q1"), _case("q2")],
+            )
+            store.save_run(
+                _run("run-cut", {"q1": True, "q2": True}, batch_id="b-cancelled"),
+                cases=[_case("q1"), _case("q2")],
+            )
+        return database
+
+    def _compare(self, database: Path, *runs: str) -> Any:
+        from typer.testing import CliRunner
+
+        from evalstand.cli import app
+
+        return CliRunner().invoke(app, ["compare", *runs, "--db", str(database)])
+
+    def test_it_refuses_a_cancelled_run_as_the_later_one(self, interrupted: Path) -> None:
+        result = self._compare(interrupted, "run-full", "run-cut")
+
+        assert result.exit_code == 1
+        assert "did not run to completion" in result.output
+
+    def test_it_refuses_a_cancelled_run_as_the_earlier_one(self, interrupted: Path) -> None:
+        """Either side being partial makes the comparison unsound."""
+        result = self._compare(interrupted, "run-cut", "run-full")
+
+        assert result.exit_code == 1
+        assert "did not run to completion" in result.output
+
+    def test_it_never_claims_the_runs_agree(self, interrupted: Path) -> None:
+        """The shipped behaviour: "nothing differs between these runs" about a
+        batch that was interrupted. A false statement is worse than silence,
+        because the reader stops looking."""
+        result = self._compare(interrupted, "run-full", "run-cut")
+
+        assert "nothing differs" not in result.output
+
+    def test_it_names_the_offending_run(self, interrupted: Path) -> None:
+        """Two run ids on the command line, so "one of these" is not an answer
+        a user can act on."""
+        result = self._compare(interrupted, "run-full", "run-cut")
+
+        assert "run-cut" in result.output
+        assert "run-full did not" not in result.output
+
+    def test_two_complete_runs_still_compare(self, interrupted: Path) -> None:
+        """The guard must not refuse ordinary work."""
+        with RunStore(interrupted) as store:
+            store.save_run(
+                _run("run-full-2", {"q1": False, "q2": True}, batch_id="b-full"),
+                cases=[_case("q1"), _case("q2")],
+            )
+
+        result = self._compare(interrupted, "run-full", "run-full-2")
+
+        assert result.exit_code == 0
+        assert "no significance testing" in result.output
+
+    def test_a_run_whose_batch_cannot_be_found_is_not_refused(
+        self, interrupted: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unfindable batch is *unknown*, not known-partial.
+
+        Foreign keys make an orphaned run unreachable through the API, so this
+        drives `batch_for` returning None directly — which is what a future
+        reader would still see from a database restored without its batches.
+        Refusing there would fail a user over a missing row rather than a
+        finding, so the guard is deliberately narrow: it fires on a batch that
+        is present *and* says it did not finish.
+        """
+        from evalstand.storage import RunStore as Store
+
+        monkeypatch.setattr(Store, "batch_for", lambda self, run_id: None)
+
+        result = self._compare(interrupted, "run-full", "run-cut")
+
+        assert result.exit_code == 0
+
+
 class TestVerdictsAcrossSeveralScorers:
     """A case is judged by every scorer that gave a verdict, not by whichever
     one happened to be first or most generous."""
