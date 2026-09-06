@@ -355,9 +355,10 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     (
         "src/evalstand/plugin.py",
         "evals run concurrently, multiplying the concurrency the user asked for",
-        "    return [await run_eval(declared, config, only=units) for declared, units in wanted.values()]",
+        "    runs: list[Run] = []\n    for declared, units in wanted.values():",
         "    import asyncio as _a\n"
-        "    return list(await _a.gather(*(run_eval(d, config, only=u) for d, u in wanted.values())))",
+        "    return list(await _a.gather(*(run_eval(d, config, only=u) for d, u in wanted.values())))\n"
+        "    runs: list[Run] = []\n    for declared, units in wanted.values():",
     ),
     # --- Phase 4: the scorer library ---
     # Was SURVIVED as an equivalent mutant; this version is real.
@@ -1410,19 +1411,38 @@ def main() -> int:
         return 0
 
     survivors: list[tuple[str, str]] = []
+    stale: list[str] = []
+
     for rel, description, old, new in MUTANTS:
         killed, note = run_mutant(rel, description, old, new)
-        print(f"  {'OK ' if killed else 'GAP'}  {description}  [{note}]", flush=True)
-        if not killed:
+        label = "OK " if killed else ("STALE" if note.startswith("ANCHOR") else "GAP")
+        print(f"  {label:5} {description}  [{note}]", flush=True)
+        if note.startswith("ANCHOR"):
+            stale.append(description)
+        elif not killed:
             survivors.append((description, note))
 
-    print(f"\n{len(MUTANTS) - len(survivors)}/{len(MUTANTS)} killed")
+    print(f"\n{len(MUTANTS) - len(survivors) - len(stale)}/{len(MUTANTS)} killed")
+
+    # Reported apart from survivors, and first, because they are different
+    # problems demanding different fixes. A survivor means the test suite has a
+    # gap. A stale anchor means this harness has been testing *nothing* for that
+    # behaviour, and calling it "no test asserts on this" sends the reader to
+    # write a test that already exists.
+    #
+    # One went stale for four tasks: a list comprehension became a for loop, the
+    # anchor stopped matching, and it reported as a survivor the whole time.
+    if stale:
+        print("\nSTALE ANCHORS — these mutants tested nothing; repair them:")
+        for description in stale:
+            print(f"  - {description}")
+
     if survivors:
         print("\nSURVIVORS — behaviour no test asserts on:")
         for description, note in survivors:
             print(f"  - {description}  [{note}]")
-        return 1
-    return 0
+
+    return 1 if (survivors or stale) else 0
 
 
 if __name__ == "__main__":

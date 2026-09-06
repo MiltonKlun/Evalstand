@@ -516,8 +516,18 @@ defects, none caught by the 1058 tests passing at the time.
   never meant to cover, leaving a batch row with no runs beneath it — the same
   shape as the 5.2 bug. Now raised.
 
-12 mutants reintroducing these, 12/12 killed. Harness at 202 mutants; 1075
-tests.
+12 mutants reintroducing these, 12/12 killed.
+
+A fourth finding came from reading the harness's own score rather than the
+code: one mutant reported **ANCHOR NOT FOUND** — it had been testing *nothing*
+for four tasks, since a list comprehension in `plugin.py` became a `for` loop
+when per-run recording landed. Worse, the report called it a survivor,
+"behaviour no test asserts on", which sends a reader to write a test that
+already exists. Stale anchors are now reported separately, fail the run, and
+`test_mutation_harness.py` fails the moment a refactor moves a line any mutant
+targets. The suite is only as trustworthy as the thing measuring it.
+
+Harness at 202 mutants; 1089 tests.
 
 ---
 
