@@ -5,8 +5,8 @@ delegates to pytest rather than reimplementing collection: the plugin already
 knows how to find and execute evals, and a second execution path would be a
 second thing to keep correct.
 
-`history`, `show`, and `compare` arrive in Phase 5; watch mode and the TUI in
-Phase 6.
+`history`, `show`, and `compare` arrive in Phase 5; `watch` — the live view and
+file-change re-runs — in Phase 6.
 """
 
 from __future__ import annotations
@@ -195,7 +195,7 @@ def compare(
     """
     from rich.console import Console
 
-    from evalstand.comparison import compare_runs
+    from evalstand.comparison import NotComparableError, compare_runs, refuse_partial_runs
     from evalstand.reporting.console import render_comparison
     from evalstand.storage import DatabaseTooNewError, RunStore
 
@@ -220,27 +220,16 @@ def compare(
 
         assert before is not None and after is not None
 
-        # A Batch that did not run to completion covers a subset of its cases,
-        # and its aggregate describes that subset. `history` already hides one;
-        # `compare` refusing it is the other half of the same promise.
-        #
         # Refused rather than warned about. The membership note only fires when
         # the two runs cover different cases, so a batch cancelled *after* every
         # case had scored compared clean and printed "nothing differs between
-        # these runs" — a partial run presented as a complete one, with nothing
-        # on screen to say otherwise.
-        partial = [
-            run.id
-            for run in (before, after)
-            if (batch := store.batch_for(run.id)) is not None and not batch.is_comparable
-        ]
-        if partial:
-            console.print(
-                f"[red]{', '.join(partial)} did not run to completion, so "
-                f"comparing it would compare different questions.[/red]"
-            )
+        # these runs" — a partial run presented as a complete one.
+        try:
+            refuse_partial_runs((before, after), store.batch_for)
+        except NotComparableError as exc:
+            console.print(f"[red]{exc}[/red]")
             console.print("run [bold]evalstand history[/bold] to see what is comparable.")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
 
         comparison = compare_runs(
             before,
@@ -252,6 +241,103 @@ def compare(
         )
 
     console.print(render_comparison(comparison))
+
+
+@app.command()
+def watch(
+    paths: Annotated[
+        list[Path] | None,
+        typer.Argument(help="Eval files or directories. Defaults to the current directory."),
+    ] = None,
+    eval_name: Annotated[
+        str | None,
+        typer.Option("--eval", help="Which eval to watch, when a path declares several."),
+    ] = None,
+    concurrency: Annotated[
+        int | None, typer.Option("--concurrency", help="Cases to execute at once (default: 8).")
+    ] = None,
+    timeout: Annotated[
+        float | None,
+        typer.Option("--timeout", help="Abandon a case after this many seconds."),
+    ] = None,
+    no_cache: Annotated[
+        bool,
+        typer.Option("--no-cache", help="Call the provider even when a cached response exists."),
+    ] = False,
+    once: Annotated[
+        bool,
+        typer.Option("--once", help="Open the live view without watching for changes."),
+    ] = False,
+    store: Annotated[
+        bool,
+        typer.Option("--store", help="Record these runs in the history database."),
+    ] = False,
+) -> None:
+    """Run one eval in a live view, re-running when files change.
+
+    Not recorded by default, which is the opposite of `run`. Watch mode exists
+    to be used *while editing*, so the tree is dirty by construction and every
+    run would be tied to a commit whose code it did not reflect. Filling history
+    with dozens of unreproducible runs would bury the deliberate ones the
+    feature is measured against — so persistence is opt-in with `--store`,
+    where the user is choosing it rather than getting it by default.
+    """
+    from rich.console import Console
+
+    from evalstand.loading import NoEvalsFoundError, load_evals, select_eval
+    from evalstand.recording import open_recorder
+    from evalstand.runner import RunConfig
+    from evalstand.tui.app import EvalApp
+    from evalstand.tui.watch import watch_roots
+
+    console = Console()
+    targets = list(paths or [Path()])
+
+    try:
+        declared = select_eval(load_evals(targets), eval_name)
+    except NoEvalsFoundError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    except Exception as exc:
+        # An eval file that raises on import. Reported plainly rather than
+        # inside a terminal UI that would then have to be dismissed.
+        console.print(f"[red]could not load evals: {type(exc).__name__}: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    try:
+        expected = len(declared.load_cases()) * declared.repeat
+    except Exception as exc:
+        console.print(f"[red]could not load cases for {declared.name!r}: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    recorder = None
+    if store:
+        try:
+            # `allow_dirty` because watch mode is *for* editing. The batch still
+            # records that the tree was dirty, so no reader is misled into
+            # thinking the run can be reproduced from its commit.
+            recorder = open_recorder(allow_dirty=True)
+        except Exception as exc:
+            console.print(f"[red]could not open the history database: {exc}[/red]")
+            raise typer.Exit(code=1) from exc
+
+    config = RunConfig(
+        concurrency=concurrency if concurrency is not None else RunConfig().concurrency,
+        timeout_seconds=timeout,
+        bypass_cache=no_cache,
+    )
+
+    EvalApp(
+        declared,
+        config=config,
+        expected=expected,
+        watch=not once,
+        watch_roots=watch_roots(targets),
+        recorder=recorder,
+    ).run()
+
+    if recorder is not None:
+        recorder.finish()
 
 
 @app.command()

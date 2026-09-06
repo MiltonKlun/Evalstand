@@ -33,7 +33,7 @@ from textual.binding import Binding
 from textual.containers import Container, Vertical
 from textual.message import Message
 from textual.screen import ModalScreen
-from textual.widgets import DataTable, Footer, Header, ProgressBar, Static
+from textual.widgets import DataTable, Footer, Header, Input, ProgressBar, Static
 
 from evalstand.api import Eval
 from evalstand.models import Result, Run
@@ -183,6 +183,8 @@ class EvalApp(App[None]):
     #summary { width: 32; border-left: solid $panel; padding: 0 1; }
     #detail { padding: 1 2; height: 100%; overflow-y: auto; background: $surface; }
     #status { height: auto; padding: 0 1; color: $text-muted; }
+    #search { display: none; }
+    #search.visible { display: block; }
     ProgressBar { padding: 0 1; }
     """
 
@@ -192,6 +194,10 @@ class EvalApp(App[None]):
         Binding("f", "toggle_failures", "failures"),
         Binding("y", "copy_case", "copy id"),
         Binding("enter", "open_case", "detail"),
+        Binding("h", "history", "history"),
+        Binding("slash", "search", "search"),
+        Binding("escape", "clear_search", "clear search", show=False),
+        Binding("c", "compare_previous", "compare"),
     ]
 
     def __init__(
@@ -212,6 +218,13 @@ class EvalApp(App[None]):
         self.watch_roots = watch_roots
         self.recorder = recorder
         self._only_failures = False
+        self._search = ""
+        """A case-id filter, applied on top of the failures filter.
+
+        Both narrow the table, so they compose rather than override: a user who
+        pressed `f` and then searched is asking for failing cases matching the
+        term, not for one filter to silently replace the other.
+        """
         self._run_task: asyncio.Task[None] | None = None
         """The eval currently executing.
 
@@ -239,12 +252,14 @@ class EvalApp(App[None]):
             with Vertical(id="left"):
                 yield ProgressBar(total=self.state.expected, show_eta=False)
                 yield DataTable(id="results", cursor_type="row", zebra_stripes=True)
+                yield Input(placeholder="filter by case id", id="search")
                 yield Static("", id="status")
             yield SummaryPanel(id="summary")
         yield Footer()
 
     def on_mount(self) -> None:
         self.title = f"evalstand — {self.declared.name}"
+        self.query_one("#search", Input).can_focus = False
         table = self.query_one("#results", DataTable)
         for column in (*_BASE_COLUMNS, *self.declared.columns):
             table.add_column(column, key=column)
@@ -364,7 +379,7 @@ class EvalApp(App[None]):
             # footer disagree with the table above it.
             return
 
-        if not self._only_failures or row.status != "pass":
+        if self._shown(row):
             self._paint(row)
 
         if not self._on_screen():
@@ -432,14 +447,26 @@ class EvalApp(App[None]):
         if self._on_screen():
             self.query_one("#status", Static).update(text)
 
+    def _shown(self, row: CaseRow) -> bool:
+        """Whether a row survives the active filters.
+
+        One predicate for both the live paint and the repaint. Two copies would
+        eventually disagree, and the symptom is a row that appears while the run
+        is going and vanishes when anything triggers a redraw — which reads as
+        losing a result.
+        """
+        if self._only_failures and row.status == "pass":
+            return False
+        return self._search.lower() in row.case_id.lower()
+
     def _repaint(self) -> None:
         if not self._on_screen():
             return
         table = self.query_one("#results", DataTable)
         table.clear()
-        rows = self.state.failures() if self._only_failures else self.state.rows()
-        for row in rows:
-            self._paint(row)
+        for row in self.state.rows():
+            if self._shown(row):
+                self._paint(row)
 
     # -- actions --------------------------------------------------------
 
@@ -447,6 +474,80 @@ class EvalApp(App[None]):
         self._only_failures = not self._only_failures
         self._repaint()
         self._set_status("showing failures only" if self._only_failures else "showing all cases")
+
+    def action_search(self) -> None:
+        """Filter the table by case id."""
+        search = self.query_one("#search", Input)
+        search.can_focus = True
+        search.add_class("visible")
+        search.focus()
+
+    @on(Input.Changed, "#search")
+    def _search_changed(self, message: Input.Changed) -> None:
+        self._search = message.value
+        self._repaint()
+
+    @on(Input.Submitted, "#search")
+    def _search_submitted(self) -> None:
+        """Close the box but keep the filter.
+
+        Keeping it is the point: a search that cleared itself the moment focus
+        left would make the narrowed table impossible to scroll through.
+        `escape` is what clears it.
+        """
+        self.query_one("#results", DataTable).focus()
+
+    def action_clear_search(self) -> None:
+        search = self.query_one("#search", Input)
+        search.value = ""
+        search.remove_class("visible")
+        search.can_focus = False
+        self._search = ""
+        self._repaint()
+        self.query_one("#results", DataTable).focus()
+
+    def action_compare_previous(self) -> None:
+        """Compare this run against the previous run of the same eval.
+
+        Needs a recorder: without one there is no previous run to compare
+        against, and the honest answer is to say so rather than show an empty
+        comparison that reads as "nothing changed".
+        """
+        if self.finished is None:
+            self._set_status("the run is still going; compare when it finishes")
+            return
+        if self.recorder is None:
+            self._set_status(
+                "comparing needs recorded runs; start with --store, or use `evalstand compare`"
+            )
+            return
+
+        store = self.recorder.store
+        earlier = [
+            run for run in store.runs_for(self.declared.name, limit=2) if run.id != self.finished.id
+        ]
+        if not earlier:
+            self._set_status(f"no earlier run of {self.declared.name!r} to compare against")
+            return
+
+        from evalstand.comparison import NotComparableError, compare_runs, refuse_partial_runs
+        from evalstand.reporting.console import render_comparison
+        from evalstand.tui.history import _Detail
+
+        before = earlier[0]
+        try:
+            refuse_partial_runs((before, self.finished), store.batch_for)
+        except NotComparableError as exc:
+            self._set_status(str(exc))
+            return
+
+        comparison = compare_runs(
+            before,
+            self.finished,
+            hashes_before=store.case_hashes(before.id),
+            hashes_after=store.case_hashes(self.finished.id),
+        )
+        self.push_screen(_Detail(render_comparison(comparison)))
 
     def action_rerun(self) -> None:
         """Re-run from scratch. `start_run` cancels anything in flight."""
@@ -485,6 +586,24 @@ class EvalApp(App[None]):
             return
 
         self.push_screen(CaseDetail(result, key))
+
+    def action_history(self) -> None:
+        """Task 6.4. Opens only when there is a database to read.
+
+        Said plainly rather than showing an empty table: "no history" and "not
+        recording" send a user to different places, and a blank screen implies
+        the first when the truth is usually the second.
+        """
+        if self.recorder is None:
+            self._set_status(
+                "history needs a recorded run; start watch mode with --store, "
+                "or use `evalstand history`"
+            )
+            return
+
+        from evalstand.tui.history import HistoryScreen
+
+        self.push_screen(HistoryScreen(self.recorder.store))
 
     def action_copy_case(self) -> None:
         key = self._selected_key()

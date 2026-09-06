@@ -536,21 +536,21 @@ Harness at 202 mutants; 1089 tests.
 **Goal:** the live feedback loop that is the whole point of the tool.
 **Estimate:** 16 hours.
 
-- [ ] **6.1 Run view** in `tui/app.py`: header with eval name and model, progress bar, a streaming table of cases (id, status, score, latency, cost) updating as results land, and a footer with running totals.
+- [x] **6.1 Run view** in `tui/app.py`: header with eval name and model, progress bar, a streaming table of cases (id, status, score, latency, cost) updating as results land, and a footer with running totals.
   - *Acceptance:* rows appear incrementally, not in one batch at the end.
-- [ ] **6.2 Summary panel:** per-scorer mean, pass count, total cost, wall time, cache hit rate.
-- [ ] **6.3 Case detail view:** press `enter` on a row for input, full output, expected, per-scorer breakdown with metadata, and the **trace tree** with per-node model, duration, tokens, and cost.
+- [x] **6.2 Summary panel:** per-scorer mean, pass count, total cost, wall time, cache hit rate.
+- [x] **6.3 Case detail view:** press `enter` on a row for input, full output, expected, per-scorer breakdown with metadata, and the **trace tree** with per-node model, duration, tokens, and cost.
   - *Acceptance:* a task with nested LLM calls renders an expandable, navigable trace tree.
-- [ ] **6.4 History view:** browse past runs, select one to open, select two to render the Phase 5 comparison.
-- [ ] **6.5 Custom columns.** Support a `columns=` argument on `evaluate()` letting the user add derived columns to the results table.
+- [x] **6.4 History view:** browse past runs, select one to open, select two to render the Phase 5 comparison.
+- [x] **6.5 Custom columns.** Support a `columns=` argument on `evaluate()` letting the user add derived columns to the results table.
   - The shape is a plain `dict[str, Callable[[Result], Any]]` — no new exported type, so this spends none of the three remaining public-API slots. Promoting to a structured `Column` type later is backward-compatible; retracting an exported type is not.
   - *Acceptance:* the showcase example adds a "fields correct" column.
-- [ ] **6.6 Watch mode** with `watchfiles`: re-run affected evals when an eval file, task file, or prompt file changes. Debounce 300ms. Preserve scroll position and show a "changed: <file>" indicator.
+- [x] **6.6 Watch mode** with `watchfiles`: re-run affected evals when an eval file, task file, or prompt file changes. Debounce 300ms. Preserve scroll position and show a "changed: <file>" indicator.
   - **A change during an in-flight Batch cancels it.** Waiting for a slow Batch would waste the feedback loop this feature exists to provide.
   - Cancellation must be honest: the Batch gets a terminal `cancelled` status, `history` hides it by default, and `compare` refuses it. A half-finished Batch that looked complete would drag every mean it touched.
   - In-flight model calls are allowed to finish and land in the Cache rather than being hard-killed. The money is already spent; discarding the response wastes it, and the next Batch will want it.
   - *Acceptance:* editing a prompt triggers a re-run within one second without restarting the process; a cancelled Batch never appears in `history` or `compare`.
-- [ ] **6.7 Keybindings:** `q` quit, `r` re-run, `f` filter to failures, `c` compare with previous run, `/` search, `y` copy case id.
+- [x] **6.7 Keybindings:** `q` quit, `r` re-run, `f` filter to failures, `c` compare with previous run, `/` search, `y` copy case id.
 - [ ] **6.8 Record a demo GIF** with `vhs` or `asciinema` + `agg`, embedded at the top of the README.
   - *Acceptance:* under 5 MB, showing a full run, a trace tree, and watch-mode re-run in under 30 seconds.
 

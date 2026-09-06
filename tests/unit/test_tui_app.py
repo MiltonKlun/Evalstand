@@ -330,6 +330,142 @@ class TestKeybindings:
         assert copied == ["q1"]
 
 
+class TestSearch:
+    """Task 6.7's `/`."""
+
+    async def test_slash_filters_the_table_by_case_id(self) -> None:
+        app = _app(_eval(_echo, "alpha", "beta", "gamma"), expected=3)
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+            assert app.query_one("#results").row_count == 3
+
+            await pilot.press("slash")
+            await pilot.pause()
+            for key in "et":
+                await pilot.press(key)
+            await pilot.pause()
+
+            assert app.query_one("#results").row_count == 1, "expected only beta"
+
+    async def test_escape_clears_the_filter(self) -> None:
+        app = _app(_eval(_echo, "alpha", "beta"), expected=2)
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+
+            app._search = "alpha"
+            app._repaint()
+            await pilot.pause()
+            assert app.query_one("#results").row_count == 1
+
+            app.action_clear_search()
+            await pilot.pause()
+
+            assert app.query_one("#results").row_count == 2
+
+    async def test_search_composes_with_the_failures_filter(self) -> None:
+        """Both narrow the table, so they compose. A user who pressed `f` and
+        then searched wants failing cases matching the term, not one filter
+        silently replacing the other.
+
+        The search term matches a **passing** case as well as a failing one, so
+        composing and overriding give different answers. An earlier version
+        searched for a term only failing cases matched — both behaviours agreed,
+        and the test passed against a mutant that dropped the failures filter
+        entirely the moment anything was typed.
+        """
+
+        async def half(value: str) -> str:
+            return value if value.startswith("ok") else "wrong"
+
+        app = _app(_eval(half, "ok-one", "bad-one", "bad-two"), expected=3)
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+
+            await pilot.press("f")
+            await pilot.pause()
+            assert app.query_one("#results").row_count == 2, "two failing cases"
+
+            # "one" matches ok-one (passing) and bad-one (failing).
+            app._search = "one"
+            app._repaint()
+            await pilot.pause()
+
+            assert app.query_one("#results").row_count == 1, (
+                "the failures filter was dropped when a search was typed"
+            )
+
+    async def test_a_row_landing_during_a_search_respects_it(self) -> None:
+        """The filter must hold for rows that arrive *after* it is set, not
+        only for the repaint at the moment it is typed."""
+        release = asyncio.Event()
+
+        async def task(value: str) -> str:
+            if value == "slow":
+                await asyncio.wait_for(release.wait(), timeout=5)
+            return value
+
+        app = _app(_eval(task, "fast", "slow"), expected=2)
+        async with app.run_test() as pilot:
+            for _ in range(20):
+                await pilot.pause()
+                if app.state.totals().completed:
+                    break
+
+            app._search = "fast"
+            app._repaint()
+            await pilot.pause()
+
+            release.set()
+            await _settle(pilot, app)
+
+            assert app.query_one("#results").row_count == 1, "a row leaked past the search"
+
+    async def test_the_search_is_case_insensitive(self) -> None:
+        app = _app(_eval(_echo, "Alpha"), expected=1)
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+
+            app._search = "alpha"
+            app._repaint()
+            await pilot.pause()
+
+            assert app.query_one("#results").row_count == 1
+
+
+class TestCompareWithPrevious:
+    """Task 6.7's `c`."""
+
+    async def test_it_says_so_when_there_is_nothing_to_compare_against(self) -> None:
+        """An empty comparison reads as "nothing changed", which is a claim
+        about two runs when there is only one."""
+        app = _app(_eval(_echo, "q1"), expected=1)
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+
+            app.action_compare_previous()
+            await pilot.pause()
+
+            assert "needs recorded runs" in _status_text(app)
+
+    async def test_it_refuses_while_the_run_is_still_going(self) -> None:
+        """A half-finished run has no aggregate worth comparing."""
+        release = asyncio.Event()
+
+        async def task(value: str) -> str:
+            await asyncio.wait_for(release.wait(), timeout=5)
+            return value
+
+        app = _app(_eval(task, "q1"), expected=1)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+
+            app.action_compare_previous()
+            await pilot.pause()
+
+            assert "still going" in _status_text(app)
+            release.set()
+
+
 class TestFailureIsVisible:
     async def test_a_crashed_task_still_gets_a_row(self) -> None:
         """A table that simply stops at case 12 looks like a hang, not a
