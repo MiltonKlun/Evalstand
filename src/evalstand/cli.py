@@ -219,6 +219,29 @@ def compare(
             raise typer.Exit(code=1)
 
         assert before is not None and after is not None
+
+        # A Batch that did not run to completion covers a subset of its cases,
+        # and its aggregate describes that subset. `history` already hides one;
+        # `compare` refusing it is the other half of the same promise.
+        #
+        # Refused rather than warned about. The membership note only fires when
+        # the two runs cover different cases, so a batch cancelled *after* every
+        # case had scored compared clean and printed "nothing differs between
+        # these runs" — a partial run presented as a complete one, with nothing
+        # on screen to say otherwise.
+        partial = [
+            run.id
+            for run in (before, after)
+            if (batch := store.batch_for(run.id)) is not None and not batch.is_comparable
+        ]
+        if partial:
+            console.print(
+                f"[red]{', '.join(partial)} did not run to completion, so "
+                f"comparing it would compare different questions.[/red]"
+            )
+            console.print("run [bold]evalstand history[/bold] to see what is comparable.")
+            raise typer.Exit(code=1)
+
         comparison = compare_runs(
             before,
             after,
