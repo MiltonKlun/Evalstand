@@ -18,19 +18,22 @@ edit to the model.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
-from evalstand.models import Result, Run
+from evalstand.models import Batch, Result, Run
 
 __all__ = [
     "AmendedCase",
     "Comparison",
     "Flip",
     "MeasurementChange",
+    "NotComparableError",
     "ScoreMove",
     "ScorerDelta",
     "compare_runs",
+    "refuse_partial_runs",
 ]
 
 DEFAULT_MOVE_THRESHOLD = 0.05
@@ -40,6 +43,38 @@ Not a significance test and not a pass mark — just a noise floor, so a table o
 two hundred cases does not bury the ones that moved a long way under the ones
 that moved a hair. The reader still decides what any of it means.
 """
+
+
+class NotComparableError(RuntimeError):
+    """One of the runs did not come from a Batch that finished."""
+
+
+def refuse_partial_runs(runs: Iterable[Run], batch_of: Callable[[str], Batch | None]) -> None:
+    """Raise unless every run came from a Batch that ran to completion.
+
+    Lives here rather than in the command that first needed it, because a guard
+    inside one caller is a guard the *next* caller silently bypasses — and the
+    next caller is the TUI's history view, comparing the same runs from a
+    different screen.
+
+    A Batch that did not finish covers a subset of its cases, and its aggregate
+    describes that subset. Comparing it against a full run compares different
+    questions and drags every mean it touches.
+
+    A Batch that cannot be found is *unknown*, not known-partial, and is
+    allowed: refusing there would fail a user over a missing row rather than a
+    finding.
+    """
+    partial = [
+        run.id
+        for run in runs
+        if (batch := batch_of(run.id)) is not None and not batch.is_comparable
+    ]
+    if partial:
+        raise NotComparableError(
+            f"{', '.join(partial)} did not run to completion, so comparing it "
+            f"would compare different questions."
+        )
 
 
 @dataclass(frozen=True)

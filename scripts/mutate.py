@@ -1351,6 +1351,163 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "        if run.batch_id != self.batch.id:",
         "        if True:",
     ),
+    # --- Phase 6: the live view, watch mode, and the history screen ---tuple[str, str, str, str]] = [
+    # --- the live view must show results as they land ---
+    (
+        "src/evalstand/runner.py",
+        "results are announced only when the whole run finishes",
+        "        _announce(config.on_result, result)\n        return result",
+        "        return result",
+    ),
+    (
+        "src/evalstand/runner.py",
+        "a raising result sink takes down the run it was watching",
+        "    try:\n        on_result(result)\n    except Exception:",
+        "    on_result(result)\n    if False:",
+    ),
+    # --- what a row is allowed to claim ---
+    (
+        "src/evalstand/tui/state.py",
+        "a broken scorer is reported as a failing model",
+        "    if result.scores and all(score.error for score in result.scores):",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/tui/state.py",
+        "a continuous score without a verdict is called a pass",
+        '        return "scored"',
+        '        return "pass"',
+    ),
+    (
+        "src/evalstand/tui/state.py",
+        "an unpriced case is shown as free rather than unknown",
+        "    if result.traces and not priced:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/tui/state.py",
+        "the running cost hides that some calls were never priced",
+        '        bound = f" (+{self.unpriced_calls} unpriced)" if self.unpriced_calls else ""',
+        '        bound = ""',
+    ),
+    (
+        "src/evalstand/tui/state.py",
+        "the live pass rate counts unjudged cases as failures",
+        '        return f"{self.passed}/{self.judged}"',
+        '        return f"{self.passed}/{self.completed}"',
+    ),
+    (
+        "src/evalstand/tui/state.py",
+        "an unstarted run shows 0% progress rather than unknown",
+        "        if not self.expected:\n            return None",
+        "        if not self.expected:\n            return 0.0",
+    ),
+    (
+        "src/evalstand/tui/state.py",
+        "a duplicate execution is painted as a second row",
+        "        if key in self._seen:\n            return None",
+        "        if False:\n            return None",
+    ),
+    (
+        "src/evalstand/tui/state.py",
+        "a raising custom column takes down the whole row",
+        "        try:\n            value = fn(result)\n        except Exception:",
+        "        value = fn(result)\n        if False:",
+    ),
+    # --- the widgets ---
+    (
+        "src/evalstand/tui/app.py",
+        "row selection is ignored, so enter never opens a case",
+        "        if message.row_key.value is not None:\n            self._open(str(message.row_key.value))",
+        "        return",
+    ),
+    (
+        "src/evalstand/tui/app.py",
+        "the detail view summarises the calls instead of showing them",
+        '            Static(render_case(self.result, full=True), id="detail-body"),',
+        '            Static(render_case(self.result, full=False), id="detail-body"),',
+    ),
+    # --- watch mode ---
+    (
+        "src/evalstand/tui/app.py",
+        "a file change does not cancel the run in flight",
+        "        self._cancel_in_flight()\n\n        self.state = RunState(",
+        "        self.state = RunState(",
+    ),
+    (
+        "src/evalstand/tui/app.py",
+        "a batch cut short by an edit is recorded as completed",
+        "            self.recorder.finish(cancelled=True)",
+        "            self.recorder.finish(cancelled=False)",
+    ),
+    (
+        "src/evalstand/tui/watch.py",
+        "generated files trigger a re-run, so a run triggers the next",
+        "    if resolved.suffix.lower() not in _WATCHED_SUFFIXES:\n        return False",
+        "    if False:\n        return False",
+    ),
+    (
+        "src/evalstand/tui/watch.py",
+        "prompt text files are ignored, so watch mode misses the edit",
+        '_WATCHED_SUFFIXES = frozenset({".py", ".txt", ".md", ".json", ".yaml", ".yml", ".jinja", ".j2"})',
+        '_WATCHED_SUFFIXES = frozenset({".py"})',
+    ),
+    (
+        "src/evalstand/tui/watch.py",
+        "the debounce is long enough to break the one-second promise",
+        "DEBOUNCE_MS = 300",
+        "DEBOUNCE_MS = 1600",
+    ),
+    (
+        "src/evalstand/tui/watch.py",
+        "a nested root is watched twice, so one save starts two batches",
+        "        if not any(other != root and other in root.parents for other in roots)",
+        "        if True",
+    ),
+    # --- collecting evals without pytest ---
+    (
+        "src/evalstand/loading.py",
+        "several evals are guessed between rather than refused",
+        "    if len(evals) > 1:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/loading.py",
+        "the registry is not cleared, so deleted evals linger",
+        "    registry.clear()",
+        "    pass",
+    ),
+    # --- the guard that must hold from every caller ---
+    (
+        "src/evalstand/comparison.py",
+        "the partial-run guard refuses nothing",
+        "        if (batch := batch_of(run.id)) is not None and not batch.is_comparable",
+        "        if False",
+    ),
+    (
+        "src/evalstand/tui/history.py",
+        "the history view compares a run that never finished",
+        "            refuse_partial_runs((before, after), self.store.batch_for)",
+        "            pass",
+    ),
+    (
+        "src/evalstand/tui/history.py",
+        "a comparison is labelled backwards, inverting every delta",
+        "        before, after = sorted((first, second), key=_when)",
+        "        before, after = first, second",
+    ),
+    (
+        "src/evalstand/tui/app.py",
+        "the search box overrides the failures filter instead of composing",
+        '        if self._only_failures and row.status == "pass":\n            return False\n        return self._search.lower() in row.case_id.lower()',
+        '        if self._search:\n            return self._search.lower() in row.case_id.lower()\n        return not (self._only_failures and row.status == "pass")',
+    ),
+    (
+        "src/evalstand/tui/app.py",
+        "compare is offered against a run that has not finished",
+        '        if self.finished is None:\n            self._set_status("the run is still going; compare when it finishes")\n            return',
+        "        if False:\n            return",
+    ),
 ]
 
 
