@@ -1508,6 +1508,18 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '        if self.finished is None:\n            self._set_status("the run is still going; compare when it finishes")\n            return',
         "        if False:\n            return",
     ),
+    (
+        "src/evalstand/tui/app.py",
+        "a recorded run is never written, leaving a batch with no runs",
+        "            if self.recorder is not None:\n                self.recorder.record(",
+        "            if False:\n                self.recorder.record(",
+    ),
+    (
+        "src/evalstand/tui/app.py",
+        "a recorded run is filed under the default batch id, so it is refused",
+        "            run = await run_eval(self.declared, config, batch_id=self._batch_id())",
+        "            run = await run_eval(self.declared, config)",
+    ),
 ]
 
 

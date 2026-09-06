@@ -353,6 +353,102 @@ def contextlib_suppress() -> Any:
     return contextlib.suppress(asyncio.CancelledError, Exception)
 
 
+class TestRecordingActuallyStoresTheRun:
+    """The defect these tests were written after missing.
+
+    `--store` opened a recorder, marked its batch cancelled, and closed it —
+    but never called `record()`, and ran every eval under the default
+    `batch_id`. The result was a batches row with no runs beneath it: `h` showed
+    an empty table and `c` always said "no earlier run", while the tool reported
+    nothing wrong.
+
+    The earlier tests here passed throughout, because they asserted the *batch
+    status*. That row is written by `BatchRecorder.__init__`, so the assertion
+    held whether or not a single Run was ever stored — testing the row I had
+    created rather than the data the feature exists to persist.
+    """
+
+    @pytest.mark.anyio
+    async def test_a_finished_run_is_written_to_the_database(self, tmp_path: Path) -> None:
+        database = tmp_path / "h.db"
+        store = RunStore(database)
+        recorder = BatchRecorder(store, git=GitState(), owns_store=True)
+        batch_id = recorder.batch_id
+
+        app = EvalApp(_eval(_quick, "q1", "q2"), expected=2, recorder=recorder)
+        async with app.run_test() as pilot:
+            if app._run_task is not None:
+                await app._run_task
+            await pilot.pause()
+            await pilot.pause()
+            run_id = app.finished.id if app.finished else None
+
+        assert run_id is not None, "the run never finished"
+
+        with RunStore(database) as reader:
+            stored = reader.load_run(run_id)
+
+        assert stored is not None, "the run was not written to the database"
+        assert [result.case_id for result in stored.results] == ["q1", "q2"]
+        assert stored.batch_id == batch_id, "the run was filed under the wrong batch"
+
+    @pytest.mark.anyio
+    async def test_the_run_is_filed_under_the_recorders_batch(self, tmp_path: Path) -> None:
+        """`BatchRecorder.record` refuses a mismatched batch id, so a run left
+        at the default `batch_id` does not merely land in the wrong place — it
+        never lands at all, and the failure surfaces as an empty history."""
+        database = tmp_path / "h.db"
+        store = RunStore(database)
+        recorder = BatchRecorder(store, git=GitState(), owns_store=True)
+
+        app = EvalApp(_eval(_quick, "q1"), expected=1, recorder=recorder)
+        async with app.run_test() as pilot:
+            if app._run_task is not None:
+                await app._run_task
+            await pilot.pause()
+
+            assert app.finished is not None
+            assert app.finished.batch_id == recorder.batch_id
+
+    @pytest.mark.anyio
+    async def test_history_can_read_back_what_watch_mode_recorded(self, tmp_path: Path) -> None:
+        """End to end: the run has to be findable the way `h` and `c` look for
+        it, not merely present under some id."""
+        database = tmp_path / "h.db"
+        store = RunStore(database)
+        recorder = BatchRecorder(store, git=GitState(), owns_store=True)
+
+        app = EvalApp(_eval(_quick, "q1"), expected=1, recorder=recorder)
+        async with app.run_test() as pilot:
+            if app._run_task is not None:
+                await app._run_task
+            await pilot.pause()
+        recorder.finish()
+
+        with RunStore(database) as reader:
+            found = reader.runs_for("watched")
+
+        assert [run.id for run in found] == [app.finished.id if app.finished else ""]
+
+    @pytest.mark.anyio
+    async def test_an_unrecorded_session_still_runs(self, tmp_path: Path) -> None:
+        """No recorder is the default, and must not be a special case that
+        breaks: the Run still exists and is still displayed, it simply belongs
+        to no stored batch."""
+        app = EvalApp(_eval(_quick, "q1"), expected=1)
+        async with app.run_test() as pilot:
+            if app._run_task is not None:
+                await app._run_task
+            await pilot.pause()
+
+            assert app.finished is not None
+            assert app.finished.batch_id == "local"
+
+
+async def _quick(value: str) -> str:
+    return value
+
+
 class TestACancelledBatchNeverReachesHistoryOrCompare:
     """The acceptance criterion stated as an end-to-end fact rather than as an
     implementation detail of the app."""
