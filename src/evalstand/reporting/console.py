@@ -30,6 +30,7 @@ from evalstand.comparison import (
 from evalstand.models import Batch, BatchStatus, Result, Run, Score, Trace
 
 __all__ = [
+    "render_case",
     "render_comparison",
     "render_failures",
     "render_history",
@@ -342,7 +343,7 @@ def render_run_detail(
 
     for result in run.results:
         parts.append(Text())
-        parts.append(_case_panel(result, full=full))
+        parts.append(render_case(result, full=full))
 
     return Group(*parts)
 
@@ -381,8 +382,15 @@ def _run_header(run: Run, batch: Batch | None) -> RenderableType:
     return table
 
 
-def _case_panel(result: Result, *, full: bool) -> RenderableType:
-    """One case: its verdict, its scores, and the calls it made."""
+def render_case(result: Result, *, full: bool = False) -> RenderableType:
+    """One case: its verdict, its scores, and the calls it made.
+
+    Public because the TUI's detail view renders exactly this. A second
+    implementation there would be a second set of honesty rules to keep in
+    step, and the first time they drifted the two views would disagree about
+    whether an unpriced call was free — with nothing on screen saying which to
+    believe.
+    """
     parts: list[RenderableType] = [Text(result.case_id, style="bold")]
 
     if result.error:
