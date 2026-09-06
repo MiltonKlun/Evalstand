@@ -21,6 +21,7 @@ suite and appears once a week in front of a user.
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import ClassVar
 
 from rich.console import RenderableType
@@ -36,9 +37,11 @@ from textual.widgets import DataTable, Footer, Header, ProgressBar, Static
 
 from evalstand.api import Eval
 from evalstand.models import Result, Run
+from evalstand.recording import BatchRecorder
 from evalstand.reporting.console import UNKNOWN, render_case
 from evalstand.runner import RunConfig, run_eval
 from evalstand.tui.state import CaseRow, RunState
+from evalstand.tui.watch import watch_paths
 
 __all__ = ["EvalApp", "run_app"]
 
@@ -88,6 +91,18 @@ class RunFailed(Message):
 
     def __init__(self, error: str) -> None:
         self.error = error
+        super().__init__()
+
+
+class FilesChanged(Message):
+    """A watched file was edited.
+
+    Carried as a message for the same reason results are: the watcher runs in
+    its own task, and widgets may only be touched from the app's own loop.
+    """
+
+    def __init__(self, paths: list[Path]) -> None:
+        self.paths = paths
         super().__init__()
 
 
@@ -185,13 +200,35 @@ class EvalApp(App[None]):
         *,
         config: RunConfig | None = None,
         expected: int | None = None,
+        watch: bool = False,
+        watch_roots: list[Path] | None = None,
+        recorder: BatchRecorder | None = None,
     ) -> None:
         self.declared = declared
         self.config = config or RunConfig()
         self.state = RunState(declared.name, expected=expected, columns=declared.columns)
         self.finished: Run | None = None
+        self.watching = watch
+        self.watch_roots = watch_roots
+        self.recorder = recorder
         self._only_failures = False
-        self._task: asyncio.Task[None] | None = None
+        self._run_task: asyncio.Task[None] | None = None
+        """The eval currently executing.
+
+        Named `_run_task` rather than `_task` because `MessagePump` — which
+        `App` inherits from — already owns `self._task` for its own message
+        loop. Shadowing it made `_cancel_in_flight` cancel the *application*
+        instead of the eval, and the symptom was every test hanging rather than
+        anything pointing at the name.
+        """
+
+        self._watch_task: asyncio.Task[None] | None = None
+        self._stop_watching = asyncio.Event()
+        self._cancelled_runs = 0
+        """How many Batches a file change cut short. Shown, not hidden: a user
+        whose re-runs keep being cancelled is editing faster than the eval can
+        complete, and needs to know that rather than wonder why nothing
+        finishes."""
         super().__init__()
 
     # -- composition ----------------------------------------------------
@@ -213,6 +250,8 @@ class EvalApp(App[None]):
             table.add_column(column, key=column)
         self.query_one(SummaryPanel).show(self.state)
         self.start_run()
+        if self.watching:
+            self._watch_task = asyncio.create_task(self._watch())
 
     # -- execution ------------------------------------------------------
 
@@ -222,6 +261,8 @@ class EvalApp(App[None]):
         The sink posts a message rather than writing to the table, so every
         widget mutation happens on the app's own loop.
         """
+        self._cancel_in_flight()
+
         self.state = RunState(
             self.declared.name, expected=self.state.expected, columns=self.declared.columns
         )
@@ -238,7 +279,61 @@ class EvalApp(App[None]):
             on_chunk=self.config.on_chunk,
             on_result=self._announce,
         )
-        self._task = asyncio.create_task(self._execute(config))
+        self._run_task = asyncio.create_task(self._execute(config))
+
+    def _cancel_in_flight(self) -> None:
+        """Abandon a Batch that is still running, and record that honestly.
+
+        Cancelling the task stops *awaiting* the in-flight model calls; it does
+        not abort the HTTP requests already issued, which is deliberate. The
+        money for those is already spent, so killing them discards a response
+        the user has paid for — and the next Batch, moments away, asks for
+        exactly the same thing. Letting them land in the cache turns a wasted
+        call into a free one.
+
+        The Batch is marked `cancelled` rather than left `running` or quietly
+        completed. `history` hides a cancelled Batch and `compare` refuses it,
+        so a half-finished Batch cannot drag a mean it only partly measured.
+        """
+        if self._run_task is None or self._run_task.done():
+            return
+
+        self._run_task.cancel()
+        self._cancelled_runs += 1
+        if self.recorder is not None:
+            self.recorder.finish(cancelled=True)
+            self.recorder = None
+
+    async def _watch(self) -> None:
+        """Re-run when a watched file changes.
+
+        Debouncing lives in `watch_paths`; this only decides what a change
+        means. A failure in the watcher is reported rather than swallowed —
+        a watch mode that has silently stopped watching looks exactly like one
+        with nothing to report.
+        """
+        try:
+            async for paths in watch_paths(self.watch_roots, stop=self._stop_watching):
+                self.post_message(FilesChanged(paths))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # pragma: no cover - depends on the filesystem
+            self.post_message(RunFailed(f"watch stopped: {type(exc).__name__}: {exc}"))
+
+    @on(FilesChanged)
+    def _changed(self, message: FilesChanged) -> None:
+        """Cancel any in-flight Batch and start a new one.
+
+        Waiting for a slow Batch to drain would spend the feedback loop this
+        feature exists for: the user has moved on, and the results still
+        arriving describe code they have already edited.
+        """
+        names = ", ".join(path.name for path in message.paths[:3])
+        extra = f" (+{len(message.paths) - 3})" if len(message.paths) > 3 else ""
+        self._changed_note = f"changed: {names}{extra}"
+
+        self.start_run()
+        self._set_status(self._changed_note)
 
     def _announce(self, result: Result) -> None:
         """Hand a landed Result to the app's own loop.
@@ -272,6 +367,9 @@ class EvalApp(App[None]):
         if not self._only_failures or row.status != "pass":
             self._paint(row)
 
+        if not self._on_screen():
+            return
+
         self.query_one(SummaryPanel).show(self.state)
         progress = self.query_one(ProgressBar)
         progress.update(total=self.state.expected, progress=self.state.totals().completed)
@@ -279,9 +377,23 @@ class EvalApp(App[None]):
     @on(RunFinished)
     def _finish(self, message: RunFinished) -> None:
         self.finished = self.state.as_run(message.run)
+        if not self._on_screen():
+            # The run completed as the app was shutting down. The state is still
+            # updated — it is what gets recorded — but the widgets are already
+            # gone, and querying them would turn a finished run into a crash on
+            # exit.
+            return
+
         self.query_one(SummaryPanel).show(self.state)
         totals = self.state.totals()
-        self._set_status(f"done — {totals.completed} cases, {totals.pass_rate} passed")
+
+        note = f"done — {totals.completed} cases, {totals.pass_rate} passed"
+        if self._cancelled_runs:
+            # Said plainly. A user whose re-runs keep being cut short is editing
+            # faster than the eval completes, and needs to know that rather than
+            # wonder why the numbers never settle.
+            note += f"  ({self._cancelled_runs} earlier run(s) cancelled by a file change)"
+        self._set_status(note)
 
     @on(RunFailed)
     def _fail(self, message: RunFailed) -> None:
@@ -289,7 +401,19 @@ class EvalApp(App[None]):
 
     # -- painting -------------------------------------------------------
 
+    def _on_screen(self) -> bool:
+        """Whether the widgets are mounted and can still be queried.
+
+        A run finishing while the app shuts down still has a Result to record,
+        but nothing to paint it on. Checked rather than caught, so a genuine
+        query mistake still raises instead of being swallowed as "shutting
+        down".
+        """
+        return bool(self.is_running and self.screen_stack and self.query("SummaryPanel"))
+
     def _paint(self, row: CaseRow) -> None:
+        if not self._on_screen():
+            return
         table = self.query_one("#results", DataTable)
         table.add_row(*self._cells(row), key=row.key)
 
@@ -305,9 +429,12 @@ class EvalApp(App[None]):
         ]
 
     def _set_status(self, text: str) -> None:
-        self.query_one("#status", Static).update(text)
+        if self._on_screen():
+            self.query_one("#status", Static).update(text)
 
     def _repaint(self) -> None:
+        if not self._on_screen():
+            return
         table = self.query_one("#results", DataTable)
         table.clear()
         rows = self.state.failures() if self._only_failures else self.state.rows()
@@ -322,13 +449,7 @@ class EvalApp(App[None]):
         self._set_status("showing failures only" if self._only_failures else "showing all cases")
 
     def action_rerun(self) -> None:
-        """Re-run from scratch.
-
-        Any in-flight run is cancelled first: two runs writing into one table
-        would interleave their rows, and the footer would count both.
-        """
-        if self._task is not None and not self._task.done():
-            self._task.cancel()
+        """Re-run from scratch. `start_run` cancels anything in flight."""
         self.start_run()
 
     @on(DataTable.RowSelected)
@@ -372,6 +493,27 @@ class EvalApp(App[None]):
         case_id = key.split("#")[0]
         self.copy_to_clipboard(case_id)
         self._set_status(f"copied {case_id}")
+
+    async def _shutdown(self) -> None:
+        """Stop watching and close an open Batch before the app tears down.
+
+        A Batch left `running` in the database is neither complete nor known to
+        be partial, and nothing later can tell which — so quitting mid-run marks
+        it cancelled, the same as a file change does.
+
+        Hooked here rather than on `on_unmount`, which Textual delivers *after*
+        `_shutdown` has already returned. A batch closed that late is closed
+        after the process has finished caring, and the row stays `running`.
+        """
+        self._close_watch()
+        self._cancel_in_flight()
+        await super()._shutdown()
+
+    def _close_watch(self) -> None:
+        self._stop_watching.set()
+        if self._watch_task is not None:
+            self._watch_task.cancel()
+            self._watch_task = None
 
     def _selected_key(self) -> str | None:
         table = self.query_one("#results", DataTable)

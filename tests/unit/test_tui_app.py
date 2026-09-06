@@ -47,8 +47,8 @@ def _app(declared: Eval, **kwargs: Any) -> EvalApp:
 
 async def _settle(pilot: Any, app: EvalApp) -> None:
     """Wait for the run to finish and the resulting messages to be processed."""
-    if app._task is not None:
-        await app._task
+    if app._run_task is not None:
+        await app._run_task
     await pilot.pause()
     await pilot.pause()
 
