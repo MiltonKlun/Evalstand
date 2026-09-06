@@ -359,14 +359,39 @@ class EvalApp(App[None]):
         self.post_message(ResultLanded(result))
 
     async def _execute(self, config: RunConfig) -> None:
+        """Run the eval and record it, if this session is recording.
+
+        The Run must carry the recorder's own `batch_id`. Left at the default,
+        `BatchRecorder.record` refuses it — deliberately, since a run filed
+        under the wrong batch is a programming error rather than an environment
+        one — and the batch would end up with no runs beneath it.
+
+        Recorded here rather than in `_finish` because writing is I/O: doing it
+        on the app's message loop would stall the UI on a slow disk, and a
+        history write must never be able to hold up the view of a run that has
+        already been paid for.
+        """
         try:
-            run = await run_eval(self.declared, config)
+            run = await run_eval(self.declared, config, batch_id=self._batch_id())
+            if self.recorder is not None:
+                self.recorder.record(
+                    run, cases=await self.declared.aload_cases(), task=self.declared.task
+                )
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             self.post_message(RunFailed(f"{type(exc).__name__}: {exc}"))
             return
         self.post_message(RunFinished(run))
+
+    def _batch_id(self) -> str:
+        """The batch this run belongs to.
+
+        `"local"` matches `run_eval`'s own default and is what an unrecorded
+        session uses: the Run still exists and is still displayed, it simply
+        belongs to no stored batch.
+        """
+        return self.recorder.batch_id if self.recorder is not None else "local"
 
     # -- messages -------------------------------------------------------
 
