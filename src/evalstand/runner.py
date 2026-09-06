@@ -31,10 +31,25 @@ from evalstand.cache import ResponseCache
 from evalstand.models import Case, Result, Run, RunStatus, Score
 from evalstand.tracing import TraceCollector
 
-__all__ = ["RunConfig", "current_bypass", "current_cache", "current_sink", "run_eval"]
+__all__ = [
+    "RunConfig",
+    "current_bypass",
+    "current_cache",
+    "current_sink",
+    "run_eval",
+]
 
 ChunkSink = Callable[[str, str], None]
 """Called with (case_id, chunk) as streamed text arrives."""
+
+ResultSink = Callable[[Result], None]
+"""Called with each Result the moment it lands, before the run finishes.
+
+The reason it exists: `run_eval` gathers, so without this a live view could only
+paint every row at once when the whole eval completed — which is a progress bar
+that fills in one jump, and tells the user nothing while the thirty seconds they
+are waiting actually elapse.
+"""
 
 current_cache: contextvars.ContextVar[ResponseCache | None] = contextvars.ContextVar(
     "evalstand_cache", default=None
@@ -85,6 +100,15 @@ class RunConfig:
     on_chunk: ChunkSink | None = None
     """Receives (case_id, chunk) as a streaming task produces text, so a live
     view can show partial output rather than waiting for the case to finish."""
+
+    on_result: ResultSink | None = None
+    """Receives each Result as it lands, so a live view can add a row per case
+    instead of thirty rows at the end.
+
+    Called from whichever case finished, so a consumer that is not thread- or
+    task-safe must do its own marshalling. The TUI posts a message to the app
+    rather than touching a widget here.
+    """
 
     def __post_init__(self) -> None:
         if self.concurrency < 1:
@@ -212,7 +236,7 @@ async def _run_one(
 
         current_sink.reset(sink_token)
 
-        return Result(
+        result = Result(
             id=f"{declared.name}-{case.id}-{repeat_index}",
             case_id=case.id,
             repeat_index=repeat_index,
@@ -225,6 +249,8 @@ async def _run_one(
             output_tokens=collector.total_output_tokens or None,
             cost_usd=collector.total_cost_usd,
         )
+        _announce(config.on_result, result)
+        return result
 
 
 def _snapshot(output: Any) -> Any:
@@ -288,6 +314,26 @@ def _is_library_frame(filename: str) -> bool:
         or "/concurrent/futures/" in lowered
         or lowered.endswith("/threading.py")
     )
+
+
+def _announce(on_result: ResultSink | None, result: Result) -> None:
+    """Hand a finished Result to a watcher, and make the watcher harmless.
+
+    The same rule as `_case_sink`: an observer that raises must not cost the
+    measurement it was observing. A renderer with a formatting bug would
+    otherwise destroy the results it was called to display — and the money spent
+    on them — which is the tail wagging the dog.
+
+    The Result is passed as it is rather than copied. `_snapshot` has already
+    detached the output from anything the task keeps mutating, and every other
+    field is either immutable or built here and referenced nowhere else.
+    """
+    if on_result is None:
+        return
+    try:
+        on_result(result)
+    except Exception:
+        logger.debug("result sink raised for case %s", result.case_id, exc_info=True)
 
 
 def _case_sink(on_chunk: ChunkSink | None, case_id: str) -> ChunkSink | None:
