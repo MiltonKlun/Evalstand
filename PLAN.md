@@ -573,7 +573,7 @@ Harness at 202 mutants; 1089 tests.
 - [x] **7.2 Markdown summary output** in `reporting/markdown.py` — `--output markdown` produces a body suitable for a PR comment: summary table, failed cases, cost.
 - [x] **7.3 Document the GitHub Actions recipe** in `docs/ci.md`: a workflow that runs evals on pull requests, posts the markdown summary as a comment, and gates on the threshold. Ship it as a copyable YAML block rather than a published Action in this version.
 - [x] **7.4 Docs site** with mkdocs-material: quickstart, writing evals, scorers, traces, CI, architecture, ADR index. Deploy to GitHub Pages.
-- [ ] **7.5 Rewrite the README:** one-sentence problem statement, demo GIF, 60-second quickstart, feature list mapped to the Section 2 parity table, reproducible numbers from the showcase example, an honest **Limitations** section, the attribution footnote, licence.
+- [x] **7.5 Rewrite the README:** one-sentence problem statement, demo GIF, 60-second quickstart, feature list mapped to the Section 2 parity table, reproducible numbers from the showcase example, an honest **Limitations** section, the attribution footnote, licence.
   - The Limitations section is required. State plainly that score deltas are reported without significance testing and that LLM judge scorers are unvalidated in this version.
 - [ ] **7.6 Publish to PyPI** via a tagged `release.yml` using trusted publishing. Tag `v1.0.0`.
 - [ ] **7.7 Record a 3-minute demo video:** write an eval, run it in watch mode, edit the prompt, watch the re-run, open a trace tree, break something and see the threshold gate fail in CI.

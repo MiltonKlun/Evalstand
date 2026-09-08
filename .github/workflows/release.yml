@@ -1,0 +1,70 @@
+name: release
+
+# Tag-driven, so publishing is a deliberate act rather than a side effect of a
+# merge. The tag is also what the version is read from — see the check below.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --all-extras --dev
+
+      # The full gate, on the exact commit being published. A release that
+      # skipped its own tests would be the one build where nobody notices.
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest -q -m "not live"
+
+      # A tag that disagrees with pyproject.toml publishes a version nobody can
+      # trace back to a commit, and PyPI will not let it be corrected in place.
+      - name: The tag and the package version must agree
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(uv run python -c 'import evalstand; print(evalstand.__version__)')"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag does not match package version $pkg" >&2
+            exit 1
+          fi
+
+      - run: uv build
+
+      # Catches the metadata problems PyPI rejects *after* accepting the upload
+      # slot, which cannot then be reused for that version.
+      - run: uvx twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+
+    # Trusted publishing: PyPI verifies this workflow's identity through OIDC,
+    # so there is no long-lived API token in the repository to leak or rotate.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/evalstand
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
