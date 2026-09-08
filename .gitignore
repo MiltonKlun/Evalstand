@@ -26,6 +26,7 @@ coverage.xml
 .DS_Store
 .idea/
 .vscode/
+.claude/
 
 # Build artifacts
 dist/
