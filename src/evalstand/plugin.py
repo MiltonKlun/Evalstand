@@ -85,6 +85,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Fail the run when an eval's mean score falls below this value.",
     )
     group.addoption(
+        "--output",
+        choices=("terminal", "markdown"),
+        default="terminal",
+        help="How to print the summary. `markdown` suits a pull-request comment.",
+    )
+    group.addoption(
         "--fail-on-error",
         action="store_true",
         default=False,
@@ -587,6 +593,10 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
     if not runs:
         return
 
+    if config.getoption("--output", default="terminal") == "markdown":
+        _write_markdown(terminalreporter, config, runs)
+        return
+
     from rich.console import Console
 
     from evalstand.reporting.console import render_failures, render_summary
@@ -624,6 +634,27 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
             f"[red]ERROR[/red] {name}: {', '.join(parts)} "
             f"(--fail-on-error), so the mean does not measure the whole eval"
         )
+
+
+def _write_markdown(terminalreporter: Any, config: pytest.Config, runs: list[Run]) -> None:
+    """Print the summary as markdown instead of tables.
+
+    Written to stdout rather than a file so the caller decides where it goes:
+    `evalstand run --output markdown >> $GITHUB_STEP_SUMMARY` is the whole
+    recipe, and a flag naming a path would be one more thing to get wrong in a
+    workflow nobody can debug locally.
+
+    Rich is bypassed entirely — it would wrap the lines to the terminal width,
+    and a wrapped markdown table stops being a table.
+    """
+    from evalstand.reporting.markdown import render_markdown
+
+    body = render_markdown(
+        runs,
+        threshold=config.getoption("--threshold", default=None),
+        wall_seconds=_session_seconds(terminalreporter),
+    )
+    terminalreporter._tw._file.write("\n" + body)
 
 
 def _session_seconds(terminalreporter: Any) -> float | None:

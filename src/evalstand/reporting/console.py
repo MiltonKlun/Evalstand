@@ -30,6 +30,10 @@ from evalstand.comparison import (
 from evalstand.models import Batch, BatchStatus, Result, Run, Score, Trace
 
 __all__ = [
+    "UNKNOWN",
+    "format_cost",
+    "format_score",
+    "pass_counts",
     "render_case",
     "render_comparison",
     "render_failures",
@@ -56,8 +60,13 @@ def _truncate(value: Any, limit: int = _MAX_CELL) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
-def _pass_counts(run: Run) -> tuple[int, int]:
+def pass_counts(run: Run) -> tuple[int, int]:
     """Passes and judged results.
+
+    Public because the markdown reporter needs the same rule. A second copy of
+    "which Results count towards a pass rate" would eventually disagree with
+    this one, and a PR comment contradicting the terminal about whether a build
+    passed is worse than either number alone.
 
     Only Results carrying an explicit pass/fail are counted. A continuous scorer
     that declined to judge is not a failure, and a Result with no scores at all
@@ -68,11 +77,11 @@ def _pass_counts(run: Run) -> tuple[int, int]:
     return len(passed), len(judged)
 
 
-def _format_score(value: float | None) -> str:
+def format_score(value: float | None) -> str:
     return UNKNOWN if value is None else f"{value:.2f}"
 
 
-def _format_cost(runs: list[Run]) -> str:
+def format_cost(runs: list[Run]) -> str:
     """Total cost, or unknown when nothing was priced.
 
     A run whose calls were never priced has not been shown to be free.
@@ -116,9 +125,9 @@ def render_summary(
 
     for run in runs:
         means = run.mean_scores_by_scorer()
-        passed, judged = _pass_counts(run)
+        passed, judged = pass_counts(run)
         pass_cell = f"{passed}/{judged}" if judged else UNKNOWN
-        cost_cell = _format_cost([run])
+        cost_cell = format_cost([run])
 
         if not means:
             table.add_row(run.name, UNKNOWN, UNKNOWN, pass_cell, cost_cell)
@@ -128,7 +137,7 @@ def render_summary(
             table.add_row(
                 run.name if index == 0 else "",
                 scorer_name,
-                _format_score(mean),
+                format_score(mean),
                 pass_cell if index == 0 else "",
                 cost_cell if index == 0 else "",
             )
@@ -151,7 +160,7 @@ def render_summary(
         footer_bits.append(f"{errored} errored {'score' if errored == 1 else 'scores'} excluded")
     if wall_seconds is not None:
         footer_bits.append(f"{wall_seconds:.1f}s")
-    total_cost = _format_cost(runs)
+    total_cost = format_cost(runs)
     if total_cost != UNKNOWN and len(runs) > 1:
         footer_bits.append(f"total {total_cost}")
 
@@ -271,13 +280,13 @@ def render_history(entries: list[tuple[Run, Batch | None]]) -> RenderableType:
     table.add_column("cost", justify="right")
 
     for run, batch in entries:
-        passed, judged = _pass_counts(run)
+        passed, judged = pass_counts(run)
         table.add_row(
             run.id,
             run.name,
             _when(run.started_at),
             _commit(batch),
-            _format_score(run.mean_score),
+            format_score(run.mean_score),
             f"{passed}/{judged}" if judged else UNKNOWN,
             _run_cost(run),
         )
@@ -319,7 +328,7 @@ def _run_cost(run: Run) -> str:
     if not priced:
         # Either no calls were made, or none could be priced. Neither has been
         # shown to be free, and `$0.0000` would claim exactly that — the same
-        # rule `_format_cost` already applies to the live summary.
+        # rule `format_cost` already applies to the live summary.
         return UNKNOWN
 
     formatted = f"${run.total_cost_usd:.4f}"
@@ -361,9 +370,9 @@ def _run_header(run: Run, batch: Batch | None) -> RenderableType:
     if run.task_source_hash:
         # Short, because its only use is comparing two runs at a glance.
         table.add_row("task", run.task_source_hash[:12])
-    table.add_row("mean", _format_score(run.mean_score))
+    table.add_row("mean", format_score(run.mean_score))
 
-    passed, judged = _pass_counts(run)
+    passed, judged = pass_counts(run)
     table.add_row("passed", f"{passed}/{judged}" if judged else UNKNOWN)
     table.add_row("cost", _run_cost(run))
 
@@ -593,8 +602,8 @@ def _delta_table(deltas: list[ScorerDelta]) -> RenderableType:
     for delta in deltas:
         table.add_row(
             delta.scorer_name,
-            _format_score(delta.before),
-            _format_score(delta.after),
+            format_score(delta.before),
+            format_score(delta.after),
             # A scorer measured in only one run has not moved; the comparison
             # cannot be made, and a number here would invent one.
             f"{delta.delta:+.2f}" if delta.delta is not None else UNKNOWN,

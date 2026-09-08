@@ -514,5 +514,7 @@ class TestACancelledBatchNeverReachesHistoryOrCompare:
 
         result = CliRunner().invoke(app, ["compare", "run-ok", "run-cut", "--db", str(database)])
 
-        assert result.exit_code == 1
+        # Exit 2, not 1: "there is no measurement here" is a different message
+        # from "we measured, and it is worse than your bar". See docs/ci.md.
+        assert result.exit_code == 2
         assert "did not run to completion" in result.output
