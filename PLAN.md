@@ -563,7 +563,7 @@ Harness at 202 mutants; 1089 tests.
 **Goal:** installable, usable in a pipeline, and understandable.
 **Estimate:** 12 hours.
 
-- [ ] **7.1 CI flags:** `--threshold <float>` (fail when the mean score falls below it) and `--fail-on-error`. Documented exit codes: `0` pass, `1` below threshold, `2` execution error.
+- [x] **7.1 CI flags:** `--threshold <float>` (fail when the mean score falls below it) and `--fail-on-error`. Documented exit codes: `0` pass, `1` below threshold, `2` execution error.
   - The Threshold is **absolute**, and the number is a human decision taken from the committed Baseline (5.7) — never computed from the most recent Run, which would let the bar drift down every time quality dropped.
   - **The Threshold applies per Eval, never to a Batch mean.** Evals measure different things; averaging summarisation quality with extraction accuracy produces a number with no meaning, and lets a collapse in one Eval hide behind another's strength. A Batch fails if any Eval falls below the bar, and the output names which.
   - An Eval whose file fails to import fails that Eval and is reported; the other Runs in the Batch still execute and persist, consistent with 3.1.

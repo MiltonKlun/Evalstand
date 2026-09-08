@@ -24,6 +24,16 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+EXIT_NOTHING_TO_COMPARE = 2
+"""`compare` was asked about runs it cannot compare.
+
+Deliberately the same number `run` uses for an execution error, because it is
+the same message: no measurement exists. Exit 1 is reserved for "we measured,
+and the answer is worse than your bar" — a build that cannot tell those apart
+sends whoever reads it to investigate the model when the real problem is that
+nothing ran.
+"""
+
 
 @app.command()
 def run(
@@ -50,8 +60,20 @@ def run(
         float | None,
         typer.Option("--threshold", help="Fail when an eval's mean score falls below this."),
     ] = None,
+    fail_on_error: Annotated[
+        bool,
+        typer.Option(
+            "--fail-on-error",
+            help="Exit 2 when any case or scorer errored, whatever the means say.",
+        ),
+    ] = False,
 ) -> None:
-    """Run evals and print a summary."""
+    """Run evals and print a summary.
+
+    Exit codes, which `docs/ci.md` documents and a CI job can rely on:
+    `0` everything met its bar, `1` an eval fell below `--threshold`,
+    `2` something did not run (with `--fail-on-error`).
+    """
     import pytest
 
     args: list[str] = [str(path) for path in (paths or [Path()])]
@@ -70,6 +92,8 @@ def run(
         args.append("--no-cache")
     if threshold is not None:
         args += ["--threshold", str(threshold)]
+    if fail_on_error:
+        args.append("--fail-on-error")
 
     # Evals are not tests-with-assertions; a failing case is a reported result,
     # not a stack trace worth printing twice.
@@ -192,6 +216,12 @@ def compare(
 
     Reports differences, never verdicts: `evalstand` has no significance
     testing, so it cannot tell a real change from noise.
+
+    Exits **2** when there is nothing to compare — a run id that is not
+    recorded, or one whose Batch never finished. That is the same code `run`
+    uses for "something did not run", and for the same reason: a CI job that
+    got 1 could not tell "these runs differ badly" from "there was no
+    measurement here at all", and those send a reader to different places.
     """
     from rich.console import Console
 
@@ -216,7 +246,7 @@ def compare(
         if missing:
             console.print(f"no run with id [bold]{', '.join(missing)}[/bold].")
             console.print("run [bold]evalstand history[/bold] to see what is recorded.")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=EXIT_NOTHING_TO_COMPARE)
 
         assert before is not None and after is not None
 
@@ -229,7 +259,7 @@ def compare(
         except NotComparableError as exc:
             console.print(f"[red]{exc}[/red]")
             console.print("run [bold]evalstand history[/bold] to see what is comparable.")
-            raise typer.Exit(code=1) from exc
+            raise typer.Exit(code=EXIT_NOTHING_TO_COMPARE) from exc
 
         comparison = compare_runs(
             before,

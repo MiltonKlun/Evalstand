@@ -435,14 +435,18 @@ class TestTheCompareCommand:
         assert "edited between these runs" in result.output
         assert "pass state changed" not in result.output
 
-    def test_an_unknown_run_exits_non_zero(self, seeded: Path) -> None:
+    def test_an_unknown_run_exits_two(self, seeded: Path) -> None:
+        """`2` means "nothing to compare", the same code `run` uses for
+        "something did not run". A CI job that saw `1` could not tell an absent
+        run from a genuine regression, and would send someone to investigate a
+        model that is fine."""
         from typer.testing import CliRunner
 
         from evalstand.cli import app
 
         result = CliRunner().invoke(app, ["compare", "run-old", "run-nope", "--db", str(seeded)])
 
-        assert result.exit_code != 0
+        assert result.exit_code == 2
         assert "run-nope" in result.output
 
     def test_the_output_carries_no_verdict(self, seeded: Path) -> None:
@@ -510,16 +514,18 @@ class TestACancelledBatchIsRefused:
         return CliRunner().invoke(app, ["compare", *runs, "--db", str(database)])
 
     def test_it_refuses_a_cancelled_run_as_the_later_one(self, interrupted: Path) -> None:
+        """Exit 2, not 1: there is no measurement here, which is a different
+        message from "measured, and worse than your bar"."""
         result = self._compare(interrupted, "run-full", "run-cut")
 
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         assert "did not run to completion" in result.output
 
     def test_it_refuses_a_cancelled_run_as_the_earlier_one(self, interrupted: Path) -> None:
         """Either side being partial makes the comparison unsound."""
         result = self._compare(interrupted, "run-cut", "run-full")
 
-        assert result.exit_code == 1
+        assert result.exit_code == 2
         assert "did not run to completion" in result.output
 
     def test_it_never_claims_the_runs_agree(self, interrupted: Path) -> None:
