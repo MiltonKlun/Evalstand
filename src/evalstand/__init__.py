@@ -9,8 +9,9 @@ them: users read those in reports, they never construct them. Widening this list
 needs an ADR — the cap exists to force the question.
 """
 
-from evalstand.api import evaluate, scorer, trace
+from evalstand.api import evaluate, scorer
 from evalstand.models import Case, Result, Score, Trace
+from evalstand.tracing import trace
 
 __version__ = "0.0.0.dev0"
 

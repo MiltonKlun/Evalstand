@@ -241,12 +241,3 @@ def scorer(fn: ScorerFn) -> ScorerFn:
     from evalstand.scorers.base import scorer as _scorer
 
     return _scorer(fn)
-
-
-def trace(name: str) -> Any:
-    """Wrap an operation so it appears in a Result's trace tree.
-
-    A placeholder in Phase 2; implemented in Phase 3, where the contextvar
-    machinery lands.
-    """
-    raise NotImplementedError("trace() arrives in Phase 3")

@@ -17,9 +17,8 @@ from __future__ import annotations
 
 import asyncio
 
-from evalstand import evaluate
+from evalstand import evaluate, trace
 from evalstand.models import Score
-from evalstand.tracing import trace
 
 CAPITALS = {
     "france": "Paris",
