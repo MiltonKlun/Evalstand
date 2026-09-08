@@ -125,9 +125,7 @@ evaluate(
     task=extract,
     scorers=[json_fields],
     columns={
-        "fields correct": lambda result: sum(
-            1 for s in result.scores if s.passed
-        ),
+        "fields correct": lambda result: sum(1 for s in result.scores if s.passed),
     },
 )
 ```

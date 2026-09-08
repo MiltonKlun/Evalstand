@@ -30,13 +30,15 @@ A scorer is a plain function. No base class, no decorator, no registration.
 **Take only the arguments you need.** Scorers are called with what they declare:
 
 ```python
-def nonempty(output):                      # the output alone
+def nonempty(output):  # the output alone
     return bool(output.strip())
 
-def matches(output, expected):             # against the Case's reference
+
+def matches(output, expected):  # against the Case's reference
     return output == expected
 
-def weighted(output, expected, case):      # and the Case itself
+
+def weighted(output, expected, case):  # and the Case itself
     return 1.0 if case.metadata["easy"] else 0.5
 ```
 
@@ -61,6 +63,7 @@ Return a `Score` when you want metadata:
 ```python
 from evalstand.models import Score
 
+
 def with_reasons(output, expected):
     missing = [w for w in expected.split() if w not in output]
     return Score(
@@ -74,6 +77,7 @@ def with_reasons(output, expected):
 
 ```python
 from evalstand import llm
+
 
 async def graded(output, expected):
     reply = await llm.acall("gpt-4o-mini", [{"role": "user", "content": f"..."}])
@@ -94,9 +98,9 @@ spends money:
 ```python
 from evalstand.scorers import scorer
 
+
 @scorer
-def graded(output, expected):
-    ...
+def graded(output, expected): ...
 ```
 
 ## The built-in scorers
@@ -125,8 +129,8 @@ and `C++` match `C`. Each is a wrong answer scored as a perfect match. Anything
 not on the trimmed list is treated as part of the answer.
 
 ```python
-normalised_exact("  PARIS.  ", "Paris")   # 1.0, passed=True
-normalised_exact("-5", "5")               # 0.0, passed=False
+normalised_exact("  PARIS.  ", "Paris")  # 1.0, passed=True
+normalised_exact("-5", "5")  # 0.0, passed=False
 ```
 
 `contains` with an empty expected value scores **0.0**, not 1.0. Every string
@@ -156,9 +160,9 @@ which end of that scale counts as success is a judgement about your task.
 ```python
 from evalstand.scorers import close_to
 
-scorers=[close_to(rel_tol=0.01)]     # within 1%
-scorers=[close_to(abs_tol=0.5)]      # within half a unit
-scorers=[close_to()]                 # exactly equal
+scorers = [close_to(rel_tol=0.01)]  # within 1%
+scorers = [close_to(abs_tol=0.5)]  # within half a unit
+scorers = [close_to()]  # exactly equal
 ```
 
 `close_to` finds the number in an answer, so `"The widget costs $19.99."` and
@@ -180,8 +184,8 @@ than an answer.
 ```python
 from evalstand.scorers import json_fields
 
-scorers=[json_fields()]                    # macro-average over fields
-scorers=[json_fields(require_all=True)]    # and a pass/fail verdict
+scorers = [json_fields()]  # macro-average over fields
+scorers = [json_fields(require_all=True)]  # and a pass/fail verdict
 ```
 
 Compares an answer object against the expected one field by field, and reports
@@ -222,13 +226,15 @@ json_fields()({"name": "Ada", "born": 1816}, {"name": "Ada", "born": 1815})
 ```python
 from evalstand.scorers import factuality, judge
 
-scorers=[factuality()]
+scorers = [factuality()]
 
-scorers=[judge(
-    rubric="Does the answer use a professional tone?",
-    choices={"A": 1.0, "B": 0.5, "C": 0.0},
-    include_expected=False,
-)]
+scorers = [
+    judge(
+        rubric="Does the answer use a professional tone?",
+        choices={"A": 1.0, "B": 0.5, "C": 0.0},
+        include_expected=False,
+    )
+]
 ```
 
 The judge picks a **labelled choice**, never a number. Models cluster on 0.0,
@@ -259,10 +265,10 @@ LLM-as-judge from being an invisible line on your bill.
 
 ```python
 Score(
-    scorer_name="levenshtein",   # how the report groups it
-    value=0.57,                  # in [0, 1]
-    passed=None,                 # only when the scorer genuinely knows
-    metadata={"distance": 3},    # anything worth reading later
+    scorer_name="levenshtein",  # how the report groups it
+    value=0.57,  # in [0, 1]
+    passed=None,  # only when the scorer genuinely knows
+    metadata={"distance": 3},  # anything worth reading later
 )
 ```
 

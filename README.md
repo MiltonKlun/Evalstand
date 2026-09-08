@@ -1,9 +1,10 @@
 # evalstand
 
-> **Status: in development.** Phases 0-3 of 7 complete: evals run through
-> pytest or the CLI, concurrently, with response caching, nested traces, and
-> per-run token and cost totals. The scorer library, persistence, and the live
-> TUI are not built yet, so the published release remains a placeholder — build
+> **Status: in development.** Phases 0-6 of 8 complete. Evals run through
+> pytest or the CLI with response caching, nested traces, and per-run token and
+> cost totals; ten built-in scorers; SQLite persistence with `history`, `show`
+> and `compare`; and a live terminal UI with watch mode. Remaining: CI
+> integration, docs and release (Phase 7). No release is published yet — build
 > from source to try it.
 
 Evaluating an LLM application should feel like running a test suite.
