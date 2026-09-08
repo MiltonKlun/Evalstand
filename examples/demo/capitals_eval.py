@@ -36,8 +36,7 @@ CAPITALS = {
 ANSWERS = {**CAPITALS, "peru": "Cusco"}
 
 CASES = [
-    {"id": country, "input": country, "expected": capital}
-    for country, capital in CAPITALS.items()
+    {"id": country, "input": country, "expected": capital} for country, capital in CAPITALS.items()
 ]
 
 
