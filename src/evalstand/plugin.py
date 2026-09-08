@@ -84,6 +84,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         metavar="MEAN",
         help="Fail the run when an eval's mean score falls below this value.",
     )
+    group.addoption(
+        "--fail-on-error",
+        action="store_true",
+        default=False,
+        help=(
+            "Exit 2 when any case or scorer errored, even if the means are fine. "
+            "A mean over the cases that survived is not a measurement of the eval."
+        ),
+    )
 
 
 def _run_config(config: pytest.Config) -> RunConfig:
@@ -500,26 +509,59 @@ class EvalItem(pytest.Item):
 # mistake. The live versions are `runner._call_task` and `runner._score`.
 
 
-def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    """Fail the session when an eval's mean falls below `--threshold`.
+EXIT_BELOW_THRESHOLD = 1
+"""An eval's mean fell below `--threshold`. The measurement succeeded and the
+answer was "worse than the bar"."""
 
-    Without this, a continuous scorer can never fail a run: `levenshtein` and
-    friends deliberately leave `passed` unset — they report where an answer sits
-    on a scale and do not know where the line is — so a model answering every
-    case with garbage exited zero and CI went green. The whole point of the tool
-    is to notice when a model got worse.
+EXIT_EXECUTION_ERROR = 2
+"""Something did not run: a task raised, a scorer broke, or a file failed to
+import. Distinct from 1 because it is a different message to whoever reads the
+build — one says the model got worse, the other says we do not know."""
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Decide the session's exit code from what the evals actually did.
+
+    Three outcomes, documented in `docs/ci.md` and kept apart on purpose:
+
+    - **0** every eval met its bar.
+    - **1** an eval's mean fell below `--threshold`. Without this, a continuous
+      scorer can never fail a run: `levenshtein` and friends deliberately leave
+      `passed` unset — they report where an answer sits on a scale and do not
+      know where the line is — so a model answering every case with garbage
+      exited zero and CI went green.
+    - **2** with `--fail-on-error`, something did not run.
 
     The threshold is the user supplying the judgement the scorer declined to
-    make, which is why it is opt-in: `evalstand` will not invent a pass mark.
-    It judges the aggregate only and never sets any Score's pass flag, per
+    make, which is why it is opt-in: `evalstand` will not invent a pass mark. It
+    judges the aggregate only and never sets any Score's pass flag, per
     CONTEXT.md.
-    """
-    threshold = session.config.getoption("--threshold", default=None)
-    if threshold is None:
-        return
 
+    **2 outranks 1.** A run whose cases mostly errored has a mean over the few
+    that survived, and that mean is not a measurement of the eval — it is a
+    measurement of the subset that happened to work. Reporting "below
+    threshold" there would name a cause the evidence does not support, and send
+    whoever reads the build to look at the model instead of the outage.
+    """
     runs = _collected_runs(session.config)
     if not runs:
+        return
+
+    config = session.config
+
+    if config.getoption("--fail-on-error", default=False):
+        failures = [
+            (run.name, sum(1 for r in run.results if r.error), run.errored_score_count)
+            for run in runs
+            if any(r.error for r in run.results) or run.errored_score_count
+        ]
+        if failures:
+            config._evalstand_error_failures = failures  # type: ignore[attr-defined]
+            session.exitstatus = EXIT_EXECUTION_ERROR
+            return
+
+    threshold = config.getoption("--threshold", default=None)
+    if threshold is None:
         return
 
     breaches = [
@@ -532,8 +574,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     # and reporting it as a breach would put a number where there is none. It
     # already fails through its unmeasured cases.
     if breaches:
-        session.config._evalstand_breaches = breaches  # type: ignore[attr-defined]
-        session.exitstatus = pytest.ExitCode.TESTS_FAILED
+        config._evalstand_breaches = breaches  # type: ignore[attr-defined]
+        session.exitstatus = EXIT_BELOW_THRESHOLD
 
 
 def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pytest.Config) -> None:
@@ -568,6 +610,20 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
                 f"[red]FAILED[/red] {name}: mean {mean:.2f} is below the "
                 f"threshold of {threshold:.2f}"
             )
+
+    # Said separately from a breach, and never alongside one: the run exited 2
+    # precisely because its mean does not describe the eval, so printing a
+    # verdict about that mean here would contradict the exit code.
+    for name, errored_cases, errored_scores in getattr(config, "_evalstand_error_failures", []):
+        parts = []
+        if errored_cases:
+            parts.append(f"{errored_cases} case{'' if errored_cases == 1 else 's'} errored")
+        if errored_scores:
+            parts.append(f"{errored_scores} score{'' if errored_scores == 1 else 's'} errored")
+        console.print(
+            f"[red]ERROR[/red] {name}: {', '.join(parts)} "
+            f"(--fail-on-error), so the mean does not measure the whole eval"
+        )
 
 
 def _session_seconds(terminalreporter: Any) -> float | None:

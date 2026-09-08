@@ -121,9 +121,42 @@ the case has no verdict: the task may have been fine, but nothing measured it.
 Such a case fails rather than passing, so a run that measured nothing cannot exit
 zero and be read as success.
 
-A case where *some* scorers worked is still judged on those. Turning any errored
-score into a failure is what `--fail-on-error` will do (Phase 7); until then, only
-the total absence of a measurement is treated as a failure.
+A case where *some* scorers worked is still judged on those. `--fail-on-error`
+is what turns any errored score into a failed build; without it, only the total
+absence of a measurement is treated as a failure.
+
+## Exit codes
+
+A CI job can gate on these, and they mean different things on purpose:
+
+| code | meaning | when |
+| --- | --- | --- |
+| `0` | every eval met its bar | |
+| `1` | an eval fell below `--threshold` | the measurement worked; the answer was worse than your bar |
+| `2` | something did not run | only with `--fail-on-error`; also what `compare` returns when it has nothing to compare |
+
+```bash
+evalstand run --threshold 0.85 --fail-on-error
+```
+
+**`2` outranks `1`.** A run whose cases mostly errored still has a mean — over
+the few that survived — and that mean is not a measurement of the eval. Reporting
+it as "below threshold" would name a cause the evidence does not support, and
+send whoever reads the build to look at the model when the real problem is an
+expired key or a rate limit. One code says *the model got worse*; the other says
+*we do not know*.
+
+That is also why `--fail-on-error` is opt-in rather than the default: with a
+flaky provider, some teams would rather have the partial number than no build at
+all. The flag is how you say which you want.
+
+**`compare` uses `2` for the same reason.** Asked about a run id that is not
+recorded, or one whose Batch never finished, it exits `2` — not `1`. A job that
+saw `1` could not tell "these runs differ badly" from "there was no measurement
+here", which is exactly the confusion the table exists to prevent.
+
+Every code in this table is reproduced in a test: see
+`tests/unit/test_exit_codes.py`, including the empty-database case below.
 
 ## Keeping CI free
 
