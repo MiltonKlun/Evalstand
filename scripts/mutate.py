@@ -1601,6 +1601,12 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "            failed = [s for s in result.scores if s.passed is False]",
         "            failed = [s for s in result.scores if not s.passed]",
     ),
+    (
+        "src/evalstand/__init__.py",
+        "the public trace export reverts to something that is not the real one",
+        "from evalstand.tracing import trace",
+        "from evalstand.api import scorer as trace",
+    ),
 ]
 
 
