@@ -324,34 +324,34 @@ class TestUnknownPlaceholder:
         assert run.mean_score is None
 
     def test_an_unpriced_run_formats_as_unknown(self) -> None:
-        from evalstand.reporting.console import UNKNOWN, _format_cost
+        from evalstand.reporting.console import UNKNOWN, format_cost
 
         run = _run(_result("q1", scores=[Score(scorer_name="exact", value=1.0)], cost_usd=None))
-        assert _format_cost([run]) == UNKNOWN
+        assert format_cost([run]) == UNKNOWN
 
     def test_a_priced_run_formats_as_currency(self) -> None:
-        from evalstand.reporting.console import _format_cost
+        from evalstand.reporting.console import format_cost
 
         run = _run(_result("q1", scores=[Score(scorer_name="exact", value=1.0)], cost_usd=0.0012))
-        assert _format_cost([run]) == "$0.0012"
+        assert format_cost([run]) == "$0.0012"
 
     def test_a_missing_score_formats_as_unknown(self) -> None:
-        from evalstand.reporting.console import UNKNOWN, _format_score
+        from evalstand.reporting.console import UNKNOWN, format_score
 
-        assert _format_score(None) == UNKNOWN
+        assert format_score(None) == UNKNOWN
 
     def test_a_zero_score_formats_as_zero_not_unknown(self) -> None:
         """A measured 0.0 and an absent measurement must not render alike."""
-        from evalstand.reporting.console import UNKNOWN, _format_score
+        from evalstand.reporting.console import UNKNOWN, format_score
 
-        assert _format_score(0.0) == "0.00"
-        assert _format_score(0.0) != UNKNOWN
+        assert format_score(0.0) == "0.00"
+        assert format_score(0.0) != UNKNOWN
 
     def test_an_unjudged_run_reports_no_pass_count(self) -> None:
-        from evalstand.reporting.console import _pass_counts
+        from evalstand.reporting.console import pass_counts
 
         run = _run(_result("q1", scores=[Score(scorer_name="levenshtein", value=0.9)]))
-        assert _pass_counts(run) == (0, 0), "no judged results, so no denominator"
+        assert pass_counts(run) == (0, 0), "no judged results, so no denominator"
 
 
 class TestRunTotals:

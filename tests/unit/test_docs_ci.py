@@ -108,3 +108,64 @@ class TestTheEmptyDatabaseClaim:
 
         for workflow in workflows:
             assert "evalstand compare" not in workflow
+
+
+class TestTheShippedWorkflows:
+    """Task 7.3 ships copyable YAML rather than a published Action.
+
+    That makes the block itself the deliverable: a user pastes it verbatim, and
+    a typo costs them a red build and a confusing error in someone else's
+    repository — the one place they cannot debug it.
+    """
+
+    def _blocks(self, text: str) -> list[str]:
+        return re.findall(r"```yaml\n(.*?)```", text, re.DOTALL)
+
+    def test_every_block_is_valid_yaml(self, text: str) -> None:
+        yaml = pytest.importorskip("yaml", reason="pyyaml is only available transitively")
+
+        blocks = self._blocks(text)
+        assert blocks, "the doc should ship a copyable workflow"
+
+        for index, block in enumerate(blocks, start=1):
+            try:
+                yaml.safe_load(block)
+            except yaml.YAMLError as exc:  # pragma: no cover - only on a broken doc
+                pytest.fail(f"yaml block {index} does not parse: {exc}")
+
+    def test_every_evalstand_flag_used_is_real(self, text: str) -> None:
+        """The recipe's whole value is that it works when pasted."""
+        from typer.testing import CliRunner
+
+        from evalstand.cli import app
+
+        help_text = CliRunner().invoke(app, ["run", "--help"]).output
+
+        for block in self._blocks(text):
+            for command in re.findall(r"evalstand run ([^\n|]*)", block):
+                for flag in re.findall(r"--[a-z-]+", command):
+                    assert flag in help_text, f"{flag} is in the workflow but not a real flag"
+
+    def test_a_comment_posting_workflow_asks_for_write_permission(self, text: str) -> None:
+        """`GITHUB_TOKEN` is read-only by default. A recipe that posts a comment
+        without requesting the scope fails at the last step, after the evals
+        have already been paid for."""
+        posting = [b for b in self._blocks(text) if "createComment" in b]
+        assert posting, "the doc should show how to post the summary"
+
+        for block in posting:
+            assert "pull-requests: write" in block
+
+    def test_the_gate_survives_the_comment_step(self, text: str) -> None:
+        """`continue-on-error` without an explicit re-fail would turn the
+        threshold gate off — the build would go green on a regression, which is
+        the exact failure the gate exists to prevent."""
+        for block in self._blocks(text):
+            if "continue-on-error" not in block:
+                continue
+            assert "exit 1" in block, "the workflow disables the gate and never restores it"
+
+    def test_it_warns_that_forks_cannot_comment(self, text: str) -> None:
+        """Otherwise the first external contributor's PR fails at a step the
+        maintainer cannot reproduce."""
+        assert "Forked pull requests cannot post comments" in text

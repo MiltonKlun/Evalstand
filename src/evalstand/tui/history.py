@@ -28,7 +28,12 @@ from textual.widgets import DataTable, Footer, Header, Static
 
 from evalstand.comparison import NotComparableError, compare_runs, refuse_partial_runs
 from evalstand.models import Run
-from evalstand.reporting.console import UNKNOWN, render_comparison, render_run_detail
+from evalstand.reporting.console import (
+    UNKNOWN,
+    pass_counts,
+    render_comparison,
+    render_run_detail,
+)
 from evalstand.storage import RunStore
 
 __all__ = ["HistoryScreen"]
@@ -94,7 +99,7 @@ class HistoryScreen(Screen[None]):
             self._say("no runs recorded yet.")
 
     def _cells(self, run: Run) -> list[str | Text]:
-        passed, judged = _pass_counts(run)
+        passed, judged = pass_counts(run)
         return [
             "*" if run.id in self.marked else " ",
             run.id,
@@ -216,15 +221,3 @@ def _when(run: Run) -> float:
     not silently relabel a newer run as the baseline.
     """
     return run.started_at.timestamp() if run.started_at else float("-inf")
-
-
-def _pass_counts(run: Run) -> tuple[int, int]:
-    """Passes and judged results.
-
-    The same rule `reporting.console` applies: only Results carrying an explicit
-    verdict are counted, so a continuous scorer that declined to judge is not
-    folded into the denominator as a failure.
-    """
-    judged = [r for r in run.results if any(s.passed is not None for s in r.scores)]
-    passed = [r for r in judged if all(s.passed is not False for s in r.scores)]
-    return len(passed), len(judged)

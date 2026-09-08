@@ -775,7 +775,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     (
         "src/evalstand/plugin.py",
         "F1b: --threshold is ignored, so a garbage run exits zero",
-        "        session.exitstatus = pytest.ExitCode.TESTS_FAILED",
+        "        session.exitstatus = EXIT_BELOW_THRESHOLD",
         "        pass",
     ),
     (
@@ -793,7 +793,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     (
         "src/evalstand/plugin.py",
         "the threshold breach is never explained to the user",
-        "        session.config._evalstand_breaches = breaches  # type: ignore[attr-defined]",
+        "        config._evalstand_breaches = breaches  # type: ignore[attr-defined]",
         "        pass",
     ),
     (
@@ -1519,6 +1519,87 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "a recorded run is filed under the default batch id, so it is refused",
         "            run = await run_eval(self.declared, config, batch_id=self._batch_id())",
         "            run = await run_eval(self.declared, config)",
+    ),
+    # --- Phase 7: the CI contract and the pull-request comment ---tuple[str, str, str, str]] = [
+    # --- the exit-code contract a CI job gates on ---
+    (
+        "src/evalstand/plugin.py",
+        "an execution error exits 1, reading as a quality regression",
+        "            session.exitstatus = EXIT_EXECUTION_ERROR",
+        "            session.exitstatus = EXIT_BELOW_THRESHOLD",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "a threshold breach overwrites the execution-error exit code",
+        "            config._evalstand_error_failures = failures  # type: ignore[attr-defined]\n            session.exitstatus = EXIT_EXECUTION_ERROR\n            return",
+        "            config._evalstand_error_failures = failures  # type: ignore[attr-defined]\n            session.exitstatus = EXIT_EXECUTION_ERROR",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "fail-on-error ignores errored scorers, catching only errored tasks",
+        "            if any(r.error for r in run.results) or run.errored_score_count",
+        "            if any(r.error for r in run.results)",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "fail-on-error fires when nothing actually errored",
+        "        if failures:",
+        "        if True:",
+    ),
+    (
+        "src/evalstand/cli.py",
+        "compare exits 1 for nothing-to-compare, hiding it as a regression",
+        "EXIT_NOTHING_TO_COMPARE = 2",
+        "EXIT_NOTHING_TO_COMPARE = 1",
+    ),
+    # --- the pull-request comment ---
+    (
+        "src/evalstand/reporting/markdown.py",
+        "a pipe in model output is not escaped, shifting every column",
+        '    text = str(value).replace("|", "\\\\|").replace("\\n", " ").replace("\\r", " ")',
+        '    text = str(value).replace("\\n", " ").replace("\\r", " ")',
+    ),
+    (
+        "src/evalstand/reporting/markdown.py",
+        "a newline in model output breaks the table into malformed rows",
+        '    text = str(value).replace("|", "\\\\|").replace("\\n", " ").replace("\\r", " ")',
+        '    text = str(value).replace("|", "\\\\|")',
+    ),
+    (
+        "src/evalstand/reporting/markdown.py",
+        "a 4000-token output is pasted whole into the comment",
+        '    return text if len(text) <= _MAX_CELL else text[: _MAX_CELL - 3] + "..."',
+        "    return text",
+    ),
+    (
+        "src/evalstand/reporting/markdown.py",
+        "the comment does not say the cost is a lower bound",
+        "    if not unpriced:\n        return []",
+        "    if True:\n        return []",
+    ),
+    (
+        "src/evalstand/reporting/markdown.py",
+        "an eval whose scorers all errored vanishes from the summary table",
+        '            lines.append(\n                f"| {_escape(run.name)} | {UNKNOWN} | {UNKNOWN} | {_cases(run)} | {cost} |"\n            )\n            continue',
+        "            continue",
+    ),
+    (
+        "src/evalstand/reporting/markdown.py",
+        "no evals having run reads the same as every eval passing",
+        '        return "## evalstand\\n\\nNo evals ran."',
+        '        return "## evalstand"',
+    ),
+    (
+        "src/evalstand/reporting/markdown.py",
+        "errored scores are not declared, so the means look complete",
+        "    errored_scores = sum(run.errored_score_count for run in runs)",
+        "    errored_scores = 0",
+    ),
+    (
+        "src/evalstand/reporting/markdown.py",
+        "a continuous score with no verdict is listed as a failure",
+        "            failed = [s for s in result.scores if s.passed is False]",
+        "            failed = [s for s in result.scores if not s.passed]",
     ),
 ]
 

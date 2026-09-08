@@ -570,8 +570,8 @@ Harness at 202 mutants; 1089 tests.
   - Because the database is project-local and gitignored (ADR 0005), CI starts with no history. `--threshold` therefore works on an empty database, while `compare` correctly reports it has nothing to compare and exits 2 rather than falsely passing.
   - A Run whose Scores errored reports the mean over the Scores that succeeded, together with the errored count. `--fail-on-error` is what turns those into a failure; the Threshold alone must not silently pass a Run that scored 3 of 30 cases.
   - *Acceptance:* an exit-code table in the docs, each code reproducible in a test, including the empty-database case.
-- [ ] **7.2 Markdown summary output** in `reporting/markdown.py` — `--output markdown` produces a body suitable for a PR comment: summary table, failed cases, cost.
-- [ ] **7.3 Document the GitHub Actions recipe** in `docs/ci.md`: a workflow that runs evals on pull requests, posts the markdown summary as a comment, and gates on the threshold. Ship it as a copyable YAML block rather than a published Action in this version.
+- [x] **7.2 Markdown summary output** in `reporting/markdown.py` — `--output markdown` produces a body suitable for a PR comment: summary table, failed cases, cost.
+- [x] **7.3 Document the GitHub Actions recipe** in `docs/ci.md`: a workflow that runs evals on pull requests, posts the markdown summary as a comment, and gates on the threshold. Ship it as a copyable YAML block rather than a published Action in this version.
 - [ ] **7.4 Docs site** with mkdocs-material: quickstart, writing evals, scorers, traces, CI, architecture, ADR index. Deploy to GitHub Pages.
 - [ ] **7.5 Rewrite the README:** one-sentence problem statement, demo GIF, 60-second quickstart, feature list mapped to the Section 2 parity table, reproducible numbers from the showcase example, an honest **Limitations** section, the attribution footnote, licence.
   - The Limitations section is required. State plainly that score deltas are reported without significance testing and that LLM judge scorers are unvalidated in this version.

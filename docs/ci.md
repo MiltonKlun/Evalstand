@@ -30,6 +30,8 @@ judged pass/fail. It never means zero.
 
 ## A GitHub Actions workflow
 
+The simplest thing that works — run the evals, fail the build if quality drops:
+
 ```yaml
 name: evals
 
@@ -42,10 +44,74 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync
-      - run: uv run pytest --no-header -q
+      - run: uv run evalstand run --threshold 0.85 --fail-on-error
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
+
+### Posting the summary as a pull-request comment
+
+`--output markdown` prints a body suitable for a comment. Two ways to use it,
+and the first is worth trying before the second:
+
+**The job summary** needs no permissions, no token, and no third-party action.
+It appears on the run's own page:
+
+```yaml
+      - run: uv run evalstand run --threshold 0.85 --output markdown >> "$GITHUB_STEP_SUMMARY"
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+**A comment on the pull request** puts the numbers where the review happens:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+
+      # `tee` so the body is kept even when the gate fails, and
+      # `continue-on-error` so the comment is still posted — a build that fails
+      # silently teaches nobody why.
+      - id: evals
+        continue-on-error: true
+        run: |
+          uv run evalstand run --threshold 0.85 --fail-on-error             --output markdown | tee summary.md
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const body = require('fs').readFileSync('summary.md', 'utf8');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+      # The gate, restored after the comment is posted.
+      - if: steps.evals.outcome == 'failure'
+        run: exit 1
+```
+
+`continue-on-error` with an explicit re-fail is deliberate. Without it the job
+stops at the eval step and the comment never posts, so the one artefact
+explaining the failure is the thing the failure suppresses.
+
+**Forked pull requests cannot post comments.** `GITHUB_TOKEN` is read-only for
+them, by design — otherwise anyone could open a PR that writes to your
+repository. Use the job summary for those, or trigger on `pull_request_target`
+and understand what you are accepting before you do.
 
 ## What CI can and cannot check
 

@@ -67,6 +67,13 @@ def run(
             help="Exit 2 when any case or scorer errored, whatever the means say.",
         ),
     ] = False,
+    output: Annotated[
+        str,
+        typer.Option(
+            "--output",
+            help="Summary format: 'terminal' (default) or 'markdown' for a PR comment.",
+        ),
+    ] = "terminal",
 ) -> None:
     """Run evals and print a summary.
 
@@ -94,6 +101,8 @@ def run(
         args += ["--threshold", str(threshold)]
     if fail_on_error:
         args.append("--fail-on-error")
+    if output != "terminal":
+        args += ["--output", output]
 
     # Evals are not tests-with-assertions; a failing case is a reported result,
     # not a stack trace worth printing twice.
