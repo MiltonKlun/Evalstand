@@ -206,8 +206,23 @@ class EvalFile(pytest.File):
 
         Going through `import_path` means one import, with pytest's own
         `sys.modules` handling and rootdir semantics.
+
+        The cached module is dropped first. `import_path` caches by a
+        path-derived name, and `evaluate()` runs at import time — so a *second*
+        pytest session in the same process re-imports nothing, registers
+        nothing, and collects zero evals from a file that plainly declares one.
+
+        That is not only a test artifact: `evalstand run` twice in one process
+        hits it, which is what a script driving several runs does. Watch mode
+        escaped it because `loading.py` pops its own modules; this is the same
+        fix on the path pytest owns.
         """
-        from _pytest.pathlib import ImportMode, import_path
+        import sys
+
+        from _pytest.pathlib import ImportMode, import_path, module_name_from_path
+
+        cached = module_name_from_path(self.path, self.config.rootpath)
+        sys.modules.pop(cached, None)
 
         return import_path(
             self.path,
