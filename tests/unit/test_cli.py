@@ -12,6 +12,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from evalstand.cli import app
+from tests.conftest import help_text
 
 runner = CliRunner()
 
@@ -204,7 +205,7 @@ class TestHelp:
         assert "run" in result.output
 
     def test_run_documents_its_arguments(self) -> None:
-        assert "eval" in runner.invoke(app, ["run", "--help"]).output.lower()
+        assert "eval" in help_text("run").lower()
 
 
 class TestFlagsReachPytest:

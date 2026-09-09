@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import help_text
+
 DOC = Path(__file__).resolve().parents[2] / "docs" / "ci.md"
 
 
@@ -49,12 +51,8 @@ class TestTheTableMatchesTheCode:
 class TestTheFlagsItNames:
     @pytest.mark.parametrize("flag", ["--threshold", "--fail-on-error"])
     def test_every_documented_flag_exists_on_the_cli(self, text: str, flag: str) -> None:
-        from typer.testing import CliRunner
-
-        from evalstand.cli import app
-
         assert flag in text
-        assert flag in CliRunner().invoke(app, ["run", "--help"]).output
+        assert flag in help_text("run")
 
     def test_fail_on_error_is_opt_in(self, text: str) -> None:
         """The doc explains *why* it is opt-in, which is only honest if it is."""
@@ -69,14 +67,10 @@ class TestTheFlagsItNames:
         commands = re.findall(r"^evalstand run .*$", text, re.MULTILINE)
         assert commands, "the doc should show a runnable example"
 
-        from typer.testing import CliRunner
-
-        from evalstand.cli import app
-
-        help_text = CliRunner().invoke(app, ["run", "--help"]).output
+        flags = help_text("run")
         for command in commands:
             for flag in re.findall(r"--[a-z-]+", command):
-                assert flag in help_text, f"{flag} is documented but not a real flag"
+                assert flag in flags, f"{flag} is documented but not a real flag"
 
 
 class TestTheClaimsAboutPrecedence:
@@ -135,16 +129,12 @@ class TestTheShippedWorkflows:
 
     def test_every_evalstand_flag_used_is_real(self, text: str) -> None:
         """The recipe's whole value is that it works when pasted."""
-        from typer.testing import CliRunner
-
-        from evalstand.cli import app
-
-        help_text = CliRunner().invoke(app, ["run", "--help"]).output
+        flags = help_text("run")
 
         for block in self._blocks(text):
             for command in re.findall(r"evalstand run ([^\n|]*)", block):
                 for flag in re.findall(r"--[a-z-]+", command):
-                    assert flag in help_text, f"{flag} is in the workflow but not a real flag"
+                    assert flag in flags, f"{flag} is in the workflow but not a real flag"
 
     def test_a_comment_posting_workflow_asks_for_write_permission(self, text: str) -> None:
         """`GITHUB_TOKEN` is read-only by default. A recipe that posts a comment
@@ -180,12 +170,8 @@ class TestTheHtmlArtifactSection:
     """
 
     def test_the_flag_exists(self, text: str) -> None:
-        from typer.testing import CliRunner
-
-        from evalstand.cli import app
-
         assert "--html" in text
-        assert "--html" in CliRunner().invoke(app, ["run", "--help"]).output
+        assert "--html" in help_text("run")
 
     def test_it_warns_to_upload_even_on_failure(self, text: str) -> None:
         # Whitespace collapsed: the sentence wraps in the source, and what a

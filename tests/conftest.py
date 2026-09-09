@@ -55,3 +55,24 @@ def completion() -> Callable[..., MagicMock]:
 @pytest.fixture
 def messages() -> list[dict[str, Any]]:
     return [{"role": "user", "content": "capital of France?"}]
+
+
+def help_text(*command: str) -> str:
+    """The `--help` output for a command, with styling removed.
+
+    Rich styles a flag by splitting it: `--threshold` is emitted as
+    `[1;2;36m-[0m[1;2;36m-threshold`, so the literal string never
+    appears in the output and `"--threshold" in output` is False.
+
+    That depends on whether colour is enabled, which depends on the terminal —
+    so tests asserting on help text passed locally and failed in CI, where
+    GitHub Actions turns colour on. Every such assertion goes through here.
+    """
+    import re
+
+    from typer.testing import CliRunner
+
+    from evalstand.cli import app
+
+    output = CliRunner().invoke(app, [*command, "--help"]).output
+    return re.sub(r"\[[0-9;]*m", "", output)
