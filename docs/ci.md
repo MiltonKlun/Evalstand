@@ -113,6 +113,40 @@ them, by design — otherwise anyone could open a PR that writes to your
 repository. Use the job summary for those, or trigger on `pull_request_target`
 and understand what you are accepting before you do.
 
+### An HTML report as a build artifact
+
+`--html PATH` writes a self-contained report alongside whatever the terminal
+prints. Unlike the summary and the comment, it shows **everything**: the full
+output of every case and the complete trace tree, which is the one thing a build
+log cannot give you.
+
+```yaml
+      - run: uv run evalstand run --threshold 0.85 --html report/index.html
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()          # the failing run is the one worth reading
+        with:
+          name: eval-report
+          path: report/
+```
+
+`if: always()` matters. Without it the upload is skipped exactly when the
+threshold gate fired, and the report explaining the failure is the thing the
+failure discards.
+
+The file has no external references — no stylesheet, no script, no sibling
+assets — so it renders correctly in the sandboxed iframe CI systems serve
+artifacts from, and it still works when emailed to somebody. Failing cases start
+expanded; passing ones are collapsed, because a thirty-case report with every
+prompt open is a page nobody scrolls.
+
+`--html` is independent of `--output`: the terminal summary still prints, since a
+log made less useful in exchange for a file nobody has opened yet is a poor
+trade. A report that cannot be written logs a warning and leaves the run alone —
+the measurement has already been paid for.
+
 ## What CI can and cannot check
 
 **A threshold is an absolute bar.** `--threshold` fails a run whose mean score

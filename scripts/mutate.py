@@ -1638,6 +1638,97 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "    recorder = None\n    if store:",
         "    recorder = None\n    if True:",
     ),
+    # --- Phase 8.3: the HTML artifact a CI job uploads ---
+    (
+        "src/evalstand/reporting/html.py",
+        "model output is not escaped, so a completion containing markup executes",
+        'return html.escape("" if value is None else str(value), quote=True)',
+        'return "" if value is None else str(value)',
+    ),
+    (
+        "src/evalstand/reporting/html.py",
+        "quotes are left raw in HTML, allowing attribute break-out",
+        'return html.escape("" if value is None else str(value), quote=True)',
+        'return html.escape("" if value is None else str(value), quote=False)',
+    ),
+    (
+        "src/evalstand/reporting/html.py",
+        "an unpriced case is shown as free in the report",
+        "    if result.traces and not priced:\n        return UNKNOWN",
+        "    if False:\n        return UNKNOWN",
+    ),
+    (
+        "src/evalstand/reporting/html.py",
+        "the report omits that its costs are a lower bound",
+        "    if unpriced:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/reporting/html.py",
+        "an unmeasured case is reported as a failure in the report",
+        '    if result.scores and all(score.error for score in result.scores):\n        return "unmeasured"',
+        '    if False:\n        return "unmeasured"',
+    ),
+    (
+        "src/evalstand/reporting/html.py",
+        "a verdictless continuous score is called a failure in the report",
+        '    if not verdicts:\n        return "scored"',
+        '    if not verdicts:\n        return "fail"',
+    ),
+    (
+        "src/evalstand/reporting/html.py",
+        "an empty report reads the same as every eval passing",
+        "        body = \"<p class='note'>No evals ran.</p>\"",
+        '        body = ""',
+    ),
+    (
+        "src/evalstand/reporting/html.py",
+        "failing cases are collapsed like the rest, so nobody sees them",
+        "{' open' if status in {'fail', 'error', 'unmeasured'} else ''}",
+        "{''}",
+    ),
+    (
+        "src/evalstand/reporting/html.py",
+        "the trace tree is flattened, losing which call was inside which",
+        '        if kids:\n            parts.append("<ul>")',
+        '        if False:\n            parts.append("<ul>")',
+    ),
+    (
+        "src/evalstand/reporting/html.py",
+        "the report stops saying what a dash means",
+        "never that it is zero",
+        "and that is that",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "--html is accepted but no report is ever written",
+        "    _write_html(config, runs)\n",
+        "",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "the report's directory is not created, so a CI path fails",
+        "        path.parent.mkdir(parents=True, exist_ok=True)\n",
+        "",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "a failed report write crashes instead of warning",
+        "    except OSError as exc:\n        logger.warning",
+        "    except ValueError as exc:\n        logger.warning",
+    ),
+    (
+        "src/evalstand/plugin.py",
+        "the threshold never reaches the HTML report",
+        '                threshold=config.getoption("--threshold", default=None),',
+        "                threshold=None,",
+    ),
+    (
+        "src/evalstand/cli.py",
+        "--html never reaches pytest, so no artifact appears",
+        '    if html is not None:\n        args += ["--html", str(html)]',
+        "    pass",
+    ),
 ]
 
 

@@ -588,7 +588,7 @@ Start only when Phases 0–7 are complete and polished. A shipped TUI beats a ha
 
 - [ ] **8.1** FastAPI backend exposing runs, results, scores, and traces as JSON.
 - [ ] **8.2** HTMX plus server-sent events front end for the live run table, keeping the stack entirely Python.
-- [ ] **8.3** Static HTML report export for CI artifacts. Worth doing even without the full web UI.
+- [x] **8.3** Static HTML report export for CI artifacts. Worth doing even without the full web UI.
 - [ ] **8.4** `evalstand serve` command.
 
 ---

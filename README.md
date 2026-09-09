@@ -64,6 +64,7 @@ function under test, and **Scorers** judge what it returned.
 | **History** | every run recorded locally; `history`, `show`, `compare` |
 | **Watch mode** | edit a prompt, the eval re-runs within a second |
 | **CI gates** | `--threshold` and `--fail-on-error`, with documented exit codes |
+| **CI artifacts** | `--html` writes one self-contained report: full outputs, whole trace trees |
 | **Ten scorers** | exact, normalised, contains, regex, levenshtein, ratio, close-to, JSON fields, judge, factuality |
 | **Runs under pytest** | each `(case, repeat)` is one test item, so `-k`, `-x`, `--lf` all work |
 
@@ -133,7 +134,7 @@ Unpriced calls are counted and declared, never silently treated as free.
 ```bash
 uv sync --all-extras --dev
 uv run pytest                       # the suite
-uv run python scripts/mutate.py     # 248 mutants, all killed
+uv run python scripts/mutate.py     # 263 mutants, all killed
 uv run mkdocs serve                 # the docs site
 ```
 

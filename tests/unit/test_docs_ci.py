@@ -169,3 +169,51 @@ class TestTheShippedWorkflows:
         """Otherwise the first external contributor's PR fails at a step the
         maintainer cannot reproduce."""
         assert "Forked pull requests cannot post comments" in text
+
+
+class TestTheHtmlArtifactSection:
+    """Task 8.3's documentation.
+
+    The `if: always()` advice is the load-bearing part: without it the upload is
+    skipped exactly when the gate fired, so the report explaining the failure is
+    discarded by the failure.
+    """
+
+    def test_the_flag_exists(self, text: str) -> None:
+        from typer.testing import CliRunner
+
+        from evalstand.cli import app
+
+        assert "--html" in text
+        assert "--html" in CliRunner().invoke(app, ["run", "--help"]).output
+
+    def test_it_warns_to_upload_even_on_failure(self, text: str) -> None:
+        # Whitespace collapsed: the sentence wraps in the source, and what a
+        # reader sees is one sentence.
+        flat = " ".join(text.split())
+
+        assert "if: always()" in text
+        assert "the report explaining the failure is the thing the failure discards" in flat
+
+    def test_the_upload_workflow_uses_always(self, text: str) -> None:
+        """Asserted on the block itself, not only the prose: a recipe that says
+        one thing and shows another teaches the wrong one."""
+        blocks = [
+            block
+            for block in re.findall(r"```yaml\n(.*?)```", text, re.DOTALL)
+            if "upload-artifact" in block
+        ]
+        assert blocks, "the doc should show how to upload the report"
+
+        for block in blocks:
+            assert "if: always()" in block
+
+    def test_it_says_the_report_is_self_contained(self, text: str) -> None:
+        """The reason it can be opened from a build page at all."""
+        assert "no external references" in text
+
+    def test_it_says_the_terminal_summary_is_unaffected(self, text: str) -> None:
+        assert "independent of `--output`" in text.lower()
+
+    def test_it_says_a_failed_write_does_not_lose_the_run(self, text: str) -> None:
+        assert "leaves the run alone" in text
