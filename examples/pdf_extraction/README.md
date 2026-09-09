@@ -18,19 +18,29 @@ nothing to build.
 another model should have said. An eval whose ground truth came from an LLM
 measures agreement between two models and calls it accuracy.
 
-**The corpus is byte-identical for a given seed.** A PDF normally embeds a
-creation timestamp, so two runs of the same code produce different files and a
-"reproducible" corpus drifts every time anyone regenerates it. `invariant=1`
-turns that off:
+**The corpus regenerates identically for a given seed** — the same invoices with
+the same ground truth, on any machine. That is what the eval is scored against,
+and what `--check` verifies:
 
 ```bash
 python generate.py --seed 42 --check    # regenerate and compare, writing nothing
 ```
 
+A PDF normally embeds a creation timestamp, so two runs of the same code would
+otherwise produce different files and a "reproducible" corpus would drift every
+time anyone regenerated it. `invariant=1` turns that off, and `checksums.txt`
+records the result.
+
+**Those checksums are a local change-detector, not a cross-platform promise.**
+reportlab's byte output depends on its build, so a corpus generated on Linux does
+not match checksums recorded on Windows — while the data inside is identical.
+`--check` therefore reports a byte difference and fails only on a difference in
+the *truth*. Assuming otherwise is what failed this example's first CI run.
+
 `ground_truth.json` and `checksums.txt` are committed; the PDFs are gitignored
 and rebuilt on demand. So the truth is reviewable in a diff, and a dependency
-upgrade that changes the generator's output fails the check rather than shifting
-the corpus underneath a committed baseline.
+upgrade that changed what the generator produces fails the check rather than
+shifting the corpus underneath a committed baseline.
 
 ## What the corpus is designed to break
 
