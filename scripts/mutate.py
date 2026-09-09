@@ -1607,6 +1607,37 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "from evalstand.tracing import trace",
         "from evalstand.api import scorer as trace",
     ),
+    # --- the CLI's own argv, which the plugin tests cannot see ---
+    (
+        "src/evalstand/cli.py",
+        "--fail-on-error never reaches pytest, so the gate never fires",
+        '    if fail_on_error:\n        args.append("--fail-on-error")',
+        "    pass",
+    ),
+    (
+        "src/evalstand/cli.py",
+        "--output never reaches pytest, so the PR comment is never produced",
+        '    if output != "terminal":\n        args += ["--output", output]',
+        "    pass",
+    ),
+    (
+        "src/evalstand/cli.py",
+        "the CLI normalises the exit code, erasing 2 vs 1",
+        "    raise typer.Exit(code=pytest.main(args))",
+        "    raise typer.Exit(code=1 if pytest.main(args) else 0)",
+    ),
+    (
+        "src/evalstand/cli.py",
+        "watch ignores --once and watches anyway",
+        "        watch=not once,",
+        "        watch=True,",
+    ),
+    (
+        "src/evalstand/cli.py",
+        "watch records to history without --store",
+        "    recorder = None\n    if store:",
+        "    recorder = None\n    if True:",
+    ),
 ]
 
 

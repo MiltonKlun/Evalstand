@@ -132,8 +132,8 @@ Unpriced calls are counted and declared, never silently treated as free.
 
 ```bash
 uv sync --all-extras --dev
-uv run pytest                       # 1371 tests
-uv run python scripts/mutate.py     # 243 mutants, all killed
+uv run pytest                       # the suite
+uv run python scripts/mutate.py     # 248 mutants, all killed
 uv run mkdocs serve                 # the docs site
 ```
 

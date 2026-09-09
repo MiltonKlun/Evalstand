@@ -205,3 +205,145 @@ class TestHelp:
 
     def test_run_documents_its_arguments(self) -> None:
         assert "eval" in runner.invoke(app, ["run", "--help"]).output.lower()
+
+
+class TestFlagsReachPytest:
+    """`run` builds an argv and hands it to pytest. Coverage showed the lines
+    forwarding `--fail-on-error` and `--output` were never executed by a test,
+    which means a typo in either would have shipped: the flag would silently
+    never arrive, the gate would never fire, and the build would go green on a
+    regression it was configured to catch.
+
+    Asserted by intercepting `pytest.main`, because what matters is the argv —
+    running the eval again would only re-test the plugin.
+    """
+
+    def _argv(self, monkeypatch, *flags: str) -> list[str]:
+        import pytest as pytest_module
+
+        seen: list[list[str]] = []
+
+        def fake_main(args: list[str]) -> int:
+            seen.append(args)
+            return 0
+
+        monkeypatch.setattr(pytest_module, "main", fake_main)
+        runner.invoke(app, ["run", "somewhere", *flags])
+
+        assert seen, "run did not call pytest"
+        return seen[0]
+
+    def test_fail_on_error_is_forwarded(self, monkeypatch) -> None:
+        assert "--fail-on-error" in self._argv(monkeypatch, "--fail-on-error")
+
+    def test_it_is_absent_unless_asked_for(self, monkeypatch) -> None:
+        """An opt-in flag that leaked into every run would turn a flaky provider
+        into a failed build for people who never asked for that."""
+        assert "--fail-on-error" not in self._argv(monkeypatch)
+
+    def test_output_markdown_is_forwarded(self, monkeypatch) -> None:
+        argv = self._argv(monkeypatch, "--output", "markdown")
+
+        assert "--output" in argv
+        assert argv[argv.index("--output") + 1] == "markdown"
+
+    def test_the_default_output_is_not_forwarded(self, monkeypatch) -> None:
+        """Passing the default explicitly would work, but leaving it off keeps
+        the argv the plugin sees identical to a bare `pytest` run."""
+        assert "--output" not in self._argv(monkeypatch)
+
+    def test_the_threshold_value_survives_the_hop(self, monkeypatch) -> None:
+        argv = self._argv(monkeypatch, "--threshold", "0.85")
+
+        assert argv[argv.index("--threshold") + 1] == "0.85"
+
+    def test_the_exit_code_is_passed_through_unchanged(self, monkeypatch) -> None:
+        """The whole exit-code contract depends on this one line. A CLI that
+        normalised pytest's 2 to a 1 would erase the distinction between "the
+        model got worse" and "nothing ran"."""
+        import pytest as pytest_module
+
+        for code in (0, 1, 2):
+            monkeypatch.setattr(pytest_module, "main", lambda args, c=code: c)
+            assert runner.invoke(app, ["run", "somewhere"]).exit_code == code
+
+
+class TestWatchOpensTheLiveView:
+    """The happy path of `watch`, which coverage showed was never reached: the
+    tests only exercised its failure branches, so everything after eval
+    selection — the RunConfig, the recorder, the app itself — was untested."""
+
+    EVAL = """
+from evalstand import Case, evaluate
+from evalstand.scorers import exact
+
+evaluate(
+    name="watched-cli",
+    cases=[Case(id="q1", input="x", expected="x")],
+    task=lambda value: value,
+    scorers=[exact],
+)
+"""
+
+    def _launch(self, tmp_path: Path, monkeypatch, *flags: str):
+        """Run `watch` with the app stubbed, returning the app it built."""
+        (tmp_path / "watched_eval.py").write_text(self.EVAL, encoding="utf-8")
+
+        built: list[object] = []
+        from evalstand.tui.app import EvalApp
+
+        def capture(self, **kwargs):
+            built.append(self)
+
+        monkeypatch.setattr(EvalApp, "run", capture)
+        result = runner.invoke(app, ["watch", str(tmp_path), *flags])
+
+        return result, built
+
+    def test_it_opens_the_app_for_the_declared_eval(self, tmp_path: Path, monkeypatch) -> None:
+        result, built = self._launch(tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert len(built) == 1
+        assert built[0].declared.name == "watched-cli"
+
+    def test_the_case_count_reaches_the_progress_bar(self, tmp_path: Path, monkeypatch) -> None:
+        """Resolved before the screen is taken over, so a loader that raises
+        fails in plain text rather than inside a terminal UI."""
+        _, built = self._launch(tmp_path, monkeypatch)
+
+        assert built[0].state.expected == 1
+
+    def test_once_opens_the_view_without_watching(self, tmp_path: Path, monkeypatch) -> None:
+        _, built = self._launch(tmp_path, monkeypatch, "--once")
+
+        assert built[0].watching is False
+
+    def test_watching_is_on_by_default(self, tmp_path: Path, monkeypatch) -> None:
+        _, built = self._launch(tmp_path, monkeypatch)
+
+        assert built[0].watching is True
+
+    def test_execution_flags_reach_the_run_config(self, tmp_path: Path, monkeypatch) -> None:
+        _, built = self._launch(
+            tmp_path, monkeypatch, "--concurrency", "3", "--timeout", "9", "--no-cache"
+        )
+
+        assert built[0].config.concurrency == 3
+        assert built[0].config.timeout_seconds == 9
+        assert built[0].config.bypass_cache is True
+
+    def test_nothing_is_recorded_without_store(self, tmp_path: Path, monkeypatch) -> None:
+        """The opposite of `run`, and deliberate: watch mode is used *while*
+        editing, so every run would be tied to a commit whose code it did not
+        reflect."""
+        _, built = self._launch(tmp_path, monkeypatch)
+
+        assert built[0].recorder is None
+
+    def test_store_opens_a_recorder(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        _, built = self._launch(tmp_path, monkeypatch, "--store")
+
+        assert built[0].recorder is not None
+        built[0].recorder.store.close()
