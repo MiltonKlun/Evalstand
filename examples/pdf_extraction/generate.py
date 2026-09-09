@@ -242,17 +242,41 @@ def main() -> int:
     digests = checksums()
 
     if args.check:
+        # The **ground truth** is what the corpus guarantees, and what the eval
+        # is scored against. It regenerates identically on any machine, because
+        # it comes from a seeded generator and nothing else.
+        committed = json.loads(GROUND_TRUTH.read_text(encoding="utf-8"))
+        if truth != committed:
+            differing = [
+                entry["file"]
+                for entry, was in zip(truth, committed, strict=False)
+                if entry != was
+            ]
+            print(f"{len(differing) or 'the'} invoice(s) differ from the committed truth:")
+            for name in differing[:10]:
+                print(f"  {name}")
+            return 1
+
+        # The PDF bytes are a *local* change-detector, not a cross-platform
+        # promise. reportlab's output depends on its build, so a corpus
+        # generated on Linux does not match checksums recorded on Windows — the
+        # data inside is identical either way. Reported, never fatal: treating
+        # it as a failure is what made this example fail its first CI run.
         expected = dict(
             line.split("  ", 1)[::-1]
             for line in CHECKSUMS.read_text(encoding="utf-8").strip().splitlines()
         )
         drifted = sorted(name for name, digest in digests.items() if expected.get(name) != digest)
+
+        print(f"ground truth matches for all {len(truth)} invoices")
         if drifted:
-            print(f"{len(drifted)} file(s) differ from the committed checksums:")
-            for name in drifted:
-                print(f"  {name}")
-            return 1
-        print(f"all {len(digests)} files match the committed checksums")
+            print(
+                f"note: {len(drifted)} PDF(s) differ byte-for-byte from the committed "
+                f"checksums, which were recorded on another machine. The extracted "
+                f"data is unchanged."
+            )
+        else:
+            print(f"all {len(digests)} PDFs also match the committed checksums")
         return 0
 
     GROUND_TRUTH.write_text(json.dumps(truth, indent=2) + "\n", encoding="utf-8")

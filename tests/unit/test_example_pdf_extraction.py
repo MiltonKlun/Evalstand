@@ -66,10 +66,18 @@ def truth() -> list[dict[str, Any]]:
 class TestTheCorpusIsReproducible:
     """Task 5.6's acceptance."""
 
-    def test_regenerating_at_the_same_seed_matches_the_checksums(self) -> None:
-        """The claim the whole example rests on. Run as a subprocess because
-        that is what a user does, and because a fresh process is the only way
-        to catch state that survives within one."""
+    def test_regenerating_at_the_same_seed_reproduces_the_ground_truth(self) -> None:
+        """The claim the whole example rests on — and the one it can keep.
+
+        This asserted byte-identical PDFs until the first CI run, where all 30
+        checksums differed on Linux while the data inside was unchanged.
+        reportlab's output depends on its build, so byte-identity was only ever
+        a per-platform property; what the eval is scored against is the ground
+        truth, and that regenerates identically anywhere.
+
+        Run as a subprocess because that is what a user does, and because a
+        fresh process is the only way to catch state that survives within one.
+        """
         result = subprocess.run(
             [sys.executable, "generate.py", "--seed", "42", "--check"],
             cwd=EXAMPLE,
@@ -79,7 +87,37 @@ class TestTheCorpusIsReproducible:
         )
 
         assert result.returncode == 0, result.stdout + result.stderr
-        assert "match the committed checksums" in result.stdout
+        assert "ground truth matches" in result.stdout
+
+    def test_a_byte_difference_alone_is_not_a_failure(self, tmp_path: Path) -> None:
+        """The distinction the CI failure taught: a PDF that differs
+        byte-for-byte while carrying identical data is a note, not a fault.
+
+        Driven by corrupting a committed checksum, which is exactly what Linux
+        looks like to a corpus whose checksums were recorded on Windows — same
+        data, different bytes. Asserting on the source text instead would only
+        check that a comment still says the right thing.
+        """
+        checksums = EXAMPLE / "checksums.txt"
+        original = checksums.read_text(encoding="utf-8")
+        lines = original.splitlines()
+        lines[0] = "0" * 64 + lines[0][64:]
+
+        checksums.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        try:
+            result = subprocess.run(
+                [sys.executable, "generate.py", "--seed", "42", "--check"],
+                cwd=EXAMPLE,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        finally:
+            checksums.write_text(original, encoding="utf-8")
+
+        assert result.returncode == 0, "a byte difference must not fail the check"
+        assert "ground truth matches" in result.stdout
+        assert "differ byte-for-byte" in result.stdout, "but it must still be reported"
 
     def test_a_different_seed_produces_a_different_corpus(self) -> None:
         """The other half. A `--check` that passed for every seed would be
@@ -93,7 +131,7 @@ class TestTheCorpusIsReproducible:
         )
 
         assert result.returncode != 0
-        assert "differ from the committed checksums" in result.stdout
+        assert "differ from the committed truth" in result.stdout
 
         # Leave the committed corpus in place for the tests that follow.
         subprocess.run(
