@@ -74,6 +74,13 @@ def run(
             help="Summary format: 'terminal' (default) or 'markdown' for a PR comment.",
         ),
     ] = "terminal",
+    html: Annotated[
+        Path | None,
+        typer.Option(
+            "--html",
+            help="Also write a self-contained HTML report here, for a CI artifact.",
+        ),
+    ] = None,
 ) -> None:
     """Run evals and print a summary.
 
@@ -103,6 +110,8 @@ def run(
         args.append("--fail-on-error")
     if output != "terminal":
         args += ["--output", output]
+    if html is not None:
+        args += ["--html", str(html)]
 
     # Evals are not tests-with-assertions; a failing case is a reported result,
     # not a stack trace worth printing twice.

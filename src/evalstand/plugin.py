@@ -20,6 +20,7 @@ and `-k`, `-x`, `--collect-only` and the rest keep working.
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import time
 import traceback
@@ -32,6 +33,8 @@ from evalstand.api import Eval, _current_eval_file, registry
 from evalstand.models import Case, Result, Run, Score
 from evalstand.recording import BatchRecorder, open_recorder
 from evalstand.runner import RunConfig, run_eval
+
+logger = logging.getLogger("evalstand.plugin")
 
 EVAL_FILE_SUFFIX = "_eval.py"
 
@@ -89,6 +92,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         choices=("terminal", "markdown"),
         default="terminal",
         help="How to print the summary. `markdown` suits a pull-request comment.",
+    )
+    group.addoption(
+        "--html",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Also write a self-contained HTML report here, for a CI artifact. "
+            "Independent of --output: the terminal summary still prints."
+        ),
     )
     group.addoption(
         "--fail-on-error",
@@ -593,6 +605,8 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
     if not runs:
         return
 
+    _write_html(config, runs)
+
     if config.getoption("--output", default="terminal") == "markdown":
         _write_markdown(terminalreporter, config, runs)
         return
@@ -634,6 +648,38 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
             f"[red]ERROR[/red] {name}: {', '.join(parts)} "
             f"(--fail-on-error), so the mean does not measure the whole eval"
         )
+
+
+def _write_html(config: pytest.Config, runs: list[Run]) -> None:
+    """Write the HTML artifact, if one was asked for.
+
+    A path rather than stdout, because the point of this format is a file CI can
+    upload and somebody can open days later. Writing it to a stream would leave
+    the caller to redirect it, and a half-written report from a failed
+    redirection looks exactly like a complete one.
+
+    A write failure is reported and swallowed. The run has already happened and
+    been recorded; losing it to an unwritable directory would be the tail
+    wagging the dog.
+    """
+    destination = config.getoption("--html", default=None)
+    if not destination:
+        return
+
+    from evalstand.reporting.html import render_html
+
+    path = Path(destination)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            render_html(
+                runs,
+                threshold=config.getoption("--threshold", default=None),
+            ),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.warning("could not write the HTML report to %s: %s", path, exc)
 
 
 def _write_markdown(terminalreporter: Any, config: pytest.Config, runs: list[Run]) -> None:

@@ -7,6 +7,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- Task 8.3: `--html PATH` writes a self-contained HTML report for a CI artifact.
+  One file, no external references, no JavaScript — so it renders in the
+  sandboxed iframe CI systems serve artifacts from and survives being emailed.
+  Unlike the terminal summary and the PR comment it shows everything: full
+  outputs and whole trace trees, with failing cases expanded and passes
+  collapsed.
 - Phase 7 complete: CI integration, docs, and the release path. `--fail-on-error`
   and a documented exit-code contract (`0` met the bar, `1` below `--threshold`,
   `2` something did not run, with `2` outranking `1`); `--output markdown` for a
