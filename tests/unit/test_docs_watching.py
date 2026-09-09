@@ -20,6 +20,7 @@ from evalstand.models import Result, Score, Trace
 from evalstand.tui.app import EvalApp
 from evalstand.tui.state import RunState, row_for
 from evalstand.tui.watch import DEBOUNCE_MS, is_relevant
+from tests.conftest import help_text
 
 DOC = Path(__file__).resolve().parents[2] / "docs" / "watching.md"
 
@@ -49,12 +50,7 @@ class TestTheCommandsItShows:
     def test_every_documented_flag_exists(self, text: str, flag: str) -> None:
         assert flag in text
 
-        from typer.testing import CliRunner
-
-        from evalstand.cli import app
-
-        result = CliRunner().invoke(app, ["watch", "--help"])
-        assert flag in result.output
+        assert flag in help_text("watch")
 
 
 class TestTheStatusesItDescribes:
