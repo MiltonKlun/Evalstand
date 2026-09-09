@@ -348,3 +348,64 @@ evaluate(
 
         assert built[0].recorder is not None
         built[0].recorder.store.close()
+
+
+class TestRunningTwiceInOneProcess:
+    """Found by the first CI run, which failed on Linux where this machine did
+    not.
+
+    `import_path` caches a module under a path-derived name, and `evaluate()`
+    runs at import time. So the second run in a process re-imported nothing,
+    registered nothing, and collected zero evals from a file that plainly
+    declares one — reported as `collected 0 items`, which reads as "your file
+    has no evals" rather than "we already imported it".
+
+    Not only a test artifact: any script driving two runs hits it. Watch mode
+    escaped it because `loading.py` pops its own modules.
+    """
+
+    def test_a_second_run_still_collects(self, tmp_path: Path) -> None:
+        (tmp_path / "toy_eval.py").write_text(PASSING_EVAL, encoding="utf-8")
+
+        first = runner.invoke(app, ["run", str(tmp_path)])
+        second = runner.invoke(app, ["run", str(tmp_path)])
+
+        assert "2/2" in first.output
+        assert "2/2" in second.output, "the second run collected nothing"
+
+    def test_a_third_run_does_too(self, tmp_path: Path) -> None:
+        """Two could pass by luck of a single cache slot; three could not."""
+        (tmp_path / "toy_eval.py").write_text(PASSING_EVAL, encoding="utf-8")
+
+        outputs = [runner.invoke(app, ["run", str(tmp_path)]).output for _ in range(3)]
+
+        assert all("2/2" in output for output in outputs)
+
+    def test_an_edited_file_is_read_again(self, tmp_path: Path) -> None:
+        """An edit between runs must be picked up.
+
+        This one passed even before the fix — pytest re-reads a file whose
+        mtime moved, so the stale-code case never actually arose. Kept because
+        it pins the property the fix must not break, but it is not the test
+        that catches the bug: that is the two above.
+        """
+        target = tmp_path / "toy_eval.py"
+        target.write_text(PASSING_EVAL, encoding="utf-8")
+        runner.invoke(app, ["run", str(tmp_path)])
+
+        target.write_text(FAILING_EVAL.replace("cli-bad", "cli-toy"), encoding="utf-8")
+        second = runner.invoke(app, ["run", str(tmp_path)])
+
+        assert second.exit_code != 0, "the edit was not picked up"
+
+    def test_two_different_files_sharing_a_name_both_collect(self, tmp_path: Path) -> None:
+        """Consecutive tests each write `toy_eval.py` into their own tmp
+        directory, which is exactly the shape that failed in CI."""
+        first_dir, second_dir = tmp_path / "a", tmp_path / "b"
+        first_dir.mkdir()
+        second_dir.mkdir()
+        (first_dir / "toy_eval.py").write_text(PASSING_EVAL, encoding="utf-8")
+        (second_dir / "toy_eval.py").write_text(PASSING_EVAL, encoding="utf-8")
+
+        assert "2/2" in runner.invoke(app, ["run", str(first_dir)]).output
+        assert "2/2" in runner.invoke(app, ["run", str(second_dir)]).output
