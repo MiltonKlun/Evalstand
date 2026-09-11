@@ -1,5 +1,10 @@
 name: docs
 
+# The deploy job needs GitHub Pages enabled for the repository first:
+# Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+# Until that is set, `build` succeeds and `deploy` fails with a 404 from the
+# deployment API — which looks like a broken workflow but is a missing setting.
+
 on:
   push:
     branches: [main]

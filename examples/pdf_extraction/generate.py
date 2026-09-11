@@ -248,9 +248,7 @@ def main() -> int:
         committed = json.loads(GROUND_TRUTH.read_text(encoding="utf-8"))
         if truth != committed:
             differing = [
-                entry["file"]
-                for entry, was in zip(truth, committed, strict=False)
-                if entry != was
+                entry["file"] for entry, was in zip(truth, committed, strict=False) if entry != was
             ]
             print(f"{len(differing) or 'the'} invoice(s) differ from the committed truth:")
             for name in differing[:10]:
