@@ -31,6 +31,14 @@ otherwise produce different files and a "reproducible" corpus would drift every
 time anyone regenerated it. `invariant=1` turns that off, and `checksums.txt`
 records the result.
 
+**The names, dates and descriptions come from committed word lists sampled with
+`random.Random`.** Python specifies that stream, so it reproduces on every
+platform and version. A synthetic-data library does not make that promise and did
+not keep one: the corpus was generated with `faker` until CI found all thirty
+invoices differing on Linux — every drifting field faker-derived, every stable
+field drawn from `random`. Pinning the version did not help, because the version
+was already identical.
+
 **Those checksums are a local change-detector, not a cross-platform promise.**
 reportlab's byte output depends on its build, so a corpus generated on Linux does
 not match checksums recorded on Windows — while the data inside is identical.

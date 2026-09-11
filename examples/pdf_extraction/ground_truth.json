@@ -2,155 +2,72 @@
   {
     "file": "invoice_00.pdf",
     "invoice_number": "INV-2026000",
-    "vendor_name": "Doyle Ltd",
-    "invoice_date": "1985-03-10",
-    "due_date": "2020-05-27",
+    "vendor_name": "Delaney-Calderon",
+    "invoice_date": "2001-11-25",
+    "due_date": "1999-05-04",
     "currency": "USD",
-    "total": "1363.98",
+    "total": "1961.66",
     "line_items": [
       {
-        "description": "Sharable bifurcated algorithm",
+        "description": "Enhanced content licence",
         "quantity": 1,
         "unit_price": "181.74",
         "amount": "181.74"
       },
       {
-        "description": "User-centric even-keeled encryption",
-        "quantity": 8,
-        "unit_price": "147.78",
-        "amount": "1182.24"
+        "description": "Unified training tier",
+        "quantity": 4,
+        "unit_price": "444.98",
+        "amount": "1779.92"
       }
     ]
   },
   {
     "file": "invoice_01.pdf",
     "invoice_number": "INV-2026001",
-    "vendor_name": "Johnson, Gonzalez and Santos",
-    "invoice_date": "2004-05-22",
-    "due_date": "2007-01-31",
+    "vendor_name": "Ellsworth Inc",
+    "invoice_date": "2016-10-26",
+    "due_date": "1998-04-17",
     "currency": "USD",
-    "total": "8114.57",
+    "total": "3450.37",
     "line_items": [
       {
-        "description": "Quality-focused background parallelism",
-        "quantity": 4,
-        "unit_price": "444.98",
-        "amount": "1779.92"
+        "description": "Networked monitoring bundle",
+        "quantity": 7,
+        "unit_price": "153.97",
+        "amount": "1077.79"
       },
       {
-        "description": "Optimized 5thgeneration algorithm",
+        "description": "Synchronised onboarding tier",
         "quantity": 18,
-        "unit_price": "58.47",
-        "amount": "1052.46"
-      },
-      {
-        "description": "Cross-group didactic emulation",
-        "quantity": 19,
-        "unit_price": "278.01",
-        "amount": "5282.19"
+        "unit_price": "131.81",
+        "amount": "2372.58"
       }
     ]
   },
   {
     "file": "invoice_02.pdf",
     "invoice_number": "INV-2026002",
-    "vendor_name": "Wolfe LLC",
-    "invoice_date": "1970-06-11",
-    "due_date": "1988-11-28",
+    "vendor_name": "Hollis-Ashford",
+    "invoice_date": "2018-08-11",
+    "due_date": "2001-07-15",
     "currency": "USD",
-    "total": "1140.69",
+    "total": "6618.92",
     "line_items": [
       {
-        "description": "Operative directional knowledge user",
-        "quantity": 1,
-        "unit_price": "62.90",
-        "amount": "62.90"
-      },
-      {
-        "description": "Reverse-engineered even-keeled workforce",
-        "quantity": 7,
-        "unit_price": "153.97",
-        "amount": "1077.79"
-      }
-    ]
-  },
-  {
-    "file": "invoice_03.pdf",
-    "invoice_number": "INV-2026003",
-    "vendor_name": "Chavez-Flowers",
-    "invoice_date": "1995-11-14",
-    "due_date": "1981-01-25",
-    "currency": "USD",
-    "total": "23135.10",
-    "line_items": [
-      {
-        "description": "Distributed didactic task-force",
-        "quantity": 20,
-        "unit_price": "18.89",
-        "amount": "377.80"
-      },
-      {
-        "description": "Mandatory bi-directional array",
-        "quantity": 18,
-        "unit_price": "131.81",
-        "amount": "2372.58"
-      },
-      {
-        "description": "Multi-tiered bandwidth-monitored help-desk",
-        "quantity": 18,
-        "unit_price": "276.43",
-        "amount": "4975.74"
-      },
-      {
-        "description": "Monitored real-time firmware",
-        "quantity": 8,
-        "unit_price": "295.89",
-        "amount": "2367.12"
-      },
-      {
-        "description": "Balanced upward-trending knowledgebase",
-        "quantity": 19,
-        "unit_price": "183.81",
-        "amount": "3492.39"
-      },
-      {
-        "description": "Public-key bottom-line implementation",
-        "quantity": 1,
-        "unit_price": "106.13",
-        "amount": "106.13"
-      },
-      {
-        "description": "Configurable neutral frame",
+        "description": "Extended billing package",
         "quantity": 14,
         "unit_price": "224.48",
         "amount": "3142.72"
       },
       {
-        "description": "Self-enabling regional hierarchy",
-        "quantity": 9,
-        "unit_price": "103.39",
-        "amount": "930.51"
+        "description": "Assimilated hosting engine",
+        "quantity": 11,
+        "unit_price": "68.48",
+        "amount": "753.28"
       },
       {
-        "description": "Re-engineered content-based strategy",
-        "quantity": 7,
-        "unit_price": "222.09",
-        "amount": "1554.63"
-      },
-      {
-        "description": "Cloned 6thgeneration protocol",
-        "quantity": 4,
-        "unit_price": "62.28",
-        "amount": "249.12"
-      },
-      {
-        "description": "Focused zero administration frame",
-        "quantity": 13,
-        "unit_price": "64.88",
-        "amount": "843.44"
-      },
-      {
-        "description": "Configurable discrete attitude",
+        "description": "Proactive database bundle",
         "quantity": 12,
         "unit_price": "226.91",
         "amount": "2722.92"
@@ -158,930 +75,983 @@
     ]
   },
   {
-    "file": "invoice_04.pdf",
-    "invoice_number": "INV-2026004",
-    "vendor_name": "Sanchez, Ford and Nelson",
-    "invoice_date": "2006-05-08",
-    "due_date": "2013-07-21",
+    "file": "invoice_03.pdf",
+    "invoice_number": "INV-2026003",
+    "vendor_name": "Blackwood-Yarrow",
+    "invoice_date": "2017-03-21",
+    "due_date": "2007-11-03",
     "currency": "USD",
-    "total": "6280.72",
+    "total": "25187.25",
     "line_items": [
       {
-        "description": "Multi-layered heuristic database",
-        "quantity": 2,
-        "unit_price": "302.58",
-        "amount": "605.16"
+        "description": "Proactive training platform",
+        "quantity": 10,
+        "unit_price": "413.48",
+        "amount": "4134.80"
       },
       {
-        "description": "Synchronized encompassing standardization",
+        "description": "Synchronised archive bundle",
+        "quantity": 19,
+        "unit_price": "127.51",
+        "amount": "2422.69"
+      },
+      {
+        "description": "Assimilated telemetry package",
+        "quantity": 8,
+        "unit_price": "191.15",
+        "amount": "1529.20"
+      },
+      {
+        "description": "Extended indexing platform",
+        "quantity": 4,
+        "unit_price": "250.61",
+        "amount": "1002.44"
+      },
+      {
+        "description": "Horizontal compliance plan",
+        "quantity": 6,
+        "unit_price": "244.10",
+        "amount": "1464.60"
+      },
+      {
+        "description": "Reactive capacity tier",
+        "quantity": 3,
+        "unit_price": "400.70",
+        "amount": "1202.10"
+      },
+      {
+        "description": "Managed hosting plan",
+        "quantity": 8,
+        "unit_price": "108.58",
+        "amount": "868.64"
+      },
+      {
+        "description": "Streamlined encryption bundle",
         "quantity": 18,
-        "unit_price": "83.30",
-        "amount": "1499.40"
+        "unit_price": "145.42",
+        "amount": "2617.56"
       },
       {
-        "description": "Synergized secondary archive",
-        "quantity": 13,
-        "unit_price": "53.14",
-        "amount": "690.82"
+        "description": "Virtual encryption service",
+        "quantity": 8,
+        "unit_price": "22.53",
+        "amount": "180.24"
       },
       {
-        "description": "Robust scalable concept",
+        "description": "Distributed workflow upgrade",
+        "quantity": 9,
+        "unit_price": "44.87",
+        "amount": "403.83"
+      },
+      {
+        "description": "Reactive licensing service",
+        "quantity": 11,
+        "unit_price": "140.84",
+        "amount": "1549.24"
+      },
+      {
+        "description": "Extended billing package",
+        "quantity": 15,
+        "unit_price": "95.13",
+        "amount": "1426.95"
+      },
+      {
+        "description": "Extended routing upgrade",
         "quantity": 18,
-        "unit_price": "193.63",
-        "amount": "3485.34"
+        "unit_price": "354.72",
+        "amount": "6384.96"
+      }
+    ]
+  },
+  {
+    "file": "invoice_04.pdf",
+    "invoice_number": "INV-2026004",
+    "vendor_name": "Quillon-Arbor",
+    "invoice_date": "2018-12-30",
+    "due_date": "2003-02-20",
+    "currency": "USD",
+    "total": "6793.05",
+    "line_items": [
+      {
+        "description": "Assimilated scheduling bundle",
+        "quantity": 17,
+        "unit_price": "324.93",
+        "amount": "5523.81"
+      },
+      {
+        "description": "Reactive capacity service",
+        "quantity": 4,
+        "unit_price": "101.66",
+        "amount": "406.64"
+      },
+      {
+        "description": "Integrated hosting upgrade",
+        "quantity": 20,
+        "unit_price": "43.13",
+        "amount": "862.60"
       }
     ]
   },
   {
     "file": "invoice_05.pdf",
     "invoice_number": "INV-2026005",
-    "vendor_name": "Clark PLC",
-    "invoice_date": "1988-03-21",
-    "due_date": "2018-11-08",
+    "vendor_name": "Kestrel LLC",
+    "invoice_date": "2004-11-09",
+    "due_date": "2024-11-13",
     "currency": "EUR",
-    "total": "4508.66",
+    "total": "7093.16",
     "line_items": [
       {
-        "description": "Team-oriented next generation definition",
-        "quantity": 19,
-        "unit_price": "127.51",
-        "amount": "2422.69"
+        "description": "Federated identity licence",
+        "quantity": 11,
+        "unit_price": "74.60",
+        "amount": "820.60"
       },
       {
-        "description": "Synergized fresh-thinking throughput",
-        "quantity": 3,
-        "unit_price": "31.53",
-        "amount": "94.59"
+        "description": "Unified training plan",
+        "quantity": 15,
+        "unit_price": "3.62",
+        "amount": "54.30"
       },
       {
-        "description": "Vision-oriented analyzing emulation",
-        "quantity": 8,
-        "unit_price": "191.15",
-        "amount": "1529.20"
+        "description": "Networked workflow engine",
+        "quantity": 17,
+        "unit_price": "118.58",
+        "amount": "2015.86"
       },
       {
-        "description": "Automated foreground initiative",
-        "quantity": 3,
-        "unit_price": "154.06",
-        "amount": "462.18"
+        "description": "Networked monitoring package",
+        "quantity": 10,
+        "unit_price": "420.24",
+        "amount": "4202.40"
       }
     ]
   },
   {
     "file": "invoice_06.pdf",
     "invoice_number": "INV-2026006",
-    "vendor_name": "Baker and Sons",
-    "invoice_date": "2001-03-23",
-    "due_date": "2020-09-11",
+    "vendor_name": "Quillon Inc",
+    "invoice_date": "2022-08-30",
+    "due_date": "2007-07-03",
     "currency": "USD",
-    "total": "8659.21",
+    "total": "3495.63",
     "line_items": [
       {
-        "description": "Intuitive didactic projection",
-        "quantity": 13,
-        "unit_price": "183.67",
-        "amount": "2387.71"
+        "description": "Balanced workflow platform",
+        "quantity": 16,
+        "unit_price": "14.26",
+        "amount": "228.16"
       },
       {
-        "description": "Proactive hybrid project",
-        "quantity": 15,
-        "unit_price": "418.10",
-        "amount": "6271.50"
+        "description": "Advanced content upgrade",
+        "quantity": 10,
+        "unit_price": "158.42",
+        "amount": "1584.20"
+      },
+      {
+        "description": "Unified licensing engine",
+        "quantity": 3,
+        "unit_price": "57.63",
+        "amount": "172.89"
+      },
+      {
+        "description": "Centralised provisioning subscription",
+        "quantity": 18,
+        "unit_price": "83.91",
+        "amount": "1510.38"
       }
     ]
   },
   {
     "file": "invoice_07.pdf",
     "invoice_number": "INV-2026007",
-    "vendor_name": "Campos Inc",
-    "invoice_date": "2003-08-02",
+    "vendor_name": "Orinoco Inc",
+    "invoice_date": "2022-11-06",
     "due_date": null,
     "currency": "USD",
-    "total": "8377.44",
+    "total": "8087.83",
     "line_items": [
       {
-        "description": "Realigned national firmware",
-        "quantity": 6,
-        "unit_price": "244.10",
-        "amount": "1464.60"
+        "description": "Streamlined onboarding platform",
+        "quantity": 10,
+        "unit_price": "262.98",
+        "amount": "2629.80"
       },
       {
-        "description": "User-friendly optimal interface",
-        "quantity": 12,
-        "unit_price": "138.80",
-        "amount": "1665.60"
+        "description": "Managed backup package",
+        "quantity": 15,
+        "unit_price": "340.69",
+        "amount": "5110.35"
       },
       {
-        "description": "Reduced impactful hierarchy",
-        "quantity": 9,
-        "unit_price": "449.46",
-        "amount": "4045.14"
-      },
-      {
-        "description": "Face-to-face client-driven migration",
-        "quantity": 3,
-        "unit_price": "400.70",
-        "amount": "1202.10"
+        "description": "Grounded access upgrade",
+        "quantity": 8,
+        "unit_price": "43.46",
+        "amount": "347.68"
       }
     ]
   },
   {
     "file": "invoice_08.pdf",
     "invoice_number": "INV-2026008",
-    "vendor_name": "Rice-Maddox",
-    "invoice_date": "2010-07-20",
-    "due_date": "1970-10-13",
+    "vendor_name": "Ironside Inc",
+    "invoice_date": "2019-10-11",
+    "due_date": "2008-11-25",
     "currency": "USD",
-    "total": "7060.71",
+    "total": "830.29",
     "line_items": [
       {
-        "description": "Distributed responsive complexity",
-        "quantity": 18,
-        "unit_price": "161.93",
-        "amount": "2914.74"
+        "description": "Assimilated training bundle",
+        "quantity": 2,
+        "unit_price": "151.53",
+        "amount": "303.06"
       },
       {
-        "description": "Synergized interactive policy",
-        "quantity": 6,
-        "unit_price": "304.44",
-        "amount": "1826.64"
-      },
-      {
-        "description": "Cloned human-resource implementation",
-        "quantity": 13,
-        "unit_price": "178.41",
-        "amount": "2319.33"
+        "description": "Networked content plan",
+        "quantity": 11,
+        "unit_price": "47.93",
+        "amount": "527.23"
       }
     ]
   },
   {
     "file": "invoice_09.pdf",
     "invoice_number": "INV-2026009",
-    "vendor_name": "Carter and Sons",
-    "invoice_date": "1993-02-24",
-    "due_date": "2000-11-16",
+    "vendor_name": "Everline Inc",
+    "invoice_date": "2018-10-02",
+    "due_date": "2022-09-08",
     "currency": "USD",
-    "total": "3508.29",
+    "total": "7340.08",
     "line_items": [
       {
-        "description": "Synergized uniform budgetary management",
-        "quantity": 11,
-        "unit_price": "38.15",
-        "amount": "419.65"
+        "description": "Balanced backup service",
+        "quantity": 14,
+        "unit_price": "126.28",
+        "amount": "1767.92"
       },
       {
-        "description": "Synergized national system engine",
-        "quantity": 8,
-        "unit_price": "22.53",
-        "amount": "180.24"
+        "description": "Layered indexing bundle",
+        "quantity": 12,
+        "unit_price": "279.09",
+        "amount": "3349.08"
       },
       {
-        "description": "Future-proofed zero administration project",
-        "quantity": 11,
-        "unit_price": "264.40",
-        "amount": "2908.40"
+        "description": "Integrated routing platform",
+        "quantity": 4,
+        "unit_price": "41.22",
+        "amount": "164.88"
+      },
+      {
+        "description": "Distributed compliance tier",
+        "quantity": 4,
+        "unit_price": "164.45",
+        "amount": "657.80"
+      },
+      {
+        "description": "Layered capacity plan",
+        "quantity": 15,
+        "unit_price": "93.36",
+        "amount": "1400.40"
       }
     ]
   },
   {
     "file": "invoice_10.pdf",
     "invoice_number": "INV-2026010",
-    "vendor_name": "Gonzalez, Brooks and Martin",
-    "invoice_date": "2004-07-19",
-    "due_date": "2022-12-26",
+    "vendor_name": "Blackwood Inc",
+    "invoice_date": "2019-08-05",
+    "due_date": "2005-05-21",
     "currency": "USD",
-    "total": "11555.72",
+    "total": "1326.99",
     "line_items": [
       {
-        "description": "Adaptive uniform success",
+        "description": "Optimised support bundle",
+        "quantity": 2,
+        "unit_price": "428.88",
+        "amount": "857.76"
+      },
+      {
+        "description": "Configurable identity subscription",
         "quantity": 3,
-        "unit_price": "139.76",
-        "amount": "419.28"
-      },
-      {
-        "description": "Fundamental motivating task-force",
-        "quantity": 19,
-        "unit_price": "207.72",
-        "amount": "3946.68"
-      },
-      {
-        "description": "Enhanced motivating benchmark",
-        "quantity": 7,
-        "unit_price": "431.04",
-        "amount": "3017.28"
-      },
-      {
-        "description": "Self-enabling exuding productivity",
-        "quantity": 16,
-        "unit_price": "260.78",
-        "amount": "4172.48"
+        "unit_price": "156.41",
+        "amount": "469.23"
       }
     ]
   },
   {
     "file": "invoice_11.pdf",
     "invoice_number": "INV-2026011",
-    "vendor_name": "Carney-Santos",
-    "invoice_date": "1991-03-19",
-    "due_date": "1999-10-25",
+    "vendor_name": "Everline LLC",
+    "invoice_date": "2018-07-06",
+    "due_date": "2018-07-23",
     "currency": "USD",
-    "total": "33495.35",
+    "total": "23154.30",
     "line_items": [
       {
-        "description": "Progressive 24hour policy",
-        "quantity": 15,
-        "unit_price": "95.13",
-        "amount": "1426.95"
+        "description": "Extended workflow subscription",
+        "quantity": 1,
+        "unit_price": "257.36",
+        "amount": "257.36"
       },
       {
-        "description": "Inverse mobile adapter",
-        "quantity": 9,
-        "unit_price": "93.00",
-        "amount": "837.00"
+        "description": "Synchronised routing tier",
+        "quantity": 10,
+        "unit_price": "278.72",
+        "amount": "2787.20"
       },
       {
-        "description": "Customizable high-level workforce",
-        "quantity": 8,
-        "unit_price": "369.39",
-        "amount": "2955.12"
-      },
-      {
-        "description": "Integrated disintermediate approach",
-        "quantity": 18,
-        "unit_price": "173.69",
-        "amount": "3126.42"
-      },
-      {
-        "description": "Front-line non-volatile artificial intelligence",
-        "quantity": 19,
-        "unit_price": "282.27",
-        "amount": "5363.13"
-      },
-      {
-        "description": "Configurable upward-trending matrix",
-        "quantity": 19,
-        "unit_price": "263.25",
-        "amount": "5001.75"
-      },
-      {
-        "description": "Cloned well-modulated monitoring",
-        "quantity": 12,
-        "unit_price": "145.23",
-        "amount": "1742.76"
-      },
-      {
-        "description": "Visionary clear-thinking capacity",
-        "quantity": 5,
-        "unit_price": "335.42",
-        "amount": "1677.10"
-      },
-      {
-        "description": "Switchable methodical neural-net",
+        "description": "Distributed delivery package",
         "quantity": 16,
-        "unit_price": "61.07",
-        "amount": "977.12"
+        "unit_price": "102.94",
+        "amount": "1647.04"
       },
       {
-        "description": "Down-sized empowering moderator",
+        "description": "Unified messaging bundle",
         "quantity": 2,
-        "unit_price": "73.35",
-        "amount": "146.70"
+        "unit_price": "381.07",
+        "amount": "762.14"
       },
       {
-        "description": "Robust interactive data-warehouse",
-        "quantity": 5,
-        "unit_price": "412.70",
-        "amount": "2063.50"
+        "description": "Advanced migration subscription",
+        "quantity": 11,
+        "unit_price": "38.96",
+        "amount": "428.56"
       },
       {
-        "description": "Quality-focused web-enabled superstructure",
-        "quantity": 6,
-        "unit_price": "447.46",
-        "amount": "2684.76"
+        "description": "Configurable analytics tier",
+        "quantity": 17,
+        "unit_price": "349.57",
+        "amount": "5942.69"
       },
       {
-        "description": "Team-oriented dedicated structure",
-        "quantity": 14,
-        "unit_price": "392.36",
-        "amount": "5493.04"
+        "description": "Assimilated monitoring engine",
+        "quantity": 3,
+        "unit_price": "123.28",
+        "amount": "369.84"
+      },
+      {
+        "description": "Balanced training upgrade",
+        "quantity": 8,
+        "unit_price": "266.11",
+        "amount": "2128.88"
+      },
+      {
+        "description": "Proactive analytics upgrade",
+        "quantity": 8,
+        "unit_price": "380.90",
+        "amount": "3047.20"
+      },
+      {
+        "description": "Streamlined migration upgrade",
+        "quantity": 3,
+        "unit_price": "276.24",
+        "amount": "828.72"
+      },
+      {
+        "description": "Extended compliance platform",
+        "quantity": 17,
+        "unit_price": "208.83",
+        "amount": "3550.11"
+      },
+      {
+        "description": "Integrated billing plan",
+        "quantity": 8,
+        "unit_price": "175.57",
+        "amount": "1404.56"
       }
     ]
   },
   {
     "file": "invoice_12.pdf",
     "invoice_number": "INV-2026012",
-    "vendor_name": "Chapman and Sons",
-    "invoice_date": "1993-01-03",
-    "due_date": "2010-01-16",
+    "vendor_name": "Kestrel LLC",
+    "invoice_date": "2014-07-30",
+    "due_date": "2022-05-15",
     "currency": "EUR",
-    "total": "9435.47",
+    "total": "2212.62",
     "line_items": [
       {
-        "description": "Programmable local capability",
-        "quantity": 13,
-        "unit_price": "251.59",
-        "amount": "3270.67"
+        "description": "Distributed logging plan",
+        "quantity": 3,
+        "unit_price": "353.84",
+        "amount": "1061.52"
       },
       {
-        "description": "Fully-configurable directional architecture",
-        "quantity": 20,
-        "unit_price": "308.24",
-        "amount": "6164.80"
+        "description": "Assimilated training package",
+        "quantity": 5,
+        "unit_price": "230.22",
+        "amount": "1151.10"
       }
     ]
   },
   {
     "file": "invoice_13.pdf",
     "invoice_number": "INV-2026013",
-    "vendor_name": "Caldwell-Lewis",
-    "invoice_date": "1986-03-13",
-    "due_date": "1979-01-02",
+    "vendor_name": "Quillon Inc",
+    "invoice_date": "2013-05-19",
+    "due_date": "2009-04-07",
     "currency": "USD",
-    "total": "5950.48",
+    "total": "14558.26",
     "line_items": [
       {
-        "description": "Face-to-face 24hour archive",
-        "quantity": 18,
-        "unit_price": "9.02",
-        "amount": "162.36"
+        "description": "Networked access tier",
+        "quantity": 20,
+        "unit_price": "430.08",
+        "amount": "8601.60"
       },
       {
-        "description": "Triple-buffered responsive approach",
-        "quantity": 4,
-        "unit_price": "448.26",
-        "amount": "1793.04"
+        "description": "Balanced training licence",
+        "quantity": 10,
+        "unit_price": "436.25",
+        "amount": "4362.50"
       },
       {
-        "description": "Focused asymmetric alliance",
-        "quantity": 18,
-        "unit_price": "176.36",
-        "amount": "3174.48"
+        "description": "Balanced routing tier",
+        "quantity": 9,
+        "unit_price": "77.14",
+        "amount": "694.26"
       },
       {
-        "description": "Managed asynchronous migration",
-        "quantity": 11,
-        "unit_price": "74.60",
-        "amount": "820.60"
+        "description": "Federated monitoring package",
+        "quantity": 5,
+        "unit_price": "179.98",
+        "amount": "899.90"
       }
     ]
   },
   {
     "file": "invoice_14.pdf",
     "invoice_number": "INV-2026014",
-    "vendor_name": "Henderson-Owens",
-    "invoice_date": "1999-05-02",
-    "due_date": "2019-08-13",
+    "vendor_name": "Ellsworth Inc",
+    "invoice_date": "2009-10-01",
+    "due_date": "2023-02-28",
     "currency": "USD",
-    "total": "6497.70",
+    "total": "1259.18",
     "line_items": [
       {
-        "description": "Up-sized object-oriented orchestration",
-        "quantity": 14,
-        "unit_price": "105.15",
-        "amount": "1472.10"
+        "description": "Layered support plan",
+        "quantity": 3,
+        "unit_price": "417.18",
+        "amount": "1251.54"
       },
       {
-        "description": "Phased dynamic toolset",
-        "quantity": 15,
-        "unit_price": "3.62",
-        "amount": "54.30"
-      },
-      {
-        "description": "Phased incremental core",
-        "quantity": 9,
-        "unit_price": "329.56",
-        "amount": "2966.04"
-      },
-      {
-        "description": "Cross-platform bandwidth-monitored protocol",
-        "quantity": 6,
-        "unit_price": "334.21",
-        "amount": "2005.26"
+        "description": "Grounded scheduling licence",
+        "quantity": 2,
+        "unit_price": "3.82",
+        "amount": "7.64"
       }
     ]
   },
   {
     "file": "invoice_15.pdf",
     "invoice_number": "INV-2026015",
-    "vendor_name": "Morgan, Hensley and Wright",
-    "invoice_date": "1997-05-26",
+    "vendor_name": "Ironside and Sons",
+    "invoice_date": "2004-08-23",
     "due_date": null,
     "currency": "USD",
-    "total": "11012.43",
+    "total": "655.22",
     "line_items": [
       {
-        "description": "Business-focused systematic projection",
-        "quantity": 10,
-        "unit_price": "420.24",
-        "amount": "4202.40"
+        "description": "Synchronised training licence",
+        "quantity": 4,
+        "unit_price": "50.81",
+        "amount": "203.24"
       },
       {
-        "description": "Stand-alone bandwidth-monitored approach",
-        "quantity": 17,
-        "unit_price": "400.59",
-        "amount": "6810.03"
+        "description": "Horizontal migration tier",
+        "quantity": 18,
+        "unit_price": "25.11",
+        "amount": "451.98"
       }
     ]
   },
   {
     "file": "invoice_16.pdf",
     "invoice_number": "INV-2026016",
-    "vendor_name": "Morton-Chase",
-    "invoice_date": "1975-02-17",
-    "due_date": "1976-08-30",
+    "vendor_name": "Pemberton Group",
+    "invoice_date": "2016-06-20",
+    "due_date": "2005-02-21",
     "currency": "USD",
-    "total": "3394.37",
+    "total": "4950.60",
     "line_items": [
       {
-        "description": "Ergonomic national knowledge user",
-        "quantity": 5,
-        "unit_price": "246.54",
-        "amount": "1232.70"
+        "description": "Horizontal compliance package",
+        "quantity": 12,
+        "unit_price": "27.64",
+        "amount": "331.68"
       },
       {
-        "description": "Devolved interactive contingency",
+        "description": "Versatile messaging service",
+        "quantity": 4,
+        "unit_price": "233.28",
+        "amount": "933.12"
+      },
+      {
+        "description": "Enhanced telemetry licence",
+        "quantity": 20,
+        "unit_price": "102.78",
+        "amount": "2055.60"
+      },
+      {
+        "description": "Adaptive capacity platform",
         "quantity": 6,
-        "unit_price": "354.98",
-        "amount": "2129.88"
-      },
-      {
-        "description": "Grass-roots maximized encryption",
-        "quantity": 17,
-        "unit_price": "1.87",
-        "amount": "31.79"
+        "unit_price": "271.70",
+        "amount": "1630.20"
       }
     ]
   },
   {
     "file": "invoice_17.pdf",
     "invoice_number": "INV-2026017",
-    "vendor_name": "Martin Inc",
-    "invoice_date": "1997-04-16",
-    "due_date": "1996-07-26",
+    "vendor_name": "Marchetti Ltd",
+    "invoice_date": "2008-01-01",
+    "due_date": "2012-09-22",
     "currency": "USD",
-    "total": "3088.58",
+    "total": "3809.06",
     "line_items": [
       {
-        "description": "Business-focused solution-oriented moratorium",
-        "quantity": 16,
-        "unit_price": "14.26",
-        "amount": "228.16"
+        "description": "Modular content package",
+        "quantity": 13,
+        "unit_price": "26.87",
+        "amount": "349.31"
       },
       {
-        "description": "Advanced background system engine",
-        "quantity": 4,
-        "unit_price": "239.38",
-        "amount": "957.52"
-      },
-      {
-        "description": "Front-line composite installation",
-        "quantity": 10,
-        "unit_price": "158.42",
-        "amount": "1584.20"
-      },
-      {
-        "description": "Pre-emptive mission-critical data-warehouse",
-        "quantity": 2,
-        "unit_price": "159.35",
-        "amount": "318.70"
+        "description": "Federated support package",
+        "quantity": 15,
+        "unit_price": "230.65",
+        "amount": "3459.75"
       }
     ]
   },
   {
     "file": "invoice_18.pdf",
     "invoice_number": "INV-2026018",
-    "vendor_name": "Cowan, Peters and Higgins",
-    "invoice_date": "2017-05-27",
-    "due_date": "1980-07-14",
+    "vendor_name": "Hollis and Sons",
+    "invoice_date": "2012-01-27",
+    "due_date": "2023-11-12",
     "currency": "USD",
-    "total": "2011.80",
+    "total": "7197.72",
     "line_items": [
       {
-        "description": "Fundamental zero tolerance toolset",
+        "description": "Horizontal onboarding tier",
         "quantity": 3,
-        "unit_price": "319.99",
-        "amount": "959.97"
+        "unit_price": "184.42",
+        "amount": "553.26"
       },
       {
-        "description": "Persevering executive interface",
-        "quantity": 3,
-        "unit_price": "350.61",
-        "amount": "1051.83"
+        "description": "Optimised encryption bundle",
+        "quantity": 13,
+        "unit_price": "446.82",
+        "amount": "5808.66"
+      },
+      {
+        "description": "Configurable migration plan",
+        "quantity": 4,
+        "unit_price": "172.68",
+        "amount": "690.72"
+      },
+      {
+        "description": "Proactive identity platform",
+        "quantity": 2,
+        "unit_price": "72.54",
+        "amount": "145.08"
       }
     ]
   },
   {
     "file": "invoice_19.pdf",
     "invoice_number": "INV-2026019",
-    "vendor_name": "Williams Group",
-    "invoice_date": "1991-05-05",
-    "due_date": "2004-03-21",
+    "vendor_name": "Hollis LLC",
+    "invoice_date": "2025-12-14",
+    "due_date": "2020-09-30",
     "currency": "EUR",
-    "total": "9009.51",
+    "total": "9709.31",
     "line_items": [
       {
-        "description": "Ergonomic explicit data-warehouse",
-        "quantity": 5,
-        "unit_price": "433.87",
-        "amount": "2169.35"
+        "description": "Synchronised identity bundle",
+        "quantity": 9,
+        "unit_price": "30.58",
+        "amount": "275.22"
       },
       {
-        "description": "Centralized optimal support",
-        "quantity": 16,
-        "unit_price": "361.81",
-        "amount": "5788.96"
+        "description": "Streamlined routing package",
+        "quantity": 17,
+        "unit_price": "354.37",
+        "amount": "6024.29"
       },
       {
-        "description": "Quality-focused analyzing synergy",
-        "quantity": 6,
-        "unit_price": "175.20",
-        "amount": "1051.20"
+        "description": "Assimilated provisioning platform",
+        "quantity": 12,
+        "unit_price": "284.15",
+        "amount": "3409.80"
       }
     ]
   },
   {
     "file": "invoice_20.pdf",
     "invoice_number": "INV-2026020",
-    "vendor_name": "Williams, Miller and Sandoval",
-    "invoice_date": "2009-05-25",
-    "due_date": "2008-06-18",
+    "vendor_name": "Underhill-Fenwick",
+    "invoice_date": "2017-04-14",
+    "due_date": "2017-10-26",
     "currency": "USD",
-    "total": "18185.72",
+    "total": "7002.98",
     "line_items": [
       {
-        "description": "Progressive cohesive approach",
-        "quantity": 7,
-        "unit_price": "354.93",
-        "amount": "2484.51"
+        "description": "Integrated reporting plan",
+        "quantity": 14,
+        "unit_price": "215.26",
+        "amount": "3013.64"
       },
       {
-        "description": "Profound attitude-oriented contingency",
-        "quantity": 7,
-        "unit_price": "205.78",
-        "amount": "1440.46"
+        "description": "Distributed identity service",
+        "quantity": 18,
+        "unit_price": "84.91",
+        "amount": "1528.38"
       },
       {
-        "description": "Cloned radical architecture",
-        "quantity": 13,
-        "unit_price": "441.69",
-        "amount": "5741.97"
+        "description": "Persistent delivery service",
+        "quantity": 6,
+        "unit_price": "404.88",
+        "amount": "2429.28"
       },
       {
-        "description": "Synergistic disintermediate initiative",
-        "quantity": 12,
-        "unit_price": "288.61",
-        "amount": "3463.32"
-      },
-      {
-        "description": "Decentralized non-volatile encryption",
-        "quantity": 17,
-        "unit_price": "297.38",
-        "amount": "5055.46"
+        "description": "Federated delivery package",
+        "quantity": 18,
+        "unit_price": "1.76",
+        "amount": "31.68"
       }
     ]
   },
   {
     "file": "invoice_21.pdf",
     "invoice_number": "INV-2026021",
-    "vendor_name": "Baker and Sons",
-    "invoice_date": "1991-05-20",
-    "due_date": "2015-09-16",
+    "vendor_name": "Marchetti and Sons",
+    "invoice_date": "2018-06-06",
+    "due_date": "2020-03-05",
     "currency": "USD",
-    "total": "1859.18",
+    "total": "7166.68",
     "line_items": [
       {
-        "description": "Programmable foreground firmware",
-        "quantity": 8,
-        "unit_price": "148.75",
-        "amount": "1190.00"
+        "description": "Modular storage licence",
+        "quantity": 7,
+        "unit_price": "336.50",
+        "amount": "2355.50"
       },
       {
-        "description": "Expanded static structure",
+        "description": "Networked provisioning upgrade",
         "quantity": 3,
-        "unit_price": "223.06",
-        "amount": "669.18"
+        "unit_price": "187.48",
+        "amount": "562.44"
+      },
+      {
+        "description": "Versatile content plan",
+        "quantity": 11,
+        "unit_price": "62.70",
+        "amount": "689.70"
+      },
+      {
+        "description": "Centralised access bundle",
+        "quantity": 8,
+        "unit_price": "132.00",
+        "amount": "1056.00"
+      },
+      {
+        "description": "Proactive telemetry engine",
+        "quantity": 8,
+        "unit_price": "312.88",
+        "amount": "2503.04"
       }
     ]
   },
   {
     "file": "invoice_22.pdf",
     "invoice_number": "INV-2026022",
-    "vendor_name": "Howell-Hart",
-    "invoice_date": "1970-08-20",
+    "vendor_name": "Delaney Group",
+    "invoice_date": "2025-06-25",
     "due_date": null,
     "currency": "USD",
-    "total": "10022.81",
+    "total": "10806.65",
     "line_items": [
       {
-        "description": "Stand-alone exuding knowledgebase",
-        "quantity": 19,
-        "unit_price": "364.51",
-        "amount": "6925.69"
+        "description": "Reactive reporting bundle",
+        "quantity": 8,
+        "unit_price": "98.21",
+        "amount": "785.68"
       },
       {
-        "description": "Intuitive web-enabled archive",
-        "quantity": 8,
-        "unit_price": "387.14",
-        "amount": "3097.12"
+        "description": "Enhanced capacity tier",
+        "quantity": 4,
+        "unit_price": "280.12",
+        "amount": "1120.48"
+      },
+      {
+        "description": "Optimised content engine",
+        "quantity": 15,
+        "unit_price": "34.41",
+        "amount": "516.15"
+      },
+      {
+        "description": "Virtual indexing tier",
+        "quantity": 15,
+        "unit_price": "88.88",
+        "amount": "1333.20"
+      },
+      {
+        "description": "Grounded scheduling subscription",
+        "quantity": 18,
+        "unit_price": "391.73",
+        "amount": "7051.14"
       }
     ]
   },
   {
     "file": "invoice_23.pdf",
     "invoice_number": "INV-2026023",
-    "vendor_name": "Mitchell-Kim",
-    "invoice_date": "1986-08-16",
-    "due_date": "2006-12-19",
+    "vendor_name": "Vandermeer LLC",
+    "invoice_date": "2008-07-08",
+    "due_date": "2022-03-25",
     "currency": "USD",
-    "total": "417.32",
+    "total": "10439.30",
     "line_items": [
       {
-        "description": "Cross-platform asynchronous monitoring",
-        "quantity": 1,
-        "unit_price": "48.02",
-        "amount": "48.02"
+        "description": "Extended scheduling package",
+        "quantity": 16,
+        "unit_price": "296.45",
+        "amount": "4743.20"
       },
       {
-        "description": "Extended motivating firmware",
-        "quantity": 2,
-        "unit_price": "151.53",
-        "amount": "303.06"
+        "description": "Modular onboarding package",
+        "quantity": 9,
+        "unit_price": "343.13",
+        "amount": "3088.17"
       },
       {
-        "description": "De-engineered grid-enabled architecture",
-        "quantity": 3,
-        "unit_price": "22.08",
-        "amount": "66.24"
+        "description": "Assimilated reporting plan",
+        "quantity": 9,
+        "unit_price": "289.77",
+        "amount": "2607.93"
       }
     ]
   },
   {
     "file": "invoice_24.pdf",
     "invoice_number": "INV-2026024",
-    "vendor_name": "Figueroa PLC",
-    "invoice_date": "1987-10-29",
-    "due_date": "2018-01-08",
+    "vendor_name": "Bellweather-Blackwood",
+    "invoice_date": "2025-11-30",
+    "due_date": "2024-07-20",
     "currency": "USD",
-    "total": "35050.21",
+    "total": "26082.89",
     "line_items": [
       {
-        "description": "Triple-buffered exuding pricing structure",
-        "quantity": 11,
-        "unit_price": "47.93",
-        "amount": "527.23"
+        "description": "Enhanced hosting licence",
+        "quantity": 5,
+        "unit_price": "100.34",
+        "amount": "501.70"
       },
       {
-        "description": "Streamlined multi-tasking access",
-        "quantity": 17,
-        "unit_price": "157.47",
-        "amount": "2676.99"
-      },
-      {
-        "description": "Synchronized neutral framework",
-        "quantity": 9,
-        "unit_price": "439.92",
-        "amount": "3959.28"
-      },
-      {
-        "description": "Switchable bi-directional challenge",
-        "quantity": 16,
-        "unit_price": "141.90",
-        "amount": "2270.40"
-      },
-      {
-        "description": "Fundamental bifurcated benchmark",
-        "quantity": 18,
-        "unit_price": "88.21",
-        "amount": "1587.78"
-      },
-      {
-        "description": "User-friendly neutral collaboration",
-        "quantity": 19,
-        "unit_price": "379.12",
-        "amount": "7203.28"
-      },
-      {
-        "description": "Future-proofed executive portal",
-        "quantity": 16,
-        "unit_price": "160.75",
-        "amount": "2572.00"
-      },
-      {
-        "description": "Expanded transitional Graphical User Interface",
-        "quantity": 16,
-        "unit_price": "268.27",
-        "amount": "4292.32"
-      },
-      {
-        "description": "Expanded systemic productivity",
+        "description": "Layered identity platform",
         "quantity": 7,
-        "unit_price": "63.31",
-        "amount": "443.17"
+        "unit_price": "43.59",
+        "amount": "305.13"
       },
       {
-        "description": "Fundamental motivating matrix",
-        "quantity": 4,
-        "unit_price": "433.37",
-        "amount": "1733.48"
+        "description": "Layered analytics package",
+        "quantity": 18,
+        "unit_price": "306.84",
+        "amount": "5523.12"
       },
       {
-        "description": "Function-based actuating array",
+        "description": "Versatile migration bundle",
         "quantity": 14,
-        "unit_price": "233.69",
-        "amount": "3271.66"
+        "unit_price": "256.74",
+        "amount": "3594.36"
       },
       {
-        "description": "Sharable interactive focus group",
+        "description": "Modular access platform",
+        "quantity": 19,
+        "unit_price": "250.78",
+        "amount": "4764.82"
+      },
+      {
+        "description": "Layered messaging tier",
+        "quantity": 10,
+        "unit_price": "257.08",
+        "amount": "2570.80"
+      },
+      {
+        "description": "Modular content plan",
+        "quantity": 20,
+        "unit_price": "146.03",
+        "amount": "2920.60"
+      },
+      {
+        "description": "Adaptive hosting platform",
         "quantity": 14,
-        "unit_price": "270.91",
-        "amount": "3792.74"
+        "unit_price": "319.77",
+        "amount": "4476.78"
       },
       {
-        "description": "Balanced 24hour groupware",
-        "quantity": 15,
-        "unit_price": "37.00",
-        "amount": "555.00"
-      },
-      {
-        "description": "Visionary clear-thinking productivity",
-        "quantity": 4,
-        "unit_price": "41.22",
-        "amount": "164.88"
+        "description": "Managed workflow licence",
+        "quantity": 13,
+        "unit_price": "109.66",
+        "amount": "1425.58"
       }
     ]
   },
   {
     "file": "invoice_25.pdf",
     "invoice_number": "INV-2026025",
-    "vendor_name": "Diaz-Fitzpatrick",
-    "invoice_date": "1972-11-05",
-    "due_date": "1972-09-18",
+    "vendor_name": "Underhill and Sons",
+    "invoice_date": "2007-06-30",
+    "due_date": "2015-01-03",
     "currency": "USD",
-    "total": "7396.31",
+    "total": "1474.89",
     "line_items": [
       {
-        "description": "Optimized next generation access",
-        "quantity": 11,
-        "unit_price": "73.11",
-        "amount": "804.21"
+        "description": "Layered billing subscription",
+        "quantity": 3,
+        "unit_price": "422.73",
+        "amount": "1268.19"
       },
       {
-        "description": "Customizable asynchronous solution",
-        "quantity": 8,
-        "unit_price": "127.06",
-        "amount": "1016.48"
-      },
-      {
-        "description": "Distributed needs-based alliance",
-        "quantity": 7,
-        "unit_price": "352.96",
-        "amount": "2470.72"
-      },
-      {
-        "description": "Multi-layered optimal neural-net",
-        "quantity": 15,
-        "unit_price": "93.36",
-        "amount": "1400.40"
-      },
-      {
-        "description": "Digitized intermediate capacity",
-        "quantity": 14,
-        "unit_price": "121.75",
-        "amount": "1704.50"
+        "description": "Extended hosting platform",
+        "quantity": 6,
+        "unit_price": "34.45",
+        "amount": "206.70"
       }
     ]
   },
   {
     "file": "invoice_26.pdf",
     "invoice_number": "INV-2026026",
-    "vendor_name": "Hancock and Sons",
-    "invoice_date": "1980-07-08",
-    "due_date": "1998-01-21",
+    "vendor_name": "Northgate-Fenwick",
+    "invoice_date": "2003-02-18",
+    "due_date": "2009-06-30",
     "currency": "EUR",
-    "total": "5393.52",
+    "total": "5047.68",
     "line_items": [
       {
-        "description": "Multi-channeled demand-driven software",
-        "quantity": 15,
-        "unit_price": "165.21",
-        "amount": "2478.15"
+        "description": "Assimilated licensing bundle",
+        "quantity": 14,
+        "unit_price": "166.82",
+        "amount": "2335.48"
       },
       {
-        "description": "Fully-configurable static benchmark",
-        "quantity": 3,
-        "unit_price": "291.91",
-        "amount": "875.73"
-      },
-      {
-        "description": "Multi-channeled zero-defect open architecture",
+        "description": "Horizontal content engine",
         "quantity": 18,
-        "unit_price": "65.66",
-        "amount": "1181.88"
+        "unit_price": "35.63",
+        "amount": "641.34"
       },
       {
-        "description": "Open-source regional synergy",
+        "description": "Enhanced compliance bundle",
         "quantity": 2,
-        "unit_price": "428.88",
-        "amount": "857.76"
+        "unit_price": "21.83",
+        "amount": "43.66"
+      },
+      {
+        "description": "Enhanced billing subscription",
+        "quantity": 20,
+        "unit_price": "101.36",
+        "amount": "2027.20"
       }
     ]
   },
   {
     "file": "invoice_27.pdf",
     "invoice_number": "INV-2026027",
-    "vendor_name": "Shields, Cochran and Adams",
-    "invoice_date": "2024-08-04",
-    "due_date": "2023-08-01",
+    "vendor_name": "Thackeray Group",
+    "invoice_date": "2002-07-28",
+    "due_date": "2023-05-22",
     "currency": "USD",
-    "total": "2076.27",
+    "total": "9121.07",
     "line_items": [
       {
-        "description": "Assimilated context-sensitive support",
-        "quantity": 3,
-        "unit_price": "156.41",
-        "amount": "469.23"
+        "description": "Proactive routing engine",
+        "quantity": 6,
+        "unit_price": "398.57",
+        "amount": "2391.42"
       },
       {
-        "description": "Managed zero tolerance installation",
+        "description": "Balanced migration bundle",
         "quantity": 6,
-        "unit_price": "267.84",
-        "amount": "1607.04"
+        "unit_price": "205.34",
+        "amount": "1232.04"
+      },
+      {
+        "description": "Streamlined workflow service",
+        "quantity": 10,
+        "unit_price": "378.85",
+        "amount": "3788.50"
+      },
+      {
+        "description": "Assimilated migration package",
+        "quantity": 13,
+        "unit_price": "131.47",
+        "amount": "1709.11"
       }
     ]
   },
   {
     "file": "invoice_28.pdf",
     "invoice_number": "INV-2026028",
-    "vendor_name": "Ramirez-Jones",
-    "invoice_date": "1997-02-11",
-    "due_date": "2022-08-17",
+    "vendor_name": "Granville and Sons",
+    "invoice_date": "2016-11-04",
+    "due_date": "2014-04-01",
     "currency": "USD",
-    "total": "7237.97",
+    "total": "5206.80",
     "line_items": [
       {
-        "description": "Total bi-directional implementation",
-        "quantity": 16,
-        "unit_price": "141.58",
-        "amount": "2265.28"
+        "description": "Layered provisioning platform",
+        "quantity": 12,
+        "unit_price": "350.63",
+        "amount": "4207.56"
       },
       {
-        "description": "Automated methodical definition",
-        "quantity": 13,
-        "unit_price": "39.92",
-        "amount": "518.96"
-      },
-      {
-        "description": "Exclusive logistical hardware",
-        "quantity": 6,
-        "unit_price": "249.86",
-        "amount": "1499.16"
-      },
-      {
-        "description": "Integrated discrete definition",
-        "quantity": 1,
-        "unit_price": "257.36",
-        "amount": "257.36"
-      },
-      {
-        "description": "Assimilated stable core",
-        "quantity": 9,
-        "unit_price": "299.69",
-        "amount": "2697.21"
+        "description": "Reactive encryption bundle",
+        "quantity": 3,
+        "unit_price": "333.08",
+        "amount": "999.24"
       }
     ]
   },
   {
     "file": "invoice_29.pdf",
     "invoice_number": "INV-2026029",
-    "vendor_name": "Johnson-Carlson",
-    "invoice_date": "2009-07-05",
-    "due_date": "1993-07-11",
+    "vendor_name": "Ashford-Vandermeer",
+    "invoice_date": "2023-07-25",
+    "due_date": "1999-04-16",
     "currency": "USD",
-    "total": "8417.51",
+    "total": "14566.01",
     "line_items": [
       {
-        "description": "Grass-roots grid-enabled project",
-        "quantity": 14,
-        "unit_price": "365.72",
-        "amount": "5120.08"
+        "description": "Configurable routing tier",
+        "quantity": 5,
+        "unit_price": "286.90",
+        "amount": "1434.50"
       },
       {
-        "description": "Profound impactful service-desk",
+        "description": "Virtual workflow tier",
+        "quantity": 9,
+        "unit_price": "405.14",
+        "amount": "3646.26"
+      },
+      {
+        "description": "Layered support upgrade",
         "quantity": 16,
-        "unit_price": "102.94",
-        "amount": "1647.04"
+        "unit_price": "306.15",
+        "amount": "4898.40"
       },
       {
-        "description": "Public-key full-range algorithm",
-        "quantity": 7,
-        "unit_price": "195.95",
-        "amount": "1371.65"
+        "description": "Enhanced support engine",
+        "quantity": 9,
+        "unit_price": "212.72",
+        "amount": "1914.48"
       },
       {
-        "description": "Customizable empowering conglomeration",
-        "quantity": 7,
-        "unit_price": "39.82",
-        "amount": "278.74"
+        "description": "Enhanced scheduling subscription",
+        "quantity": 9,
+        "unit_price": "296.93",
+        "amount": "2672.37"
       }
     ]
   }
