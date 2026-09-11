@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-examples = ["reportlab>=4.2", "faker>=33.1", "pypdfium2>=4.30"]
+examples = ["reportlab>=4.2", "pypdfium2>=4.30"]
 
 [project.scripts]
 evalstand = "evalstand.cli:main"

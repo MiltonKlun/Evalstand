@@ -179,7 +179,7 @@ Saved as `qa_eval.py`, this runs under both `evalstand run` and bare `pytest`.
 | Retry | `tenacity` |
 | Docs | `mkdocs-material` |
 | Dev | `ruff`, `mypy`, `pytest-cov`, `pre-commit` |
-| Example only | `reportlab`, `faker`, `pypdfium2` (behind an optional extra) |
+| Example only | `reportlab`, `pypdfium2` (behind an optional extra) |
 
 Storage is stdlib `sqlite3`. **Do not add an ORM.** Do not add a dependency outside this table without an ADR.
 
@@ -471,7 +471,7 @@ Harness now at 116 mutants; 861 tests.
   - `docs/ci.md` states the limitation, and its claims are under test.
   - 16 mutants, 16/16 killed — three of them try to insert verdict language.
 - [x] **5.6 Build the showcase example** at `examples/pdf_extraction/`: extract `invoice_number`, `vendor_name`, `invoice_date`, `total`, and `line_items[]` from documents.
-  - Generate 30 synthetic invoices with `reportlab` + `faker` at a fixed seed. Ground truth is written at generation time and is therefore true by construction — programmatic, not LLM-generated.
+  - Generate 30 synthetic invoices with `reportlab` at a fixed seed, drawing names and dates from committed word lists via `random.Random`. Ground truth is written at generation time and is therefore true by construction — programmatic, not LLM-generated. (A generator library was used until its seeded stream proved to differ across platforms; `random` is specified by the language and does not.)
   - Vary deliberately: multi-page documents, two currencies, a missing due date, an ambiguous date format.
   - Use `json_field` and `numeric_tolerance` scorers plus one judge scorer for line-item completeness.
   - *Acceptance:* `python generate.py --seed 42` reproduces byte-identical PDFs and golden JSON; the eval runs end to end from a clean clone with one API key set. **— met 2026-09-05.**
