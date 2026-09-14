@@ -38,8 +38,8 @@ evalstand watch
 - [Traces](traces.md) — what your task did, and what it cost
 - [Watching](watching.md) — the live view and watch mode
 - [CI](ci.md) — thresholds, exit codes, pull-request comments
-- [Architecture decisions](adr/0000-adr-process.md) — why the design is the way
-  it is
+- [Architecture](architecture.md) — how the pieces fit, for anyone changing them
+- [Decisions](adr/index.md) — why the design is the way it is
 
 ## What makes it different
 

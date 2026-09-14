@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -70,6 +71,77 @@ class TestTheNav:
         on_disk = {f"adr/{path.name}" for path in (DOCS / "adr").glob("*.md")}
 
         assert on_disk == listed
+
+
+class TestTheSiteCoversWhatWasPromised:
+    """Task 7.4 names seven deliverables. Six of them existed while the task was
+    marked done.
+
+    `TestTheNav` compares the nav against the files on disk, which agree with
+    each other when a page is missing from *both* — so `architecture.md` and the
+    ADR index were absent for a whole phase without a single failing test and
+    with `mkdocs build --strict` green, because nothing linked to what nobody
+    had written. Consistency is not coverage. This class asserts against the
+    promise instead of against the site.
+    """
+
+    PROMISED: ClassVar[list[str]] = [
+        "quickstart.md",
+        "writing-evals.md",
+        "scorers.md",
+        "traces.md",
+        "ci.md",
+        "architecture.md",
+        "adr/index.md",
+    ]
+
+    @pytest.mark.parametrize("page", PROMISED)
+    def test_the_page_exists_and_is_in_the_nav(self, config: dict, page: str) -> None:
+        assert (DOCS / page).exists(), f"task 7.4 promises {page}"
+        assert page in _nav_pages(config["nav"]), f"{page} exists but is unreachable"
+
+    def test_the_adr_index_lists_every_decision(self) -> None:
+        """An index that silently omits a record is worse than no index: a
+        reader who trusts it concludes the decision was never made.
+
+        Asserted on the **table rows**, not on the page text. Most ADRs are also
+        mentioned in the prose below the table, so a substring search over the
+        whole page passes even after a row is deleted — which it did, the first
+        time this was written.
+        """
+        index = (DOCS / "adr" / "index.md").read_text(encoding="utf-8")
+        rows = [line for line in index.splitlines() if line.startswith("| [")]
+        tabled = {name for line in rows for name in re.findall(r"\(([0-9]{4}-[^)]+\.md)\)", line)}
+
+        on_disk = {adr.name for adr in (DOCS / "adr").glob("*.md") if adr.name != "index.md"}
+
+        assert on_disk == tabled, f"the index table omits {sorted(on_disk - tabled)}"
+
+    def test_the_architecture_page_names_the_real_modules(self) -> None:
+        """A design document that describes modules which do not exist sends a
+        reader to a path that is not there. These are the load-bearing ones."""
+        text = (DOCS / "architecture.md").read_text(encoding="utf-8")
+        source = Path(__file__).resolve().parents[2] / "src" / "evalstand"
+
+        for module in ["runner.py", "plugin.py", "storage.py", "tracing.py", "llm.py"]:
+            assert module in text, f"the architecture page never mentions {module}"
+            assert (source / module).exists(), f"it names {module}, which does not exist"
+
+    def test_it_keeps_the_cache_and_cassette_distinction(self) -> None:
+        """The one thing in the codebase most likely to be collapsed by a
+        well-meaning change: deleting a cassette breaks the suite, deleting the
+        cache only costs money."""
+        text = (DOCS / "architecture.md").read_text(encoding="utf-8")
+
+        assert "cassettes.py" in text
+        assert "cache.py" in text
+
+    def test_it_documents_that_missing_data_is_none(self) -> None:
+        """The honesty rule the reporting layer is built on. A reader who
+        assumes zero-as-unknown will build a total that understates spend."""
+        text = (DOCS / "architecture.md").read_text(encoding="utf-8")
+
+        assert "None" in text and "zero" in text.lower()
 
 
 class TestNoPageIsStillAStub:
