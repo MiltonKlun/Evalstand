@@ -55,6 +55,7 @@ nav:
       - Traces: traces.md
       - Watching: watching.md
       - CI: ci.md
+      - Web UI: web.md
   - Architecture: architecture.md
   - Decisions:
       - Index: adr/index.md
