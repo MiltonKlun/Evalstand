@@ -389,6 +389,85 @@ def watch(
 
 
 @app.command()
+def serve(
+    host: Annotated[
+        str,
+        typer.Option("--host", help="Interface to bind. Localhost by default."),
+    ] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", "-p", help="Port to listen on.")] = 8420,
+    database: Annotated[
+        Path | None,
+        typer.Option("--db", help="Serve a database other than the project's own."),
+    ] = None,
+    open_browser: Annotated[
+        bool,
+        typer.Option("--open/--no-open", help="Open a browser once the server is listening."),
+    ] = False,
+) -> None:
+    """Browse run history in a web UI.
+
+    Reads history; it does not run anything. Evals cost money, and a page that
+    spent it on load would be a trap — `evalstand run` and `evalstand watch`
+    remain the ways to execute (ADR 0009).
+
+    Binds to localhost by default. The server exposes every recorded prompt,
+    completion and cost on the machine, so reaching it from the network is a
+    decision a user makes explicitly with `--host`.
+    """
+    from rich.console import Console
+
+    from evalstand.storage import DatabaseTooNewError, RunStore
+    from evalstand.web import MISSING_EXTRA
+
+    console = Console()
+
+    try:
+        import uvicorn
+
+        from evalstand.web.api import create_app
+    except ImportError as exc:
+        # Named rather than re-raised. A traceback about `fastapi` tells a user
+        # which package is absent but not which extra supplies it, and that is
+        # the only part they can act on.
+        # `markup=False`: the message contains `evalstand[web]`, and Rich reads
+        # `[web]` as a style tag and removes it — leaving the user a copyable
+        # line that says `pip install 'evalstand'`, which installs none of what
+        # they are missing. The one string that must survive verbatim was the
+        # one being rewritten.
+        console.print(MISSING_EXTRA, style="red", markup=False)
+        raise typer.Exit(code=1) from exc
+
+    try:
+        store = RunStore(database) if database is not None else RunStore()
+    except DatabaseTooNewError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+    except OSError as exc:
+        console.print(f"[red]could not open the history database: {exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    with store:
+        url = f"http://{host}:{port}"
+        console.print(f"evalstand on [bold]{url}[/bold]  ({store.run_count()} runs)")
+        console.print("[dim]ctrl-c to stop[/dim]")
+
+        if open_browser:
+            import webbrowser
+
+            # Opened before the server blocks, since `uvicorn.run` does not
+            # return until shutdown. The browser retries a connection refused,
+            # so the race resolves itself.
+            webbrowser.open(url)
+
+        try:
+            uvicorn.run(create_app(store), host=host, port=port, log_level="warning")
+        except KeyboardInterrupt:  # pragma: no cover - interactive
+            # Ctrl-C is how this command ends. A traceback would suggest a
+            # crash where the user asked to stop.
+            console.print("stopped.")
+
+
+@app.command()
 def version() -> None:
     """Print the installed version."""
     from evalstand import __version__

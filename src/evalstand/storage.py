@@ -460,6 +460,23 @@ class RunStore:
                 )
             }
 
+    def run_ids_in(self, batch_id: str) -> list[str]:
+        """Run ids belonging to one batch, in execution order.
+
+        Added for the web API (task 8.1), which needs a batch's runs and has
+        only the batch id. Here rather than in the caller because every read of
+        this connection goes through the lock: a caller running its own SQL
+        would work until two requests arrived at once.
+        """
+        with self._lock:
+            return [
+                row[0]
+                for row in self.connection.execute(
+                    "SELECT id FROM runs WHERE batch_id = ? ORDER BY started_at, id",
+                    (batch_id,),
+                )
+            ]
+
     def eval_names(self) -> list[str]:
         with self._lock:
             return [

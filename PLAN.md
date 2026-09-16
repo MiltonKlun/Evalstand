@@ -586,10 +586,12 @@ Harness at 202 mutants; 1089 tests.
 
 Start only when Phases 0–7 are complete and polished. A shipped TUI beats a half-finished web app.
 
-- [ ] **8.1** FastAPI backend exposing runs, results, scores, and traces as JSON.
+- [x] **8.1** FastAPI backend exposing runs, results, scores, and traces as JSON.
+  - Read-only over `RunStore`, computing no pass rate or mean of its own — those come from `pass_counts` and the Run's properties, so the API cannot drift from the terminal. Cost ships with `cost_is_complete` and `unpriced_call_count`, because `total_cost_usd` is a lower bound and a consumer shown it alone would understate a bill.
 - [ ] **8.2** HTMX plus server-sent events front end for the live run table, keeping the stack entirely Python.
 - [x] **8.3** Static HTML report export for CI artifacts. Worth doing even without the full web UI.
-- [ ] **8.4** `evalstand serve` command.
+- [x] **8.4** `evalstand serve` command.
+  - Serves history; runs nothing. Binds localhost by default, since the server exposes every recorded prompt, completion and cost on the machine. A missing `web` extra is reported by name rather than as an `ImportError` about fastapi.
 
 ---
 
