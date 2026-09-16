@@ -101,3 +101,94 @@ class TestEachExportDoesItsJob:
 
         assert result.mean_score == 1.0
         assert trace.parent_id is None
+
+
+class TestNoGuardOutlivesItsDependency:
+    """`pytest.importorskip("faker")` survived the commit that removed faker.
+
+    The corpus moved to `random.Random` in 16eefc4: the dependency left
+    `generate.py`, left the `examples` extra, and left `uv.lock`. The guard at
+    the top of `test_example_pdf_extraction.py` stayed. `importorskip` on a
+    package that nothing installs any more is an *unconditional* skip, so the
+    whole file — 33 tests over the showcase corpus — reported one green skip on
+    every platform and every Python version, including a full `--all-extras` CI
+    matrix. Nothing was red. Nothing was running either.
+
+    A skip is a claim that something is unavailable. When nothing asks for the
+    package, that claim is false and the tests are simply gone.
+    """
+
+    def _guards(self) -> list[tuple[str, str]]:
+        """Every `importorskip("pkg")` call site, found by parsing rather than
+        by matching text.
+
+        Two regex attempts got this wrong before the AST did. The first matched
+        the comment in `test_example_pdf_extraction.py` describing the guard
+        that had just been removed; skipping comment lines then missed that
+        *this class's own docstring* names the same package, and a docstring is
+        not a comment. Source text that talks about code looks exactly like
+        code. `ast` sees only the calls.
+        """
+        import ast
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        found = []
+        for path in root.rglob("test_*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+                if name != "importorskip" or not node.args:
+                    continue
+                first = node.args[0]
+                if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                    found.append((path.name, first.value))
+        return found
+
+    def test_every_guarded_package_is_declared_somewhere(self) -> None:
+        """A guard is legitimate when some extra or dependency group can supply
+        the package. One that names a package no configuration mentions can
+        never be satisfied, so it is a permanent skip wearing a condition."""
+        import tomllib
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2]
+        config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+
+        project = config["project"]
+        declared = " ".join(
+            [
+                *project.get("dependencies", []),
+                *[r for reqs in project.get("optional-dependencies", {}).values() for r in reqs],
+                *[r for reqs in config.get("dependency-groups", {}).values() for r in reqs],
+            ]
+        ).lower()
+
+        # pyyaml is required transitively by mkdocs-material rather than named
+        # directly, and imports under a different name than it ships under.
+        transitive = {"yaml"}
+
+        for filename, package in self._guards():
+            if package in transitive:
+                continue
+            assert package.lower() in declared, (
+                f"{filename} skips on {package!r}, which no dependency, extra or "
+                f"group declares — so the skip can never be lifted"
+            )
+
+    def test_the_web_extra_supplies_what_serve_imports(self) -> None:
+        """`evalstand serve` is gated behind the `web` extra (ADR 0009). If the
+        extra stopped naming what the server imports, the command would fail on
+        a machine that had installed exactly what it was told to."""
+        import tomllib
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[2]
+        config = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+        web = " ".join(config["project"]["optional-dependencies"]["web"]).lower()
+
+        for package in ["fastapi", "uvicorn", "sse-starlette"]:
+            assert package in web, f"the web extra does not supply {package}"

@@ -26,6 +26,7 @@ reasoning that led to a mistake is part of the history.
 | [0006](0006-trace-parenting.md) | Trace parenting via a reset `ContextVar` | accepted | 2026-09-01 |
 | [0007](0007-litellm-over-provider-sdks.md) | LiteLLM rather than provider SDKs | accepted | 2026-09-01 |
 | [0008](0008-plugin-delegates-execution-to-the-runner.md) | The plugin collects and reports; the runner executes | accepted | 2026-09-03 |
+| [0009](0009-web-ui-is-optional-and-read-only.md) | The web UI is optional, and read-only over history | accepted | 2026-09-14 |
 
 ## By what they answer
 

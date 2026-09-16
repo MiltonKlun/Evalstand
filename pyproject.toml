@@ -29,6 +29,10 @@ dependencies = [
 
 [project.optional-dependencies]
 examples = ["reportlab>=4.2", "pypdfium2>=4.30"]
+# The web UI is optional on purpose. `evalstand` is a local-first CLI and TUI
+# first; a user who never runs `serve` should not install a web server to get
+# it. ADR 0009 records the reasoning.
+web = ["fastapi>=0.115", "uvicorn>=0.34", "sse-starlette>=2.1"]
 
 [project.scripts]
 evalstand = "evalstand.cli:main"

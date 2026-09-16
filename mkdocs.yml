@@ -67,6 +67,7 @@ nav:
       - 0006 Trace parenting: adr/0006-trace-parenting.md
       - 0007 LiteLLM over provider SDKs: adr/0007-litellm-over-provider-sdks.md
       - 0008 The plugin delegates execution: adr/0008-plugin-delegates-execution-to-the-runner.md
+      - 0009 The web UI is optional: adr/0009-web-ui-is-optional-and-read-only.md
 
 # Fail the build on a broken internal link rather than publishing one. A docs
 # site that 404s inside itself costs more trust than it saves time.
