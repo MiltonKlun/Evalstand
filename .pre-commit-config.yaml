@@ -13,8 +13,14 @@ repos:
       - id: check-merge-conflict
       - id: check-toml
       - id: check-yaml
+      # Vendored third-party assets are excluded: their bytes are pinned by a
+      # digest the suite asserts, and a hook that appends a newline to one
+      # silently invalidates that pin. Reformatting someone else's minified
+      # file to our house style also makes it undiffable against upstream.
       - id: end-of-file-fixer
+        exclude: ^src/evalstand/web/static/.*\.(js|css)$
       - id: trailing-whitespace
+        exclude: ^src/evalstand/web/static/.*\.(js|css)$
       - id: detect-private-key
 
   # Secret scanning (guardrail 2: never commit secrets)

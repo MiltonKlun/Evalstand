@@ -30,9 +30,9 @@ from datetime import UTC, datetime
 from evalstand.models import Result, Run, Score, Trace
 from evalstand.reporting.console import UNKNOWN, format_cost, format_score, pass_counts
 
-__all__ = ["render_html"]
+__all__ = ["STYLE", "escape", "render_html", "result_cost", "status_of"]
 
-_STYLE = """
+STYLE = """
 :root {
   --bg: #ffffff; --fg: #1a1a1a; --muted: #6b7280; --line: #e5e7eb;
   --pass: #047857; --fail: #b91c1c; --warn: #b45309; --scored: #0369a1;
@@ -101,7 +101,7 @@ footer {
 """
 
 
-def _e(value: object) -> str:
+def escape(value: object) -> str:
     """Escape for HTML.
 
     Applied to every interpolated value without exception, including model
@@ -113,7 +113,7 @@ def _e(value: object) -> str:
     return html.escape("" if value is None else str(value), quote=True)
 
 
-def _status(result: Result) -> str:
+def status_of(result: Result) -> str:
     """The same five states the live view uses, and for the same reason.
 
     "failed" and "unmeasured" look alike in a table and mean opposite things:
@@ -131,7 +131,7 @@ def _status(result: Result) -> str:
     return "pass" if all(verdicts) else "fail"
 
 
-def _result_cost(result: Result) -> str:
+def result_cost(result: Result) -> str:
     """This case's spend, or unknown when nothing it did was priced."""
     priced = [t for t in result.traces if t.cost_usd is not None]
     if result.traces and not priced:
@@ -151,18 +151,18 @@ def _summary_rows(runs: list[Run]) -> str:
             # An eval whose every scorer errored still gets a row. Dropping it
             # would leave a reader believing it was never part of the run.
             rows.append(
-                f"<tr><td>{_e(run.name)}</td><td>{UNKNOWN}</td>"
-                f"<td class='num'>{UNKNOWN}</td><td class='num'>{_e(verdict)}</td>"
-                f"<td class='num'>{_e(cost)}</td></tr>"
+                f"<tr><td>{escape(run.name)}</td><td>{UNKNOWN}</td>"
+                f"<td class='num'>{UNKNOWN}</td><td class='num'>{escape(verdict)}</td>"
+                f"<td class='num'>{escape(cost)}</td></tr>"
             )
             continue
 
         for scorer_name, mean in sorted(means.items()):
             rows.append(
-                f"<tr><td>{_e(run.name)}</td><td>{_e(scorer_name)}</td>"
-                f"<td class='num'>{_e(format_score(mean))}</td>"
-                f"<td class='num'>{_e(verdict)}</td>"
-                f"<td class='num'>{_e(cost)}</td></tr>"
+                f"<tr><td>{escape(run.name)}</td><td>{escape(scorer_name)}</td>"
+                f"<td class='num'>{escape(format_score(mean))}</td>"
+                f"<td class='num'>{escape(verdict)}</td>"
+                f"<td class='num'>{escape(cost)}</td></tr>"
             )
     return "\n".join(rows)
 
@@ -175,16 +175,16 @@ def _score_line(score: Score) -> str:
     """
     if score.error:
         return (
-            f"<span class='error'>{_e(score.scorer_name)}: errored</span> "
-            f"<span class='tmeta'>({_e(score.error)})</span>"
+            f"<span class='error'>{escape(score.scorer_name)}: errored</span> "
+            f"<span class='tmeta'>({escape(score.error)})</span>"
         )
 
     value = UNKNOWN if score.value is None else f"{score.value:.3f}"
     if score.passed is None:
-        return f"<span class='scored'>{_e(score.scorer_name)}: {_e(value)}</span>"
+        return f"<span class='scored'>{escape(score.scorer_name)}: {escape(value)}</span>"
     verdict = "pass" if score.passed else "fail"
     css = "pass" if score.passed else "fail"
-    return f"<span class='{css}'>{_e(score.scorer_name)}: {_e(value)} ({verdict})</span>"
+    return f"<span class='{css}'>{escape(score.scorer_name)}: {escape(value)} ({verdict})</span>"
 
 
 def _trace_list(traces: list[Trace]) -> str:
@@ -230,25 +230,26 @@ def _trace_list(traces: list[Trace]) -> str:
 
 def _trace_label(trace: Trace) -> str:
     """One call: what it was, what it took, and what it cost."""
-    bits = [f"<span class='tname'>{_e(trace.name)}</span>"]
+    bits = [f"<span class='tname'>{escape(trace.name)}</span>"]
     if trace.model:
-        bits.append(f"<span class='tmeta'>{_e(trace.model)}</span>")
+        bits.append(f"<span class='tmeta'>{escape(trace.model)}</span>")
     bits.append(f"<span class='tmeta'>{trace.duration_ms}ms</span>")
 
     if trace.input_tokens is not None or trace.output_tokens is not None:
         tokens = f"{trace.input_tokens or 0} in / {trace.output_tokens or 0} out"
-        bits.append(f"<span class='tmeta'>{_e(tokens)}</span>")
+        bits.append(f"<span class='tmeta'>{escape(tokens)}</span>")
 
     # An unpriced call shows a placeholder, never $0.0000: it has not been shown
     # to be free.
     cost = UNKNOWN if trace.cost_usd is None else f"${trace.cost_usd:.4f}"
-    bits.append(f"<span class='tmeta'>{_e(cost)}</span>")
+    bits.append(f"<span class='tmeta'>{escape(cost)}</span>")
 
     label = " ".join(bits)
     for name, value in (("input", trace.input), ("output", trace.output)):
         if value is not None:
             label += (
-                f"<div class='field'><div class='label'>{name}</div><pre>{_e(value)}</pre></div>"
+                f"<div class='field'><div class='label'>{name}</div>"
+                f"<pre>{escape(value)}</pre></div>"
             )
     return label
 
@@ -260,7 +261,7 @@ def _case_block(run: Run, result: Result) -> str:
     nobody scrolls; open because the detail is the reason this format exists.
     Failures start open, since they are what the reader came for.
     """
-    status = _status(result)
+    status = status_of(result)
     score = UNKNOWN if result.mean_score is None else f"{result.mean_score:.2f}"
     latency = UNKNOWN if result.latency_ms is None else f"{result.latency_ms}ms"
     label = (
@@ -270,28 +271,29 @@ def _case_block(run: Run, result: Result) -> str:
     parts = [
         f"<details class='case'{' open' if status in {'fail', 'error', 'unmeasured'} else ''}>",
         "<summary>",
-        f"<h3>{_e(label)}</h3>",
+        f"<h3>{escape(label)}</h3>",
         f"<span class='{status}'>{status}</span>",
-        f"<span class='tmeta'>{_e(score)}</span>",
-        f"<span class='tmeta'>{_e(latency)}</span>",
-        f"<span class='tmeta'>{_e(_result_cost(result))}</span>",
+        f"<span class='tmeta'>{escape(score)}</span>",
+        f"<span class='tmeta'>{escape(latency)}</span>",
+        f"<span class='tmeta'>{escape(result_cost(result))}</span>",
         "</summary><div>",
     ]
 
     if result.error:
         parts.append(
             f"<div class='field'><div class='label'>task error</div>"
-            f"<pre class='error'>{_e(result.error)}</pre></div>"
+            f"<pre class='error'>{escape(result.error)}</pre></div>"
         )
         if result.error_frames:
             frames = "\n".join(result.error_frames)
             parts.append(
-                f"<div class='field'><div class='label'>where</div><pre>{_e(frames)}</pre></div>"
+                f"<div class='field'><div class='label'>where</div>"
+                f"<pre>{escape(frames)}</pre></div>"
             )
     else:
         parts.append(
             f"<div class='field'><div class='label'>output</div>"
-            f"<pre>{_e(result.output)}</pre></div>"
+            f"<pre>{escape(result.output)}</pre></div>"
         )
 
     if result.scores:
@@ -329,7 +331,7 @@ def _notes(runs: list[Run]) -> str:
             f"means cover fewer cases than the runs contain."
         )
 
-    return "".join(f"<p class='note'>{_e(note)}</p>" for note in notes)
+    return "".join(f"<p class='note'>{escape(note)}</p>" for note in notes)
 
 
 def render_html(
@@ -362,7 +364,7 @@ def render_html(
         gate = ""
         if breaches:
             named = ", ".join(
-                f"{_e(name)} scored {_e(format_score(mean))}" for name, mean in breaches
+                f"{escape(name)} scored {escape(format_score(mean))}" for name, mean in breaches
             )
             gate = (
                 f"<p class='note'><strong class='fail'>Below the threshold of "
@@ -385,14 +387,14 @@ def render_html(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{_e(title)}</title>
-<style>{_STYLE}</style>
+<title>{escape(title)}</title>
+<style>{STYLE}</style>
 </head>
 <body>
 <main>
-<h1>{_e(title)}</h1>
+<h1>{escape(title)}</h1>
 <p class="sub">{len(runs)} eval{"" if len(runs) == 1 else "s"},
-{total} case{"" if total == 1 else "s"} &middot; {_e(when)}</p>
+{total} case{"" if total == 1 else "s"} &middot; {escape(when)}</p>
 {body}
 <footer>
 Generated by evalstand. A dash means a value could not be determined &mdash;

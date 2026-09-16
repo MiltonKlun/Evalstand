@@ -14,6 +14,8 @@ The terminal renders these as `-`; JSON has a real null and uses it.
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
 
 from evalstand.models import Batch, Run
@@ -111,15 +113,26 @@ def _moment(value: Any) -> str | None:
     return None if value is None else value.isoformat()
 
 
-def create_app(store: RunStore) -> FastAPI:
+def create_app(store: RunStore, broker: Any = None) -> FastAPI:
     """Build the ASGI app over an open store.
 
     The store is injected rather than opened here so a test can pass a
     temporary database, and so `serve` owns the lifetime of the connection it
     opened. An app that opened its own store would hold a second connection to
     the same SQLite file for as long as the process lived.
+
+    `broker` is the live-results fan-out. One is created when none is passed,
+    so `serve` gets a working `/ui/live` without knowing what a broker is, and
+    a caller that *is* running an eval can hand in the one the runner
+    publishes to.
     """
+    from evalstand.web.live import Broker
+
+    broker = broker if broker is not None else Broker()
     from fastapi import FastAPI, HTTPException, Query
+    from fastapi.responses import HTMLResponse, StreamingResponse
+
+    from evalstand.web import fragments, live, page
 
     app = FastAPI(
         title="evalstand",
@@ -190,6 +203,66 @@ def create_app(store: RunStore) -> FastAPI:
         raise HTTPException(
             status_code=404,
             detail=f"run {run_id!r} has no case {case_id!r} at repeat {repeat}",
+        )
+
+    # ---- The HTMX front end (task 8.2) -------------------------------------
+    #
+    # Fragments, not JSON. The page holds no client-side model, so there is
+    # nothing to drift out of step with the server — the server renders every
+    # number, and the browser only swaps the HTML it is handed.
+
+    @app.get("/", response_class=HTMLResponse)
+    def index() -> str:
+        return page.index(htmx=page.htmx_source())
+
+    @app.get("/ui/runs", response_class=HTMLResponse)
+    def ui_runs(
+        name: str | None = Query(default=None),
+        limit: int = Query(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    ) -> str:
+        return fragments.run_table(store.runs_for(name, limit=limit))
+
+    @app.get("/ui/runs/{run_id}", response_class=HTMLResponse)
+    def ui_run(run_id: str) -> str:
+        found = store.load_run(run_id)
+        if found is None:
+            # A fragment, not a JSON error: this response is swapped straight
+            # into the page, and an HTTPException would put a raw error object
+            # where the user expects a run.
+            return "<p class='empty'>That run is no longer in the database.</p>"
+        return fragments.run_detail(found)
+
+    @app.get("/ui/live")
+    async def ui_live() -> StreamingResponse:
+        """The live table's event stream.
+
+        Open whether or not anything is running. A browser that had to wait for
+        a run to start before connecting would miss the first results of every
+        run — the ones that arrive while it is still reconnecting.
+        """
+        broker.bind(asyncio.get_running_loop())
+        queue = broker.subscribe()
+
+        async def events() -> AsyncIterator[str]:
+            try:
+                async for payload in live.stream(queue):
+                    yield payload
+            finally:
+                # Runs on a closed tab as well as a finished run. Without it
+                # every reload leaks a subscriber and the broker fans out to
+                # queues nobody reads.
+                broker.unsubscribe(queue)
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={
+                # Buffering a stream defeats it: a proxy that holds events
+                # until the response ends delivers the whole run at once, after
+                # it is over.
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
         )
 
     @app.get("/api/batches/{batch_id}")
