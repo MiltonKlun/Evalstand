@@ -48,6 +48,7 @@ evaluate(
 export OPENAI_API_KEY=sk-...
 evalstand watch          # the live view, re-running when you edit
 evalstand run            # one pass, prints a summary
+evalstand serve          # browse past runs in a browser (needs the web extra)
 pytest qa_eval.py        # the plain test runner; same runner underneath
 ```
 
@@ -67,6 +68,7 @@ function under test, and **Scorers** judge what it returned.
 | **CI artifacts** | `--html` writes one self-contained report: full outputs, whole trace trees |
 | **Ten scorers** | exact, normalised, contains, regex, levenshtein, ratio, close-to, JSON fields, judge, factuality |
 | **Runs under pytest** | each `(case, repeat)` is one test item, so `-k`, `-x`, `--lf` all work |
+| **A web UI, optionally** | `evalstand serve` browses history in a browser and streams a running eval into it |
 
 Full capability list in [PLAN.md](PLAN.md) §2. Three capabilities go beyond the
 tool that inspired this one:
@@ -84,6 +86,8 @@ tool that inspired this one:
 - [Traces](docs/traces.md) — what your task did, and what it cost
 - [Watching](docs/watching.md) — the live view and watch mode
 - [CI](docs/ci.md) — thresholds, exit codes, pull-request comments
+- [Web UI](docs/web.md) — `serve`, the JSON API, and how to read its numbers
+- [Architecture](docs/architecture.md) — how the pieces fit, for anyone changing them
 - [Decisions](docs/adr/) — why the design is the way it is
 
 ## In CI
@@ -129,12 +133,18 @@ to record; the recording tooling is not installed here.
 **Cost figures are lower bounds when a model is not in LiteLLM's pricing table.**
 Unpriced calls are counted and declared, never silently treated as free.
 
+**The web UI has no authentication.** `evalstand serve` binds localhost by
+default for that reason. The database holds every prompt and completion your
+evals sent and received, so `--host 0.0.0.0` publishes all of it to anyone who
+can reach the port. There is no login, and adding one is not planned — put it
+behind something that does auth if it needs to leave the machine.
+
 ## Development
 
 ```bash
 uv sync --all-extras --dev
 uv run pytest                       # the suite
-uv run python scripts/mutate.py     # 263 mutants, all killed
+uv run python scripts/mutate.py     # 279 mutants, all killed
 uv run mkdocs serve                 # the docs site
 ```
 

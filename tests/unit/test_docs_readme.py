@@ -129,6 +129,24 @@ class TestTheLimitationsSectionIsHonest:
         if "Not yet recorded" in baseline:
             assert "no published baseline" in text.lower()
 
+    def test_it_says_the_web_ui_has_no_authentication(self, text: str) -> None:
+        """A security property a reader acts on. `serve` exposes every recorded
+        prompt and completion, and the only thing standing between that and a
+        network is a default the user can override with one flag."""
+        assert "no authentication" in text.lower()
+
+    def test_no_auth_is_still_true(self) -> None:
+        """Pinned against the code, not just the prose. If authentication were
+        ever added, this limitation would become a false warning — which erodes
+        trust in the rest of the section."""
+        import inspect
+
+        from evalstand.cli import serve
+
+        source = inspect.getsource(serve)
+        for hint in ["password", "token=", "HTTPBasic", "Depends("]:
+            assert hint not in source, f"serve now does auth; the README says it does not ({hint})"
+
     def test_it_admits_the_missing_demo_gif(self, text: str) -> None:
         """The plan asks for a GIF at the top. Until one exists, saying so beats
         an empty space a reader reads as a broken image."""

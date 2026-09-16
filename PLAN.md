@@ -58,6 +58,8 @@ This is the definition of "done" for v1. Every row must be satisfied or consciou
 | 17 | `--threshold` for CI pass/fail | `--threshold` with documented exit codes | 7 | parity |
 | 18 | Streaming task output | LiteLLM streaming, rendered live | 3 | parity |
 | 19 | Runs under the plain test runner too | Works under bare `pytest` | 2 | parity |
+| 20 | Web UI for browsing results | `evalstand serve` — HTMX over a read-only JSON API | 8 | parity |
+| 21 | Live results in the browser during a run | Server-sent events into the same page | 8 | parity |
 
 Three capabilities go **beyond** the reference implementation, and the README
 says so: nested trace trees (its traces are a flat list), model response caching

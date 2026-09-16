@@ -247,3 +247,84 @@ class TestTheSink:
         config = RunConfig(on_result=sink_for(Broker()))
 
         assert config.on_result is not None
+
+
+@pytest.mark.anyio
+class TestTheKeepalive:
+    """A stream that goes quiet gets closed by something in the middle.
+
+    Proxies and browsers drop a connection that has been silent, and an eval
+    whose cases take a minute each is silent for exactly that long. The dropped
+    connection surfaces as "not live" on a run that is progressing normally —
+    the page reporting a failure that did not happen.
+    """
+
+    async def test_a_quiet_stream_sends_a_comment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("evalstand.web.live.KEEPALIVE_SECONDS", 0.01)
+
+        broker = Broker()
+        broker.bind(asyncio.get_running_loop())
+        queue = broker.subscribe()
+
+        collected: list[str] = []
+
+        async def consume() -> None:
+            async for payload in stream(queue):
+                collected.append(payload)
+
+        task = asyncio.create_task(consume())
+        await asyncio.sleep(0.05)
+        broker.finish()
+        await asyncio.wait_for(task, timeout=2.0)
+
+        assert any(payload.startswith(":") for payload in collected), "no keepalive was sent"
+
+    async def test_the_keepalive_is_a_comment_not_an_event(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An SSE comment starts with `:` and is ignored by the client. A
+        keepalive shaped like an event would append a phantom row to the live
+        table every fifteen seconds."""
+        monkeypatch.setattr("evalstand.web.live.KEEPALIVE_SECONDS", 0.01)
+
+        broker = Broker()
+        broker.bind(asyncio.get_running_loop())
+        queue = broker.subscribe()
+
+        collected: list[str] = []
+
+        async def consume() -> None:
+            async for payload in stream(queue):
+                collected.append(payload)
+
+        task = asyncio.create_task(consume())
+        await asyncio.sleep(0.05)
+        broker.finish()
+        await asyncio.wait_for(task, timeout=2.0)
+
+        keepalives = [payload for payload in collected if payload.startswith(":")]
+        assert keepalives
+        for payload in keepalives:
+            assert "event:" not in payload
+            assert payload.endswith("\n\n"), "a frame without a blank line is never delivered"
+
+    async def test_a_busy_stream_does_not_send_one(self) -> None:
+        """The other half. With events flowing, the timeout never fires — and
+        without this, the assertions above would hold no matter what."""
+        broker = Broker()
+        broker.bind(asyncio.get_running_loop())
+        queue = broker.subscribe()
+
+        collected: list[str] = []
+
+        async def consume() -> None:
+            async for payload in stream(queue):
+                collected.append(payload)
+
+        task = asyncio.create_task(consume())
+        broker.publish(_result())
+        await asyncio.sleep(0)
+        broker.finish()
+        await asyncio.wait_for(task, timeout=2.0)
+
+        assert not any(payload.startswith(":") for payload in collected)

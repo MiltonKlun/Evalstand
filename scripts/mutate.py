@@ -1729,6 +1729,108 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '    if html is not None:\n        args += ["--html", str(html)]',
         "    pass",
     ),
+    # ---- Phase 8: the web UI -------------------------------------------
+    #
+    # The page and the API read history rather than producing it, so every
+    # mutant here is about *reporting* something untrue: a denominator that
+    # inflates a pass rate, a partial cost presented as a total, a null
+    # rendered as a zero, or model output interpolated unescaped.
+    (
+        "src/evalstand/web/api.py",
+        "the API reports len(results) as the pass-rate denominator",
+        '        "judged": judged,',
+        '        "judged": len(run.results),',
+    ),
+    (
+        "src/evalstand/web/api.py",
+        "a partial cost is reported as complete",
+        '        "cost_is_complete": run.cost_is_complete,',
+        '        "cost_is_complete": True,',
+    ),
+    (
+        "src/evalstand/web/api.py",
+        "a cancelled batch is reported as comparable",
+        '                    "is_comparable": found.is_comparable,',
+        '                    "is_comparable": True,',
+    ),
+    (
+        "src/evalstand/web/api.py",
+        "a missing timestamp becomes the epoch instead of null",
+        "    return None if value is None else value.isoformat()",
+        '    return value.isoformat() if value is not None else "1970-01-01T00:00:00+00:00"',
+    ),
+    (
+        "src/evalstand/web/api.py",
+        "a null cache hit rate becomes 0.0",
+        '        "cache_hit_rate": run.cache_hit_rate,',
+        '        "cache_hit_rate": run.cache_hit_rate or 0.0,',
+    ),
+    (
+        "src/evalstand/web/live.py",
+        "a full subscriber queue drops the newest event instead of the oldest",
+        "                queue.get_nowait()",
+        "                pass",
+    ),
+    (
+        "src/evalstand/web/live.py",
+        "the stream never sends its end sentinel",
+        "        self._dispatch(None)",
+        "        pass",
+    ),
+    (
+        "src/evalstand/web/live.py",
+        "the subscriber queue is unbounded",
+        "asyncio.Queue(maxsize=QUEUE_LIMIT)",
+        "asyncio.Queue()",
+    ),
+    (
+        "src/evalstand/web/live.py",
+        "an SSE payload is interpolated raw, breaking the frame",
+        'return f"event: {name}\\ndata: {json.dumps(data)}\\n\\n"',
+        'return f"event: {name}\\ndata: {data}\\n\\n"',
+    ),
+    (
+        "src/evalstand/web/live.py",
+        "the keepalive is an event rather than a comment",
+        '            yield ": keepalive\\n\\n"',
+        '            yield "event: ping\\ndata: x\\n\\n"',
+    ),
+    (
+        "src/evalstand/web/fragments.py",
+        "a case id is interpolated unescaped",
+        "f\"<td class='mono'>{escape(result.case_id)}</td>\"",
+        "f\"<td class='mono'>{result.case_id}</td>\"",
+    ),
+    (
+        "src/evalstand/web/fragments.py",
+        "an unpriced run renders as free rather than unknown",
+        "    if run.unpriced_call_count and run.total_cost_usd == 0.0:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/web/fragments.py",
+        "a bypassed cache renders as a hit rate",
+        "    if run.cache_bypassed:",
+        "    if False:",
+    ),
+    (
+        "src/evalstand/web/fragments.py",
+        "an errored score counts towards the case's score",
+        "    values = [s.value for s in result.scores if s.value is not None and not s.error]",
+        "    values = [s.value for s in result.scores if s.value is not None]",
+    ),
+    (
+        "src/evalstand/cli.py",
+        "serve binds every interface by default",
+        '    ] = "127.0.0.1",',
+        '    ] = "0.0.0.0",',
+    ),
+    (
+        "src/evalstand/cli.py",
+        "the missing-extra message is eaten by Rich markup",
+        '        console.print(MISSING_EXTRA, style="red", markup=False)',
+        '        console.print(f"[red]{MISSING_EXTRA}[/red]")',
+    ),
 ]
 
 

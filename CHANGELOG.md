@@ -7,6 +7,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- Phase 8 complete: the optional web UI. `evalstand serve` opens a browser view
+  of run history, behind a `web` extra so a default install does not pull in a
+  web server. A read-only JSON API, an HTMX front end with no build step, and a
+  live table fed by server-sent events. The page computes no score, mean or
+  pass count of its own — it renders through the same helpers the terminal uses,
+  so it cannot drift from `evalstand show` (ADR 0009). 1587 tests.
 - Task 8.3: `--html PATH` writes a self-contained HTML report for a CI artifact.
   One file, no external references, no JavaScript — so it renders in the
   sandboxed iframe CI systems serve artifacts from and survives being emailed.
@@ -74,6 +80,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   stable case identity.
 
 ### Fixed
+- A stale `pytest.importorskip("faker")` skipped the entire PDF example suite —
+  33 tests — on every platform and every Python version, including CI. The
+  dependency had been removed four commits earlier and the guard outlived it;
+  `importorskip` on a package nothing installs is an unconditional skip. A test
+  now fails any guard naming a package no dependency, extra or group declares.
+- The missing-`web`-extra message told the user to `pip install 'evalstand'`:
+  Rich read `[web]` as a style tag and deleted it. The one string that had to
+  survive verbatim was the one being rewritten.
 - `compare` printed "nothing differs between these runs" about a batch that had
   been cancelled part-way. Its membership note fires on case coverage, so a batch
   interrupted after every case had scored slipped past it entirely.
