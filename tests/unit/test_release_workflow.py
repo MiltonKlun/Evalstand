@@ -136,3 +136,25 @@ class TestThePackageItWouldPublish:
         import evalstand
 
         assert evalstand.__version__
+
+    def test_the_two_version_strings_agree(self) -> None:
+        """`pyproject.toml` names the wheel; `__version__` is what the tag is
+        checked against. Nothing linked them, so bumping one and forgetting the
+        other would build `evalstand-1.0.0.whl` containing a package that
+        reports a different version — and the tag check would pass or fail on
+        the string that did *not* name the file.
+
+        PyPI will not let a version be re-uploaded once claimed, so this is one
+        of the mistakes that cannot be corrected in place.
+        """
+        import tomllib
+
+        import evalstand
+
+        config = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        declared = config["project"]["version"]
+
+        assert declared == evalstand.__version__, (
+            f"pyproject.toml says {declared!r} but evalstand.__version__ is "
+            f"{evalstand.__version__!r}; bump both or the wheel is misnamed"
+        )
