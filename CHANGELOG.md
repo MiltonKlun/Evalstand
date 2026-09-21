@@ -6,6 +6,20 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-09-21
+
+First published release. Every phase of the plan is complete: the authoring
+API and pytest collection, the concurrent runner with nested trace trees, ten
+scorers, SQLite history with `history`/`show`/`compare`, the Textual TUI and
+watch mode, CI integration with documented exit codes, and an optional web UI.
+
+1588 tests, 279 mutants, green on Python 3.11, 3.12 and 3.13.
+
+Two things this release deliberately does **not** claim: score deltas carry no
+significance testing, and the LLM judge scorers are uncalibrated against human
+labels. Both are stated in the README's Limitations section rather than left
+for a user to discover.
+
 ### Added
 - Phase 8 complete: the optional web UI. `evalstand serve` opens a browser view
   of run history, behind a `web` extra so a default install does not pull in a

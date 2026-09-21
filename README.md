@@ -1,7 +1,7 @@
 # evalstand
 
-> **Status: in development.** Phases 0-7 of 8 complete. Not yet published to
-> PyPI — install from source.
+> **Status: 1.0.0.** All 8 phases complete. Install with
+> `pip install evalstand`.
 
 Evaluating an LLM application should feel like running a test suite.
 

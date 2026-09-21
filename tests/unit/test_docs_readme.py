@@ -155,24 +155,54 @@ class TestTheLimitationsSectionIsHonest:
 
 
 class TestTheStatusLine:
-    def test_it_does_not_claim_an_unpublished_release(self, text: str) -> None:
-        """Nothing is on PyPI yet. `pip install evalstand` as the headline
-        instruction would fail for every reader who tried it."""
-        # The blockquote markers are stripped and whitespace collapsed before
-        # matching: the sentence wraps mid-phrase in the source ("published to
-        # > PyPI"), and what a reader sees is one sentence.
+    """The line a reader trusts before trying anything.
+
+    It previously had to assert the *opposite* of what it asserts now: while
+    nothing was on PyPI, `pip install evalstand` as the headline instruction
+    would have failed for every reader who tried it. The direction flipped at
+    the 1.0.0 release, so the test flipped with it — the invariant is that the
+    line matches reality, not that it says any particular thing.
+    """
+
+    def test_the_install_line_matches_the_declared_version(self, text: str) -> None:
+        """A README promising `pip install` for a version that was never
+        published sends a reader to an error message. The two claims have to
+        move together, so they are checked together."""
+        import evalstand
+
         flat = " ".join(line.lstrip("> ") for line in text.splitlines())
         flat = " ".join(flat.split())
 
-        assert "Not yet published to PyPI" in flat or "no release" in flat.lower()
+        published = not evalstand.__version__.startswith("0.0.0")
+        promises_install = "pip install evalstand" in flat
+
+        assert promises_install == published, (
+            f"__version__ is {evalstand.__version__!r} but the README "
+            f"{'does not promise' if published else 'promises'} pip install"
+        )
+
+    def test_it_states_the_version_it_ships(self, text: str) -> None:
+        """A status line naming a different version than the package is the
+        kind of drift nobody notices until someone quotes it."""
+        import evalstand
+
+        flat = " ".join(text.splitlines())
+
+        assert evalstand.__version__ in flat, (
+            f"the status line does not name {evalstand.__version__}"
+        )
 
     def test_the_phase_count_matches_the_plan(self, text: str) -> None:
-        """The status line said "Phases 0-3 of 7" while phase 6 was finished."""
+        """The status line said "Phases 0-3 of 7" while phase 6 was finished.
+
+        Now that every phase is done the line says "All 8 phases", so the check
+        is that the number it names is the number the plan has.
+        """
         plan = (ROOT / "PLAN.md").read_text(encoding="utf-8")
         phases = len(re.findall(r"^## Phase \d", plan, re.MULTILINE))
 
-        claimed = re.search(r"Phases 0-(\d+) of (\d+)", text)
+        claimed = re.search(r"All (\d+) phases", text) or re.search(r"Phases 0-\d+ of (\d+)", text)
         assert claimed, "the status line should say how far along the project is"
 
-        # Phase 0 is counted in the plan's headings but not in "of N".
-        assert int(claimed.group(2)) == phases - 1, "the README's phase total is wrong"
+        # Phase 0 is counted in the plan's headings but not in the total.
+        assert int(claimed.group(1)) == phases - 1, "the README's phase total is wrong"
