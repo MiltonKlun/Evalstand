@@ -154,17 +154,39 @@ def _looks_mocked(run: Run) -> bool:
     return len(run.results) > 2 and len(costs) == 1
 
 
-def render(run: Run, model: str) -> str:
+JUDGE_SCORER = "line_items"
+"""The one scorer in this example that is an LLM judge."""
+
+
+def models_in(run: Run) -> list[str]:
+    """Every model the run's calls actually went to, as recorded in its traces.
+
+    Read from the run rather than taken on trust. `--model` used to default to
+    `gpt-4o-mini`, so a baseline produced from any other eval would have named
+    a model it never called — the one field a reader relies on to know what the
+    numbers describe.
+    """
+    return sorted({trace.model for result in run.results for trace in result.traces if trace.model})
+
+
+def render(run: Run, model: str | None = None) -> str:
     """The baseline document.
 
     Deliberately plain. Every number is a count of what one run did, and the
     caveats are stated where the numbers are rather than in a footnote nobody
     reads.
+
+    `model` overrides what the traces say, for a run whose calls were not
+    traced. Without it the model comes from the run itself.
     """
+    named = model or ", ".join(models_in(run)) or "-"
+    source = Path(run.filepath).name if run.filepath else "an eval"
+    judged = any(score.scorer_name == JUDGE_SCORER for r in run.results for score in r.scores)
+
     lines: list[str] = [
         "# Baseline",
         "",
-        "One run of `extraction_eval.py` over the 30-invoice corpus at seed 42.",
+        f"One run of `{source}` over the 30-invoice corpus at seed 42.",
         "",
         "**This is a record, not a target.** It describes what one model did on",
         "one day, and `evalstand` has no significance testing — a later run that",
@@ -185,7 +207,7 @@ def render(run: Run, model: str) -> str:
     lines += [
         "| | |",
         "|---|---|",
-        f"| model | `{model}` |",
+        f"| model | `{named}` |",
         f"| run | `{run.id}` |",
         f"| when | {run.started_at.astimezone().strftime('%Y-%m-%d') if run.started_at else '-'} |",
         f"| documents | {len(run.results)} |",
@@ -203,12 +225,31 @@ def render(run: Run, model: str) -> str:
     for name in sorted(set(means) | set(errored)):
         lines.append(_scorer_line(name, means.get(name), errored[name]))
 
+    lines.append("")
+    if judged:
+        # Beside the number it qualifies. Printed only when that number is in
+        # the table: a caveat about a scorer the run never used describes a
+        # different document.
+        lines += [
+            f"`{JUDGE_SCORER}` is an **LLM judge and is unvalidated** — a second model's",
+            "opinion, not a measurement. It has not been calibrated against human",
+            "labels. See [docs/scorers.md](../../docs/scorers.md).",
+            "",
+        ]
+    else:
+        # The opposite omission is the dangerous one. A table with no line-item
+        # row reads as a document that got everything right, when the truth is
+        # that nobody asked.
+        lines += [
+            "**Line items were not scored in this run.** The figures below cover",
+            "the scalar fields only, and say nothing about whether the invoice's",
+            "items were extracted — the method that produced this run cannot",
+            "produce them. A document listed as having no failures had no",
+            "failures *on the fields that were measured*.",
+            "",
+        ]
+
     lines += [
-        "",
-        "`line_items` is an **LLM judge and is unvalidated** — a second model's",
-        "opinion, not a measurement. It has not been calibrated against human",
-        "labels. See [docs/scorers.md](../../docs/scorers.md).",
-        "",
         "## Per-field accuracy",
         "",
         "| field | correct | of | rate |",
@@ -248,7 +289,11 @@ def render(run: Run, model: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_id", help="the run to describe, from `evalstand history`")
-    parser.add_argument("--model", default="gpt-4o-mini", help="which model produced it")
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="override the model name; by default it is read from the run's own traces",
+    )
     parser.add_argument("--db", type=Path, default=None, help="a database other than the default")
     args = parser.parse_args()
 

@@ -5,6 +5,11 @@ against the same state; code copies the picked span verbatim. Jev never produces
 a value, so it cannot transpose a digit — it can only choose a span the regex
 already found, or `none`.
 
+    python jev_extract.py            # all 30 invoices, writes jev_results.json
+
+The same `extract` backs `jev_extraction_eval.py`, which runs it under evalstand
+so the result is recorded, traced and costed like any other run.
+
 The three traps in the corpus are deliberate and are what this measures:
   - three invoices have no due date, where the honest answer is `none`
   - three print an ambiguous DD/MM/YYYY date
@@ -16,13 +21,20 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from typesafe_sdk import Choice, TypeSafeClient
+if TYPE_CHECKING:  # pragma: no cover - import-time only
+    from typesafe_sdk import TypeSafeClient
 
 EXAMPLE = Path(__file__).parent
 MODEL = "jev-1.13.0"
+"""Pinned, not `jev-latest`. Aliases move, and a baseline recorded against an
+alias describes whichever model the alias pointed at that day."""
+
 NONE = "none"
 
 PRICE_PER_INPUT_TOKEN = 0.042 / 1_000_000
@@ -32,10 +44,39 @@ Exact rather than a lower bound: the response reports `usage.input_tokens`, so
 there is no pricing table to miss the model.
 """
 
+FIELDS = ("invoice_number", "vendor_name", "invoice_date", "due_date", "currency", "total")
+
 # Tuned to over-find. A candidate the regex misses is one Jev cannot pick.
 MONEY_RE = re.compile(r"\$?\d[\d,]*\.\d{2}")
 DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{4}")
 INVOICE_NO_RE = re.compile(r"\bINV-[A-Z0-9-]+\b")
+
+_PDF_LOCK = threading.Lock()
+"""pypdfium2 wraps a C library that is not thread-safe.
+
+The standalone script reads one PDF at a time, but under evalstand the runner
+offloads this sync task to a thread pool, and eight threads inside the library
+at once kill the interpreter with an access violation. `extraction_eval.py`
+learned this the hard way; the lock is the same one.
+"""
+
+
+@dataclass(frozen=True)
+class Extraction:
+    """One invoice's answer, and what it cost to get."""
+
+    fields: dict[str, Any]
+    """Normalised values, ready to compare against the ground truth."""
+    picks: dict[str, str]
+    """The spans Jev actually chose, before normalisation."""
+    confidences: dict[str, float | None]
+    input_tokens: int
+    output_tokens: int | None
+    seconds: float
+
+    @property
+    def cost_usd(self) -> float:
+        return self.input_tokens * PRICE_PER_INPUT_TOKEN
 
 
 def find(pattern: re.Pattern[str], text: str) -> list[str]:
@@ -53,8 +94,9 @@ def find(pattern: re.Pattern[str], text: str) -> list[str]:
 def read_pdf(name: str) -> str:
     import pypdfium2
 
-    document = pypdfium2.PdfDocument(EXAMPLE / "invoices" / name)
-    return "\n".join(page.get_textpage().get_text_range() for page in document)
+    with _PDF_LOCK:
+        document = pypdfium2.PdfDocument(EXAMPLE / "invoices" / name)
+        return "\n".join(page.get_textpage().get_text_range() for page in document)
 
 
 def vendor_candidates(text: str) -> list[str]:
@@ -78,22 +120,28 @@ def vendor_candidates(text: str) -> list[str]:
 
 
 def options(candidates: list[str], describe: str) -> dict[str, str]:
-    """Candidate spans as Choice options, always with a `none` escape hatch."""
+    """Candidate spans as Choice options, always with a `none` escape hatch.
+
+    Without `none`, a field the document does not contain — three invoices have
+    no due date — would force a pick among the dates that *are* there, and the
+    answer would be a real date in the wrong field: wrong in a way that looks
+    right.
+    """
     opts = dict.fromkeys(candidates, describe)
     opts[NONE] = "no candidate in the document fits this field"
     return opts
 
 
-def extract(name: str, client: TypeSafeClient) -> tuple[dict[str, object], int, float]:
-    """One invoice, one request. Returns (fields, input_tokens, seconds)."""
-    text = read_pdf(name)
+def questions_for(text: str) -> dict[str, Any]:
+    """The six questions, each a Choice over spans found in `text`."""
+    from typesafe_sdk import Choice
 
     money = find(MONEY_RE, text)
     dates = find(DATE_RE, text)
     numbers = find(INVOICE_NO_RE, text)
     vendors = vendor_candidates(text)
 
-    questions = {
+    return {
         "invoice_number": Choice(
             instructions=(
                 "Which candidate is this invoice's own reference number, "
@@ -134,28 +182,14 @@ def extract(name: str, client: TypeSafeClient) -> tuple[dict[str, object], int, 
             instructions="Which currency is this invoice denominated in?",
             criteria={
                 "USD": "US dollars, usually shown with $",
-                "EUR": "euros, usually shown with \u20ac",
+                "EUR": "euros, shown with € or the code EUR",
                 NONE: "the currency cannot be determined",
             },
         ),
     }
 
-    started = time.perf_counter()
-    response = client.system_one(state={"invoice_text": text}, questions=questions, model=MODEL)
-    elapsed = time.perf_counter() - started
 
-    answers = response.model_dump()["answers"]
-    fields = {key: answers[key]["choice"] for key in questions}
-    confidences = {key: answers[key].get("confidence") for key in questions}
-
-    return (
-        {"fields": fields, "confidences": confidences},
-        response.model_dump()["usage"]["input_tokens"],
-        elapsed,
-    )
-
-
-def normalise(field: str, value: str) -> object:
+def normalise(field: str, value: str) -> Any:
     """Copy the picked span, normalised only in ways code can do exactly.
 
     Date normalisation is the cookbook's step 3, and skipping it is what cost
@@ -178,6 +212,30 @@ def normalise(field: str, value: str) -> object:
     return value
 
 
+def extract(name: str, client: TypeSafeClient) -> Extraction:
+    """One invoice, one request, all six questions answered in parallel."""
+    text = read_pdf(name)
+    questions = questions_for(text)
+
+    started = time.perf_counter()
+    response = client.system_one(state={"invoice_text": text}, questions=questions, model=MODEL)
+    elapsed = time.perf_counter() - started
+
+    payload = response.model_dump()
+    answers = payload["answers"]
+    usage = payload["usage"]
+    picks = {key: answers[key]["choice"] for key in questions}
+
+    return Extraction(
+        fields={key: normalise(key, value) for key, value in picks.items()},
+        picks=picks,
+        confidences={key: answers[key].get("confidence") for key in questions},
+        input_tokens=usage["input_tokens"],
+        output_tokens=usage.get("output_tokens"),
+        seconds=elapsed,
+    )
+
+
 def main() -> int:
     if not os.environ.get("TYPESAFE_API_KEY"):
         # Named before anything runs. The SDK's own failure arrives as an
@@ -185,6 +243,8 @@ def main() -> int:
         # service problem rather than a missing variable.
         print("TYPESAFE_API_KEY is not set. Export it, or put it in .env.")
         return 1
+
+    from typesafe_sdk import TypeSafeClient
 
     truth = json.loads((EXAMPLE / "ground_truth.json").read_text(encoding="utf-8"))
     client = TypeSafeClient()
@@ -196,41 +256,37 @@ def main() -> int:
     for entry in truth:
         name = entry["file"]
         try:
-            got, tokens, seconds = extract(name, client)
+            got = extract(name, client)
         except Exception as exc:  # recorded, never hidden
             print(f"  {name}: ERROR {type(exc).__name__}: {exc}", flush=True)
             rows.append({"file": name, "error": f"{type(exc).__name__}: {exc}"})
             continue
 
-        total_tokens += tokens
-        total_seconds += seconds
+        total_tokens += got.input_tokens
+        total_seconds += got.seconds
 
-        fields = {k: normalise(k, v) for k, v in got["fields"].items()}
-        expected = {
-            "invoice_number": entry["invoice_number"],
-            "vendor_name": entry["vendor_name"],
-            "invoice_date": entry["invoice_date"],
-            "due_date": entry["due_date"],
-            "currency": entry["currency"],
-            "total": entry["total"],
-        }
-        correct = {k: fields[k] == expected[k] for k in expected}
+        expected = {field: entry[field] for field in FIELDS}
+        correct = {field: got.fields[field] == expected[field] for field in FIELDS}
 
         rows.append(
             {
                 "file": name,
-                "got": fields,
+                "got": got.fields,
+                "picks": got.picks,
                 "expected": expected,
                 "correct": correct,
-                "confidences": got["confidences"],
-                "input_tokens": tokens,
-                "seconds": round(seconds, 3),
+                "confidences": got.confidences,
+                "input_tokens": got.input_tokens,
+                "seconds": round(got.seconds, 3),
             }
         )
         hits = sum(correct.values())
-        print(f"  {name}: {hits}/6 fields  {tokens} tok  {seconds:.2f}s", flush=True)
+        print(
+            f"  {name}: {hits}/{len(FIELDS)} fields  {got.input_tokens} tok  {got.seconds:.2f}s",
+            flush=True,
+        )
 
-    out = Path(__file__).parent / "jev_results.json"
+    out = EXAMPLE / "jev_results.json"
     out.write_text(
         json.dumps(
             {

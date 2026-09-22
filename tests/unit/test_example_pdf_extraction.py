@@ -364,21 +364,27 @@ class TestTheBaselineGenerator:
     def _result(case_id: str, matched: list[str], wrong: list[str], **kwargs: Any) -> Any:
         from evalstand.models import Result, Score, Trace
 
+        scores = [
+            Score(
+                scorer_name="json_fields",
+                value=len(matched) / max(len(matched) + len(wrong), 1),
+                metadata={"matched": matched, "wrong": wrong, "missing": []},
+            )
+        ]
+        if kwargs.get("judged"):
+            scores.append(
+                Score(scorer_name="line_items", value=1.0, metadata={"unvalidated": True})
+            )
+
         return Result(
             id=f"r-{case_id}",
             case_id=case_id,
-            scores=[
-                Score(
-                    scorer_name="json_fields",
-                    value=len(matched) / max(len(matched) + len(wrong), 1),
-                    metadata={"matched": matched, "wrong": wrong, "missing": []},
-                )
-            ],
+            scores=scores,
             traces=[
                 Trace(
                     id=f"t-{case_id}",
                     name="model call",
-                    model="gpt-4o-mini",
+                    model=kwargs.get("model", "gpt-4o-mini"),
                     duration_ms=10,
                     cost_usd=kwargs.get("cost", 0.0003),
                 )
@@ -471,9 +477,54 @@ class TestTheBaselineGenerator:
         """The baseline is where a number gets quoted, so the caveat belongs
         beside it rather than only in the scorer documentation."""
         baseline = _load("baseline")
-        text = baseline.render(self._run([self._result("a", ["total"], [])]), "gpt-4o-mini")
+        run = self._run([self._result("a", ["total"], [], judged=True)])
+        text = baseline.render(run)
 
         assert "unvalidated" in text
+        assert "not scored" not in text
+
+    def test_a_run_without_a_judge_says_line_items_were_not_scored(self) -> None:
+        """The dangerous omission. A span-selection run cannot produce line
+        items, and a table with no line-item row reads as a document that got
+        everything right when the truth is that nobody asked.
+
+        Previously the judge caveat was printed unconditionally, so such a run
+        would have carried a warning about a scorer it never used — and said
+        nothing about the scorer it was missing.
+        """
+        baseline = _load("baseline")
+        text = baseline.render(self._run([self._result("a", ["total"], [])]))
+
+        assert "Line items were not scored" in text
+        assert "unvalidated" not in text, "it caveats a judge the run never used"
+
+    def test_the_model_comes_from_the_run_not_a_default(self) -> None:
+        """`--model` used to default to `gpt-4o-mini`, so a baseline from any
+        other eval would name a model it never called."""
+        baseline = _load("baseline")
+        run = self._run([self._result("a", ["total"], [], model="jev-1.13.0")])
+        text = baseline.render(run)
+
+        assert "`jev-1.13.0`" in text
+        assert "gpt-4o-mini" not in text
+
+    def test_it_names_the_eval_that_produced_it(self) -> None:
+        """Hard-coded as `extraction_eval.py` before. Two evals now share this
+        corpus, and a baseline that named the wrong one sends a reader to the
+        wrong method."""
+        from evalstand.models import Run, RunStatus
+
+        baseline = _load("baseline")
+        run = Run(
+            id="run-x",
+            batch_id="b",
+            name="invoice-extraction-jev",
+            filepath="examples/pdf_extraction/jev_extraction_eval.py",
+            status=RunStatus.COMPLETED,
+            results=[self._result("a", ["total"], [])],
+        )
+
+        assert "`jev_extraction_eval.py`" in baseline.render(run)
 
     def test_it_refuses_to_call_a_number_good_or_bad(self) -> None:
         """The same restraint `compare` observes. A baseline that graded itself
@@ -555,15 +606,146 @@ class TestTheCommittedBaseline:
         if "Not yet recorded" not in text:
             assert re.search(r"run-[0-9a-f]{12}", text), "no run id to trace it back to"
 
-    def test_it_says_the_judge_is_unvalidated(self) -> None:
-        """True of both the placeholder and any generated version: a baseline
-        is where a number gets quoted, so the caveat belongs beside it."""
+    def test_its_caveat_matches_what_it_reports(self) -> None:
+        """A baseline is where a number gets quoted, so the caveat belongs
+        beside it. Which caveat depends on what the file reports: a
+        `line_items` row is an unvalidated judge's opinion, and its *absence*
+        means line items were never measured. Either omission misleads."""
         text = (EXAMPLE / "BASELINE.md").read_text(encoding="utf-8")
 
-        assert "unvalidated" in text
+        if "Not yet recorded" in text or "| `line_items` |" in text:
+            assert "unvalidated" in text
+        else:
+            assert "Line items were not scored" in text
 
     def test_it_says_a_difference_is_not_a_verdict(self) -> None:
         """The same restraint the tool itself observes."""
         text = (EXAMPLE / "BASELINE.md").read_text(encoding="utf-8")
 
         assert "significance testing" in text
+
+
+class TestJevSpanSelection:
+    """`jev_extract.py`: regex over-finds, Jev selects, code normalises.
+
+    Everything here runs offline. The model's half needs a key; the half that
+    decides what the model is *allowed* to answer, and what its answer becomes,
+    does not — and that half is where this method's first run lost three fields.
+    """
+
+    def test_a_ddmm_date_becomes_iso_with_the_day_first(self) -> None:
+        """The bug the first live run found. The document prints `02/10/2018`
+        and means 2 October; Jev picked that span correctly every time, and the
+        code had not converted it. Day-first is a fact about this corpus, and
+        the jaggedness guidance is that it belongs in code."""
+        jev = _load("jev_extract")
+
+        assert jev.normalise("invoice_date", "02/10/2018") == "2018-10-02"
+        assert jev.normalise("due_date", "4/11/2016") == "2016-11-04"
+
+    def test_every_ambiguous_date_in_the_corpus_normalises_to_its_truth(
+        self, truth: list[dict[str, Any]]
+    ) -> None:
+        """Asserted against the ground truth rather than a hand-picked
+        example, so a wrong day/month assumption cannot pass on a date like
+        `01/01/2008` where the two readings agree."""
+        jev = _load("jev_extract")
+        read_pdf = _load("extraction_eval").read_pdf
+
+        checked = 0
+        for entry in truth:
+            text = read_pdf(entry["file"])
+            for span in jev.find(jev.DATE_RE, text):
+                if "/" not in span:
+                    continue
+                assert jev.normalise("invoice_date", span) in (
+                    entry["invoice_date"],
+                    entry["due_date"],
+                ), f"{entry['file']}: {span} normalised to a date the truth does not hold"
+                checked += 1
+
+        assert checked >= 3, "the corpus's ambiguous dates were not found"
+
+    def test_none_becomes_null_not_a_string(self) -> None:
+        """Three invoices have no due date. `"none"` compared against a null
+        ground truth would fail a correct answer."""
+        jev = _load("jev_extract")
+
+        assert jev.normalise("due_date", jev.NONE) is None
+
+    def test_a_total_loses_its_symbol_and_separators(self) -> None:
+        jev = _load("jev_extract")
+
+        assert jev.normalise("total", "$1,961.66") == "1961.66"
+
+    def test_every_question_can_answer_none(self) -> None:
+        """Without it, a field the document lacks forces a pick among values it
+        has — a real date in the wrong field, wrong in a way that looks right."""
+        jev = _load("jev_extract")
+
+        assert jev.NONE in jev.options(["2018-10-02"], "a date")
+        assert jev.NONE in jev.options([], "a date")
+
+    def test_find_dedupes_in_document_order(self) -> None:
+        jev = _load("jev_extract")
+
+        found = jev.find(jev.MONEY_RE, "a $5.00 b $3.00 c $5.00")
+
+        assert found == ["$5.00", "$3.00"]
+
+    def test_the_regexes_cover_every_true_value_in_the_corpus(
+        self, truth: list[dict[str, Any]]
+    ) -> None:
+        """The method's ceiling. Jev can only select a span the regex found, so
+        a true value the regex misses is one no model could return — and the
+        failure would look like the model's."""
+        jev = _load("jev_extract")
+        read_pdf = _load("extraction_eval").read_pdf
+
+        for entry in truth:
+            text = read_pdf(entry["file"])
+            totals = [jev.normalise("total", s) for s in jev.find(jev.MONEY_RE, text)]
+            numbers = jev.find(jev.INVOICE_NO_RE, text)
+            vendors = jev.vendor_candidates(text)
+
+            assert entry["total"] in totals, f"{entry['file']}: total not a candidate"
+            assert entry["invoice_number"] in numbers, f"{entry['file']}: number not found"
+            assert entry["vendor_name"] in vendors, f"{entry['file']}: vendor not a candidate"
+
+    def test_importing_it_needs_no_sdk(self) -> None:
+        """The SDK is imported inside the functions that call the service, so
+        these helpers — and this file — run on a machine without it."""
+        source = (EXAMPLE / "jev_extract.py").read_text(encoding="utf-8")
+        top_level = [line for line in source.splitlines() if line.startswith(("import ", "from "))]
+
+        assert not any("typesafe_sdk" in line for line in top_level)
+
+
+class TestTheJevEval:
+    def test_collecting_it_needs_no_key(self) -> None:
+        """`--collect-only` must never spend money or need credentials. The
+        client is built on first use, not at import."""
+        import os
+        import subprocess
+        import sys
+
+        env = {key: value for key, value in os.environ.items() if key != "TYPESAFE_API_KEY"}
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                str(EXAMPLE / "jev_extraction_eval.py"),
+                "--collect-only",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=120,
+        )
+
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert "30 tests collected" in proc.stdout
