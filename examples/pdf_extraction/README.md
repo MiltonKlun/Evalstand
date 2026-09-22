@@ -83,3 +83,42 @@ exception the runner could record.
 
 `read_pdf` holds a lock for exactly this reason. If your task calls into a C
 extension, do the same, or run with `--concurrency 1`.
+
+## An alternative extraction method: `jev_extract.py`
+
+`extraction_eval.py` asks a generative model to produce the fields as JSON.
+`jev_extract.py` does the same job a different way, following TypeSafe's
+pre-parsed value extraction cookbook:
+
+1. A regex tuned to **over-find** collects candidate spans — money amounts,
+   dates, invoice numbers — plus the short header lines that could be a vendor.
+2. One request carries all six questions against the same invoice text. Each is
+   a `Choice` whose options are the candidate spans, always including `none`.
+3. Code copies the picked span and normalises it.
+
+The model never produces a value, only selects one, so it cannot invent a
+number or transpose a digit. It can only pick a span the regex already found —
+which also means a candidate the regex *misses* is one it can never return.
+
+Measured against this corpus on 2026-09-22 with `jev-1.13.0`: **180/180 fields,
+30/30 invoices, $0.0015 total, 10.7 seconds.** All three of the corpus's traps
+were handled, including answering `none` for the three invoices that state no
+due date.
+
+```bash
+export TYPESAFE_API_KEY=...          # or put it in .env
+uv pip install 'typesafe-sdk>=0.5.7'
+python jev_extract.py                 # writes jev_results.json
+```
+
+One failure is worth recording because of **whose** it was. The first run
+scored 177/180, all three misses on the ambiguous `DD/MM/YYYY` dates. The model
+was right every time — it picked the span the document actually prints — and
+the code had simply not converted the format. That is step 3 of the cookbook,
+and it is the jaggedness guidance working as documented: a model that reads
+dates as text should not be asked which component is the day.
+
+This is not a scorer. The model here is the *system under test*; the scoring is
+still `json_fields` and `close_to`, deterministic as always. See
+[JEV.md](../../JEV.md) for why that distinction decided against a Jev-backed
+scorer.

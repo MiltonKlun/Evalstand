@@ -40,21 +40,20 @@ Choice question implemented by prompt and convention.
 Jev would make the same contract structural rather than prompted. The question
 was whether structural is better here.
 
-## What could not be verified
+## What was verified, and when
 
-Two claims in the brief did not hold in this environment, and both blocked the
-live experiments:
+The recommendation below was reached on 2026-09-20 **without** a live call: the
+key was not set in any scope and the SDK was not installed. It rests entirely on
+measurements of *this* codebase plus the docs, which were reachable and were
+read at source.
 
-- **`TYPESAFE_API_KEY` was not set.** Absent from Bash, from PowerShell, and
-  from the persistent User scope. No live call was made.
-- **`typesafe-sdk` was not installed** in this project's venv.
+The key arrived on 2026-09-22 and the extraction experiment at the end of this
+file is live, against `jev-1.13.0`. It confirmed the API shape from the docs
+exactly — `usage.input_tokens` reported, the pinned model ID returned, and
+`choice` + `probabilities` + `confidence` on every Choice answer.
 
-The docs *were* reachable and were read directly, so the API shape, the
-primitives table, the fan-out claim and the jaggedness page below are verified
-at source rather than taken from the brief.
-
-Everything in the recommendation rests on measurements of **this** codebase,
-which needed no key.
+**Nothing in the live run changes the recommendation**, because it measures a
+different role: extraction is a task, not a scorer.
 
 ## The finding that settles it
 
@@ -146,22 +145,97 @@ falling as irrelevant state grows, adversarial content treated as data, and no
 structural invariants — the same question as a Noul and as a Choice may
 disagree, so a threshold must never be carried across types.
 
-## The pdf_extraction experiment
+## The pdf_extraction experiment — run 2026-09-22
 
 The brief called this the highest-value first experiment for evaluating Jev as a
-scorer. It is not, and the conflation matters.
+scorer. It is not, and the conflation matters: **if Jev extracts invoice fields,
+Jev is the system under test.** The scorer would still be `json_fields`,
+deterministic as it is today. This measures Jev's *extraction accuracy*, which
+says nothing about whether Jev should back a scorer — and the recommendation
+above is unchanged by it.
 
-**If Jev extracts invoice fields, Jev is the system under test.** The scorer
-would still be `json_fields`, deterministic as it is today. That experiment
-measures Jev's *extraction accuracy* — genuinely interesting — but says nothing
-about whether Jev should back a scorer.
+As an extraction task, it worked.
 
-It is, separately, a good candidate for **gate 5.7**, the unrecorded showcase
-baseline. The TypeSafe cookbook shape — find candidates in code with a parser or
-regex, then use a question to *select* the intended one, never to produce the
-value — matches an invoice corpus closely, and `examples/pdf_extraction/` is a
-ready-made labelled corpus with ground truth written at generation time. If it
-is used there, `BASELINE.md` must name which model produced the numbers.
+### Results
+
+Thirty invoices, six scalar fields each, `jev-1.13.0`, one request per invoice:
+
+| | |
+| --- | --- |
+| Fields correct | **180/180** |
+| Invoices fully correct | **30/30** |
+| Input tokens | 35,597 |
+| Cost | **$0.001495** exact ($0.0000498/invoice) |
+| Wall time | 10.7s (0.36s/invoice) |
+
+Per field: `invoice_number`, `vendor_name`, `invoice_date`, `due_date`,
+`currency`, `total` — all 30/30.
+
+The corpus's three deliberate traps were all handled:
+
+- **Three invoices state no due date.** The honest answer is null and an
+  invented plausible date would look right. Answered `none` all three times, at
+  confidence 1.0, 1.0 and 0.99.
+- **Three print an ambiguous `DD/MM/YYYY` date.** See below.
+- **Multi-page invoices put the total on page two.** No total was confused with
+  a line item or a unit price.
+
+### The one interesting failure, and whose fault it was
+
+The first run scored **177/180**. All three misses were the same field on the
+three ambiguous-date invoices: Jev answered `02/10/2018` where ground truth
+says `2018-10-02`.
+
+**Jev was right and the code was wrong.** The document prints `02/10/2018`;
+Jev picked that span verbatim, which is exactly what the cookbook promises — it
+selects among spans a regex found and cannot invent or transpose a value. What
+was missing was step 3 of the cookbook: *code copies the picked value and
+normalises it*. There was no `DD/MM/YYYY` → ISO conversion.
+
+Adding six lines of date normalisation took it to 180/180. This is the
+jaggedness page's own advice working as documented: Jev reads dates as text,
+so extract the components and compare in code.
+
+### Method
+
+Following `cookbooks/pre_parsed_value_extraction_cookbook.md`:
+
+1. A regex tuned to over-find collects candidate spans — money, dates, invoice
+   numbers — plus short header lines as vendor candidates.
+2. **One** `system_one` request per invoice carries all six Choice questions
+   against the same state. They are independent, so they run in parallel; this
+   is the fan-out pattern, and it is why thirty invoices cost a tenth of a cent.
+3. Every question includes a `none` option, so "no candidate fits" is
+   representable rather than forced.
+4. Code copies the picked span and normalises it.
+
+### Cost is exact here, not a lower bound
+
+Verified against a live response: `usage.input_tokens` is reported, and pricing
+is $0.042 per million input tokens with output free. So a Jev call's cost is
+computable exactly, unlike a LiteLLM call whose model may be missing from the
+pricing table — which is the case `total_cost_usd` reports as a lower bound.
+
+### Confidence behaved as documented
+
+`vendor_name` was the only field where confidence varied meaningfully: mean
+0.94, minimum 0.31. **Every low-confidence answer was still correct**, which is
+the point the docs make about confidence being distribution concentration
+rather than a correctness probability — several header lines are plausibly a
+company name, so the probability spreads without the pick being wrong.
+
+### What this does and does not license
+
+It does **not** revisit the recommendation above. A scorer and a task are
+different roles, and nothing here measures agreement with a human on a
+judgement call — these are verbatim spans checked against ground truth that is
+true by construction.
+
+It does make Jev a credible candidate for **gate 5.7**, the unrecorded showcase
+baseline. If used there, `BASELINE.md` must name `jev-1.13.0` as the model that
+produced the numbers, and should say that this task is span selection rather
+than free generation — a reader comparing it against a generative model's
+baseline is comparing two different methods.
 
 ## What would change this answer
 

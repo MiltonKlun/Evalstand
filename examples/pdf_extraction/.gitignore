@@ -3,3 +3,4 @@
 # reviewable in a diff, and the checksums fail loudly if a dependency upgrade
 # changes what the generator produces.
 invoices/
+jev_results.json
