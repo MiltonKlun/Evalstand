@@ -28,7 +28,13 @@ import html
 from datetime import UTC, datetime
 
 from evalstand.models import Result, Run, Score, Trace
-from evalstand.reporting.console import UNKNOWN, format_cost, format_score, pass_counts
+from evalstand.reporting.console import (
+    UNKNOWN,
+    format_cost,
+    format_score,
+    format_usd,
+    pass_counts,
+)
 
 __all__ = ["STYLE", "escape", "render_html", "result_cost", "status_of"]
 
@@ -136,7 +142,7 @@ def result_cost(result: Result) -> str:
     priced = [t for t in result.traces if t.cost_usd is not None]
     if result.traces and not priced:
         return UNKNOWN
-    return f"${sum(t.cost_usd or 0.0 for t in priced):.4f}"
+    return format_usd(sum(t.cost_usd or 0.0 for t in priced))
 
 
 def _summary_rows(runs: list[Run]) -> str:
@@ -241,7 +247,7 @@ def _trace_label(trace: Trace) -> str:
 
     # An unpriced call shows a placeholder, never $0.0000: it has not been shown
     # to be free.
-    cost = UNKNOWN if trace.cost_usd is None else f"${trace.cost_usd:.4f}"
+    cost = UNKNOWN if trace.cost_usd is None else format_usd(trace.cost_usd)
     bits.append(f"<span class='tmeta'>{escape(cost)}</span>")
 
     label = " ".join(bits)

@@ -1127,8 +1127,8 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     (
         "src/evalstand/reporting/console.py",
         "an unpriced call is shown as free",
-        '    line.append(f"  {UNKNOWN if trace.cost_usd is None else f\'${trace.cost_usd:.4f}\'}", style="dim")',
-        '    line.append(f"  ${trace.cost_usd or 0.0:.4f}", style="dim")',
+        '        f"  {UNKNOWN if trace.cost_usd is None else format_usd(trace.cost_usd)}", style="dim"',
+        '        f"  {format_usd(trace.cost_usd or 0.0)}", style="dim"',
     ),
     (
         "src/evalstand/reporting/console.py",
@@ -1830,6 +1830,19 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "the missing-extra message is eaten by Rich markup",
         '        console.print(MISSING_EXTRA, style="red", markup=False)',
         '        console.print(f"[red]{MISSING_EXTRA}[/red]")',
+    ),
+    # ---- Money: a priced cost is never shown as free ----------------------
+    (
+        "src/evalstand/reporting/console.py",
+        "format_usd rounds a sub-cent cost to $0.0000",
+        "    if value == 0 or float(four) != 0:\n",
+        "    if True:\n",
+    ),
+    (
+        "src/evalstand/tui/state.py",
+        "a TUI row formats its own cost and prints a priced call as free",
+        "    return format_usd(sum(t.cost_usd or 0.0 for t in priced))\n",
+        '    return f"${sum(t.cost_usd or 0.0 for t in priced):.4f}"\n',
     ),
 ]
 

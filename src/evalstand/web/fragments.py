@@ -14,7 +14,7 @@ renderer's about which values are safe.
 from __future__ import annotations
 
 from evalstand.models import Result, Run
-from evalstand.reporting.console import UNKNOWN, format_score, pass_counts
+from evalstand.reporting.console import UNKNOWN, format_score, format_usd, pass_counts
 from evalstand.reporting.html import escape, result_cost, status_of
 
 
@@ -131,7 +131,7 @@ def _run_cost(run: Run) -> str:
     """
     if run.unpriced_call_count and run.total_cost_usd == 0.0:
         return UNKNOWN
-    return f"${run.total_cost_usd:.4f}"
+    return format_usd(run.total_cost_usd)
 
 
 def _cache(run: Run) -> str:

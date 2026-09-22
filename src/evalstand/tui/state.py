@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from evalstand.models import Result, Run
-from evalstand.reporting.console import UNKNOWN
+from evalstand.reporting.console import UNKNOWN, format_usd
 
 __all__ = ["CaseRow", "RunState", "Totals"]
 
@@ -97,7 +97,7 @@ def _cost_of(result: Result) -> str:
     priced = [trace for trace in result.traces if trace.cost_usd is not None]
     if result.traces and not priced:
         return UNKNOWN
-    return f"${sum(t.cost_usd or 0.0 for t in priced):.4f}"
+    return format_usd(sum(t.cost_usd or 0.0 for t in priced))
 
 
 def _extra_of(result: Result, columns: dict[str, Any]) -> dict[str, str]:
@@ -173,7 +173,7 @@ class Totals:
         if not self.model_calls and not self.cost_usd:
             return UNKNOWN
         bound = f" (+{self.unpriced_calls} unpriced)" if self.unpriced_calls else ""
-        return f"${self.cost_usd:.4f}{bound}"
+        return f"{format_usd(self.cost_usd)}{bound}"
 
     @property
     def pass_rate(self) -> str:

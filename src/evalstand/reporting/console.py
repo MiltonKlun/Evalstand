@@ -11,6 +11,7 @@ than a zero.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Any
 
@@ -33,6 +34,7 @@ __all__ = [
     "UNKNOWN",
     "format_cost",
     "format_score",
+    "format_usd",
     "pass_counts",
     "render_case",
     "render_comparison",
@@ -81,6 +83,30 @@ def format_score(value: float | None) -> str:
     return UNKNOWN if value is None else f"{value:.2f}"
 
 
+def format_usd(value: float) -> str:
+    """A dollar amount that never rounds a real cost down to zero.
+
+    Four decimals is the house style, and it is right for almost everything —
+    but a short call to a cheap model costs less than half a hundredth of a
+    cent, and at four decimals that prints `$0.0000`: the exact string this
+    project refuses to show for an *unknown* cost, now attached to a *known,
+    non-zero* one. A reader takes it as free.
+
+    So an amount that four decimals would erase gets as many as it takes to
+    show two significant figures. A genuine zero stays `$0.0000`; that one is
+    true.
+
+    Every renderer formats money through here. They each had their own
+    `:.4f` until this was found, which is how one rounding rule came to be
+    wrong in nine places at once.
+    """
+    four = f"{value:.4f}"
+    if value == 0 or float(four) != 0:
+        return f"${four}"
+    decimals = -math.floor(math.log10(abs(value))) + 1
+    return f"${value:.{decimals}f}"
+
+
 def format_cost(runs: list[Run]) -> str:
     """Total cost, or unknown when nothing was priced.
 
@@ -95,7 +121,7 @@ def format_cost(runs: list[Run]) -> str:
     ]
     if not priced:
         return UNKNOWN
-    return f"${sum(t.cost_usd or 0.0 for t in priced):.4f}"
+    return format_usd(sum(t.cost_usd or 0.0 for t in priced))
 
 
 def render_summary(
@@ -331,7 +357,7 @@ def _run_cost(run: Run) -> str:
         # rule `format_cost` already applies to the live summary.
         return UNKNOWN
 
-    formatted = f"${run.total_cost_usd:.4f}"
+    formatted = format_usd(run.total_cost_usd)
     return formatted if run.cost_is_complete else f"{formatted}+"
 
 
@@ -479,7 +505,9 @@ def _trace_label(trace: Trace, *, full: bool) -> RenderableType:
 
     # An unpriced call shows a placeholder, never $0.0000: it has not been
     # shown to be free.
-    line.append(f"  {UNKNOWN if trace.cost_usd is None else f'${trace.cost_usd:.4f}'}", style="dim")
+    line.append(
+        f"  {UNKNOWN if trace.cost_usd is None else format_usd(trace.cost_usd)}", style="dim"
+    )
 
     if not full:
         # A size rather than the content. Enough to know something was sent,

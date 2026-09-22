@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from evalstand.models import Run
+from evalstand.reporting.console import format_usd
 from evalstand.storage import RunStore
 
 HERE = Path(__file__).parent
@@ -108,7 +109,8 @@ def _cost_per_document(run: Run) -> str:
         return "-"
 
     per_document = run.total_cost_usd / len(run.results)
-    return f"${per_document:.4f}" if run.cost_is_complete else f"${per_document:.4f}+"
+    formatted = format_usd(per_document)
+    return formatted if run.cost_is_complete else f"{formatted}+"
 
 
 def _total_cost(run: Run) -> str:
@@ -120,7 +122,7 @@ def _total_cost(run: Run) -> str:
     priced = any(trace.cost_usd is not None for result in run.results for trace in result.traces)
     if not priced:
         return "-"
-    total = f"${run.total_cost_usd:.4f}"
+    total = format_usd(run.total_cost_usd)
     return total if run.cost_is_complete else f"{total}+"
 
 
