@@ -6,6 +6,23 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- Task 5.7: the showcase baseline, recorded. `BASELINE.md` now describes one
+  real run — span selection with TypeSafe's `jev-1.13.0` over the 30-invoice
+  corpus: 180/180 scalar fields, $0.0015. It covers the scalar fields only and
+  says so beside the table; the generative eval's baseline still awaits a key.
+- `examples/pdf_extraction/jev_extraction_eval.py`, the span-selection method as
+  a recorded eval. Jev calls are traced with their exact cost via `record_call`.
+- `baseline.py` reads the model from the run's own traces and names the eval
+  file it describes. Both used to be hard-coded for the generative eval.
+
+### Fixed
+- A priced cost under half a hundredth of a cent printed as `$0.0000` — the
+  string reserved for "nobody knows", attached to a known, non-zero amount.
+  Short calls to cheap models, including ordinary judge calls, were shown as
+  free in the trace tree, the HTML report, the TUI and the web UI. Nine
+  renderers each rounded money themselves; all now go through `format_usd`.
+
 ## [1.0.0] — 2026-09-21
 
 First published release. Every phase of the plan is complete: the authoring

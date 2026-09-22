@@ -241,7 +241,7 @@ def main() -> int:
         # Named before anything runs. The SDK's own failure arrives as an
         # authentication error partway through the corpus, which reads like a
         # service problem rather than a missing variable.
-        print("TYPESAFE_API_KEY is not set. Export it, or put it in .env.")
+        print("TYPESAFE_API_KEY is not set. Export it; .env files are not loaded.")
         return 1
 
     from typesafe_sdk import TypeSafeClient

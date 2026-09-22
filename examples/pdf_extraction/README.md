@@ -11,6 +11,22 @@ pytest extraction_eval.py        # run the eval
 Needs one API key (`OPENAI_API_KEY`). The corpus is generated locally and costs
 nothing to build.
 
+## The baseline
+
+[BASELINE.md](BASELINE.md) is generated from a stored run, never typed:
+
+```bash
+evalstand history                # find the run id
+python baseline.py <run_id>      # rewrite BASELINE.md from that run
+```
+
+The committed one comes from `jev_extraction_eval.py` — span selection with
+`jev-1.13.0`, described [below](#an-alternative-extraction-method-jev_extractpy).
+It covers the six scalar fields only. The generative `extraction_eval.py`, which
+also scores line items, has **not** yet been recorded against a real model; its
+numbers, when they exist, belong in a second document rather than overwriting
+this one, since the two methods answer different questions.
+
 ## Why the ground truth is trustworthy
 
 **It is true by construction.** `generate.py` chooses each invoice's numbers and
@@ -106,10 +122,22 @@ were handled, including answering `none` for the three invoices that state no
 due date.
 
 ```bash
-export TYPESAFE_API_KEY=...          # or put it in .env
+export TYPESAFE_API_KEY=...           # read from the environment only; .env is not loaded
 uv pip install 'typesafe-sdk>=0.5.7'
-python jev_extract.py                 # writes jev_results.json
+python jev_extract.py                 # standalone: writes jev_results.json
+evalstand run jev_extraction_eval.py  # the same extraction, recorded as a run
 ```
+
+`jev_extraction_eval.py` is the version that counts. It runs the extraction
+under evalstand, so the result is stored, traced and costed like any other run —
+each Jev call is recorded in the case's trace with its exact cost. It scores the
+six scalar fields and **not line items**: span selection cannot produce a list
+of records.
+
+Jev calls do not go through evalstand's response cache, so **every re-run pays
+again** and the run summary's `cache 0/30` means "not cacheable", not "cold".
+At $0.0015 for the corpus that is rarely worth caring about, but it is not the
+behaviour the rest of the tool has taught you to expect.
 
 One failure is worth recording because of **whose** it was. The first run
 scored 177/180, all three misses on the ambiguous `DD/MM/YYYY` dates. The model

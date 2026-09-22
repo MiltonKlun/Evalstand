@@ -231,8 +231,15 @@ different roles, and nothing here measures agreement with a human on a
 judgement call — these are verbatim spans checked against ground truth that is
 true by construction.
 
-It does make Jev a credible candidate for **gate 5.7**, the unrecorded showcase
-baseline. If used there, `BASELINE.md` must name `jev-1.13.0` as the model that
+It made Jev the method for **gate 5.7**: the showcase baseline was recorded
+from `jev_extraction_eval.py` as `run-8817ecd99ae6` on 2026-09-22 — 180/180
+scalar fields, $0.0015 — and `examples/pdf_extraction/BASELINE.md` is
+generated from it. Recording it found a real defect: `cost per document`
+printed `$0.0000` for $0.00005, because every renderer rounded money to four
+decimals. Fixed project-wide with `format_usd`.
+
+Before it was recorded, it was a candidate for that gate, the unrecorded
+showcase baseline. If used there, `BASELINE.md` must name `jev-1.13.0` as the model that
 produced the numbers, and should say that this task is span selection rather
 than free generation — a reader comparing it against a generative model's
 baseline is comparing two different methods.

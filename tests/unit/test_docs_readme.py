@@ -120,14 +120,30 @@ class TestTheLimitationsSectionIsHonest:
     def test_it_says_judge_scorers_are_unvalidated(self, text: str) -> None:
         assert "unvalidated" in text.lower()
 
-    def test_it_admits_the_baseline_is_unrecorded(self, text: str) -> None:
-        """While `BASELINE.md` carries no numbers, the README must not imply it
-        does. A baseline is the figure people quote."""
+    def test_it_describes_the_baseline_that_actually_exists(self, text: str) -> None:
+        """The README and `BASELINE.md` must agree about whether there is one.
+
+        This only checked one direction while the file was a placeholder: the
+        README had to admit there was no baseline. Once a real one landed, a
+        README still saying "no published baseline" would have passed, and so
+        would one describing a baseline without naming the method behind it.
+        A baseline is the figure people quote, so both halves are checked.
+        """
         baseline = (ROOT / "examples" / "pdf_extraction" / "BASELINE.md").read_text(
             encoding="utf-8"
         )
         if "Not yet recorded" in baseline:
             assert "no published baseline" in text.lower()
+            return
+
+        assert "no published baseline" not in text.lower(), "the README denies a real baseline"
+
+        model = re.search(r"\| model \| `([^`]+)` \|", baseline)
+        assert model, "BASELINE.md does not name its model"
+        assert model.group(1) in text, f"the README does not say {model.group(1)} produced it"
+
+        if "Line items were not scored" in baseline:
+            assert "line items" in text.lower(), "the README omits what the baseline does not cover"
 
     def test_it_says_the_web_ui_has_no_authentication(self, text: str) -> None:
         """A security property a reader acts on. `serve` exposes every recorded

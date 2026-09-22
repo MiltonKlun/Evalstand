@@ -120,12 +120,13 @@ change a regression.
 has calibrated their verdicts against human labels on your data. Treat them as a
 signal, not a measurement.
 
-**The showcase example has no published baseline yet.** `examples/pdf_extraction/`
-generates a 30-invoice corpus from a fixed seed with ground truth written at
-generation time, and `baseline.py` will produce the numbers from a stored run —
-but that needs a real model, and no such run has been made. The file says so
-rather than carrying plausible-looking figures, because a baseline is the number
-people quote.
+**The showcase baseline covers the scalar fields only, and one method.**
+`examples/pdf_extraction/BASELINE.md` records one run of span selection with
+TypeSafe's `jev-1.13.0`: a regex finds candidate values and the model picks
+among them. It scored 30/30 invoices on six scalar fields for $0.0015. It does
+not score line items — span selection cannot produce a list of records — and
+the generative eval, which does, has not yet been run against a real model. One
+run of one method on a synthetic corpus is a record, not a verdict on either.
 
 **No demo GIF yet.** `examples/demo/` holds an offline eval and a VHS tape ready
 to record; the recording tooling is not installed here.
