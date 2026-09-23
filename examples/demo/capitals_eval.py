@@ -38,6 +38,15 @@ CASES = [
     {"id": country, "input": country, "expected": capital} for country, capital in CAPITALS.items()
 ]
 
+DELAYS = {country: 0.4 + 0.35 * position for position, country in enumerate(CAPITALS)}
+"""A different latency per case, as a real provider would give.
+
+A single shared sleep made every case finish in the same frame: the runner
+executes eight at once, so six identical 0.4s waits all end together and the
+table appears complete — the one thing the recording exists to disprove.
+Staggered, the rows land about a third of a second apart.
+"""
+
 
 async def answer(country: str) -> str:
     """Look up a capital, slowly enough to watch.
@@ -46,7 +55,7 @@ async def answer(country: str) -> str:
     mechanism a real task's LLM calls flow through.
     """
     with trace("lookup"):
-        await asyncio.sleep(0.4)
+        await asyncio.sleep(DELAYS.get(country, 0.4))
         return ANSWERS.get(country, "unknown")
 
 
