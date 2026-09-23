@@ -536,3 +536,139 @@ class TestCustomColumns:
 
             row = app.state.rows()[0]
             assert row.extra == {"length": "5"}
+
+
+EDITABLE_EVAL = """
+from evalstand import Case, evaluate
+
+
+def task(value):
+    return "{answer}"
+
+
+def check(output, expected):
+    return output == expected
+
+
+evaluate(
+    name="reload-me",
+    cases=[Case(id="q1", input="x", expected="right")],
+    task=task,
+    scorers=[check],
+)
+"""
+
+
+class TestAnEditIsWhatReRuns:
+    """Watch mode's whole promise: change the code, see the changed code run.
+
+    It re-ran the object imported at start-up instead. The status said
+    "changed: <file>", the rows re-landed one by one, and the old task ran
+    against the old cases — every sign of a re-run of the edit, none of the
+    substance. Found by recording the demo, where fixing the one wrong answer
+    re-ran the eval and left the case failing.
+
+    The tests before this built evals in memory, which have no file to change,
+    so nothing could have caught it. These write a real file and edit it.
+    """
+
+    @staticmethod
+    def _write(path: Any, answer: str) -> None:
+        path.write_text(EDITABLE_EVAL.replace("{answer}", answer), encoding="utf-8")
+
+    @staticmethod
+    def _load(path: Any) -> Eval:
+        from evalstand.loading import load_evals, select_eval
+
+        return select_eval(load_evals([path]), "reload-me")
+
+    @staticmethod
+    def _passed(app: EvalApp) -> int:
+        return app.state.totals().passed
+
+    async def test_a_change_runs_the_edited_code(self, tmp_path: Any) -> None:
+        from evalstand.tui.app import FilesChanged
+
+        target = tmp_path / "reload_eval.py"
+        self._write(target, "wrong")
+
+        app = _app(self._load(target), expected=1)
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+            assert self._passed(app) == 0, "the starting answer should fail"
+
+            self._write(target, "right")
+            app.post_message(FilesChanged([target]))
+            await pilot.pause()
+            await _settle(pilot, app)
+
+            assert self._passed(app) == 1, "the re-run executed the code from before the edit"
+            # On the *finished* run. Shown only while the re-run was in flight,
+            # it was replaced before a fast eval ever drew it, and the numbers
+            # changed with no visible reason.
+            assert "after changed: reload_eval.py" in _status_text(app)
+
+            await pilot.press("r")
+            await pilot.pause()
+            await _settle(pilot, app)
+
+            assert "changed:" not in _status_text(app), "a key press was blamed on the old edit"
+
+    async def test_r_runs_the_edited_code(self, tmp_path: Any) -> None:
+        """With `--once` there is no watcher. A user who edits and presses `r`
+        is asking for the edited code, not the code the session started with."""
+        target = tmp_path / "reload_eval.py"
+        self._write(target, "wrong")
+
+        app = _app(self._load(target), expected=1)
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+
+            self._write(target, "right")
+            await pilot.press("r")
+            await pilot.pause()
+            await _settle(pilot, app)
+
+            assert self._passed(app) == 1
+
+    async def test_a_file_that_no_longer_imports_runs_nothing(self, tmp_path: Any) -> None:
+        """A typo mid-edit is ordinary in watch mode. Falling back to the eval
+        loaded earlier would show results labelled as current, produced by code
+        that is no longer on disk — so it says so and runs nothing."""
+        from evalstand.tui.app import FilesChanged
+
+        target = tmp_path / "reload_eval.py"
+        self._write(target, "wrong")
+
+        app = _app(self._load(target), expected=1)
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+            before = app._run_task
+
+            target.write_text("def task(:\n", encoding="utf-8")
+            app.post_message(FilesChanged([target]))
+            await pilot.pause()
+            await pilot.pause()
+
+            status = _status_text(app)
+            assert "could not load reload_eval.py" in status
+            assert "SyntaxError" in status
+            assert "nothing was re-run" in status
+            assert app._run_task is before, "a stale eval was run in place of the broken file"
+
+    async def test_an_eval_built_in_memory_still_reruns(self) -> None:
+        """No file, so nothing to reload and nothing an edit could have
+        changed. `r` must keep working for it."""
+        calls: list[str] = []
+
+        async def counting(value: str) -> str:
+            calls.append(value)
+            return value
+
+        app = _app(_eval(counting, "q1"), expected=1)
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+            await pilot.press("r")
+            await _settle(pilot, app)
+
+        assert calls == ["q1", "q1"]

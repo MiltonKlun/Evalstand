@@ -1844,6 +1844,25 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "    return format_usd(sum(t.cost_usd or 0.0 for t in priced))\n",
         '    return f"${sum(t.cost_usd or 0.0 for t in priced):.4f}"\n',
     ),
+    # ---- Watch mode runs the code on disk, not the code it started with --
+    (
+        "src/evalstand/tui/app.py",
+        "watch mode re-runs the eval imported at start-up instead of the edit",
+        "        return select_eval(load_evals([Path(self.declared.filepath)]), self.declared.name)",
+        "        return self.declared",
+    ),
+    (
+        "src/evalstand/tui/app.py",
+        "a file that no longer imports falls back to running the stale eval",
+        "            return False\n\n        if declared is not self.declared:",
+        "            self.start_run()\n            return False\n\n        if declared is not self.declared:",
+    ),
+    (
+        "src/evalstand/loading.py",
+        "the loader trusts __pycache__ and runs a same-length edit's old bytecode",
+        '        code = compile(path.read_bytes(), str(path), "exec", dont_inherit=True)\n        exec(code, module.__dict__)',
+        "        spec.loader.exec_module(module)",
+    ),
 ]
 
 

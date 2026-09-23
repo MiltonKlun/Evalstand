@@ -86,12 +86,19 @@ def load_evals(paths: Iterable[Path | str] | None = None) -> list[Eval]:
 
 
 def _import_file(path: Path) -> None:
-    """Import one file under a name of its own.
+    """Import one file under a name of its own, compiled from its source.
+
+    **Compiled from the text every time, never from `__pycache__`.** This said
+    `exec_module` re-read the source on every import, "verified by running an
+    edit through both". It does not. The loader validates a cached `.pyc` by the
+    source's size and its modification time *in whole seconds*, so an edit that
+    keeps the file the same length and lands within the same second — `0.5` to
+    `0.7`, a one-character typo fixed — is served the old bytecode. The earlier
+    check used an edit that changed the size, which is the one case that works.
+    Watch mode exists to run the code the user just saved, so it now pays a
+    compile per import rather than trust a cache that can be one second stale.
 
     Freshness is *not* what the unique name buys, despite how it looks.
-    `exec_module` on a newly built module object re-reads the source every
-    time, so an edited file produces edited behaviour whatever the module is
-    called — verified by running an edit through both.
 
     The name matters because the entry is visible in `sys.modules` while the
     file executes, and eval files are imported one after another. Under a
@@ -110,7 +117,10 @@ def _import_file(path: Path) -> None:
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     try:
-        spec.loader.exec_module(module)
+        # `dont_inherit` so this module's own `from __future__` imports do not
+        # leak into the user's file and change what it means.
+        code = compile(path.read_bytes(), str(path), "exec", dont_inherit=True)
+        exec(code, module.__dict__)
     finally:
         # Not left behind: one entry per edit would grow without bound over a
         # long watch session, and nothing ever looks the module up by name.

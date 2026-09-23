@@ -238,6 +238,8 @@ class EvalApp(App[None]):
         self._watch_task: asyncio.Task[None] | None = None
         self._stop_watching = asyncio.Event()
         self._cancelled_runs = 0
+        self._changed_note = ""
+        """What the last file change touched, while its re-run is the latest."""
         """How many Batches a file change cut short. Shown, not hidden: a user
         whose re-runs keep being cancelled is editing faster than the eval can
         complete, and needs to know that rather than wonder why nothing
@@ -347,8 +349,63 @@ class EvalApp(App[None]):
         extra = f" (+{len(message.paths) - 3})" if len(message.paths) > 3 else ""
         self._changed_note = f"changed: {names}{extra}"
 
+        if self._rerun_fresh():
+            self._set_status(self._changed_note)
+
+    def _reloaded(self) -> Eval:
+        """The eval as its file declares it *now*.
+
+        Watch mode used to re-run `self.declared` — the object imported when the
+        app started — so an edit changed the file, triggered a re-run, showed
+        "changed: <file>" and a table filling row by row, and executed the old
+        task against the old cases. Every sign of a re-run of the edit, and none
+        of the substance. Found by recording the demo: the file was fixed, the
+        eval visibly re-ran, and the case it fixed still failed.
+
+        An eval built in memory has no file to reload from, and nothing on disk
+        can have changed it, so it is returned as it is.
+        """
+        if not self.declared.filepath:
+            return self.declared
+
+        from evalstand.loading import load_evals, select_eval
+
+        return select_eval(load_evals([Path(self.declared.filepath)]), self.declared.name)
+
+    def _rerun_fresh(self) -> bool:
+        """Reload the eval from disk and run it. False when it could not load.
+
+        A file that does not import — a typo mid-edit, a renamed eval — is
+        reported and **nothing is run**. Falling back to the previously loaded
+        eval would be the same lie in a different place: results labelled as
+        the current code, produced by code that is no longer on disk. The
+        in-flight run is abandoned for the same reason; it describes the file
+        before the edit.
+        """
+        try:
+            declared = self._reloaded()
+        except Exception as exc:
+            self._cancel_in_flight()
+            where = Path(self.declared.filepath).name
+            self._set_status(
+                f"could not load {where}: {type(exc).__name__}: {exc} — nothing was re-run"
+            )
+            return False
+
+        if declared is not self.declared:
+            self.declared = declared
+            # The case count may have changed with the edit. A known count
+            # comes from a literal list; a loader would have to run to be
+            # counted, so the progress bar honestly does not know.
+            expected = (
+                len(declared.cases) * declared.repeat
+                if isinstance(declared.cases, list | tuple)
+                else None
+            )
+            self.state = RunState(declared.name, expected=expected, columns=declared.columns)
+
         self.start_run()
-        self._set_status(self._changed_note)
+        return True
 
     def _announce(self, result: Result) -> None:
         """Hand a landed Result to the app's own loop.
@@ -428,6 +485,11 @@ class EvalApp(App[None]):
         totals = self.state.totals()
 
         note = f"done — {totals.completed} cases, {totals.pass_rate} passed"
+        if self._changed_note:
+            # Kept past the end of the run. It was shown only while the re-run
+            # was in flight, so for any fast eval it was replaced before it was
+            # drawn, and the user saw the numbers change without seeing why.
+            note += f"  (after {self._changed_note})"
         if self._cancelled_runs:
             # Said plainly. A user whose re-runs keep being cut short is editing
             # faster than the eval completes, and needs to know that rather than
@@ -575,8 +637,16 @@ class EvalApp(App[None]):
         self.push_screen(_Detail(render_comparison(comparison)))
 
     def action_rerun(self) -> None:
-        """Re-run from scratch. `start_run` cancels anything in flight."""
-        self.start_run()
+        """Re-run from scratch, from the file as it is now.
+
+        Reloads first for the same reason watch mode does: with `--once` there
+        is no watcher, and a user who edits and presses `r` is asking for the
+        edited code. `start_run` cancels anything in flight.
+        """
+        # A key press, not a file change: the previous change's note would
+        # otherwise be reported as the reason for this run.
+        self._changed_note = ""
+        self._rerun_fresh()
 
     @on(DataTable.RowSelected)
     def _row_selected(self, message: DataTable.RowSelected) -> None:

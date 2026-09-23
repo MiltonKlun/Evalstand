@@ -165,6 +165,23 @@ class TestAnEditedFileIsActuallyReloaded:
         second = select_eval(load_evals([tmp_path]))
         assert asyncio.run(_output(second)) == "second"
 
+    def test_an_edit_of_the_same_length_in_the_same_second_is_seen(self, tmp_path: Path) -> None:
+        """The case the test above cannot see, because `first` and `second`
+        differ in length.
+
+        Python validates a cached `.pyc` by the source's size and its mtime in
+        whole seconds. An edit that keeps the length and lands within the same
+        second — `0.5` to `0.7`, one character fixed — matched both, and the
+        old bytecode ran. Rewritten several times in a row, so at least one
+        pair lands in the same second on any machine.
+        """
+        path = _write(tmp_path, "qa_eval.py", name="qa", answer="aaaaa")
+
+        for answer in ("bbbbb", "aaaaa", "bbbbb", "ccccc"):
+            path.write_text(_EVAL_SOURCE.format(name="qa", answer=answer), encoding="utf-8")
+            loaded = select_eval(load_evals([tmp_path]))
+            assert asyncio.run(_output(loaded)) == answer, "stale bytecode was loaded"
+
     def test_the_module_is_not_left_in_sys_modules(self, tmp_path: Path) -> None:
         """One entry per edit would grow without bound over a long watch
         session, and nothing ever looks the module up by name."""
