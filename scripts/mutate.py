@@ -1863,6 +1863,12 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '        code = compile(path.read_bytes(), str(path), "exec", dont_inherit=True)\n        exec(code, module.__dict__)',
         "        spec.loader.exec_module(module)",
     ),
+    (
+        "src/evalstand/runner.py",
+        "the runner never records a case's latency",
+        "            latency_ms=latency_ms,\n",
+        "",
+    ),
 ]
 
 

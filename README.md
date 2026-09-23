@@ -145,7 +145,7 @@ behind something that does auth if it needs to leave the machine.
 ```bash
 uv sync --all-extras --dev
 uv run pytest                       # the suite
-uv run python scripts/mutate.py     # 284 mutants, all killed
+uv run python scripts/mutate.py     # 285 mutants, all killed
 uv run mkdocs serve                 # the docs site
 ```
 

@@ -18,6 +18,7 @@ import contextvars
 import copy
 import inspect
 import logging
+import time
 import traceback
 import uuid
 from collections.abc import Callable
@@ -214,6 +215,13 @@ async def _run_one(
         frames: list[str] = []
 
         with collector:
+            # The task alone: started inside the semaphore, so time spent
+            # queued behind other cases is not counted as this one's latency,
+            # and stopped before scoring, so a judge's own call is not either.
+            # Every renderer had a latency column and the database a column
+            # for it, but nothing here ever set it, so every real run showed
+            # `-` there — found by looking at the recorded demo's frames.
+            started = time.perf_counter()
             try:
                 output = await _call_task(declared.task, case.input, config.timeout_seconds)
             except TimeoutError:
@@ -225,6 +233,10 @@ async def _run_one(
             except Exception as exc:
                 error = f"{type(exc).__name__}: {exc}"
                 frames = _user_frames(exc)
+            # Kept for a task that raised or timed out too: it is the time the
+            # case actually spent, and "failed after 30s" is not the same
+            # finding as "failed at once".
+            latency_ms = round((time.perf_counter() - started) * 1000)
 
             # A task that failed has no output worth scoring. Inventing a zero
             # would claim it performed badly, when in truth it never finished.
@@ -243,6 +255,7 @@ async def _run_one(
             output=_snapshot(output),
             error=error,
             error_frames=frames,
+            latency_ms=latency_ms,
             scores=scores,
             traces=collector.traces,
             input_tokens=collector.total_input_tokens or None,

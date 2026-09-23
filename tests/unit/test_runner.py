@@ -499,3 +499,80 @@ class TestTheStoredOutputIsWhatWasScored:
         run = await run_eval(declared, RunConfig())
 
         assert [r.output for r in run.results] == ["X", "Y"]
+
+
+class TestLatencyIsRecorded:
+    """Every renderer showed a latency column and the database kept one, but
+    the runner never set it, so every real run showed `-` there. The renderer
+    tests passed because they built Results with latency filled in by hand.
+    Found by looking at the frames of the recorded demo, where a case that
+    visibly took over a second showed no latency at all.
+
+    Asserted with generous bounds: these are wall-clock measurements, and the
+    point is *which* time is counted, not a millisecond figure.
+    """
+
+    @pytest.mark.anyio
+    async def test_a_case_records_how_long_its_task_took(self) -> None:
+        async def slow(value: str) -> str:
+            await asyncio.sleep(0.2)
+            return value
+
+        run = await run_eval(_eval(slow))
+
+        latency = run.results[0].latency_ms
+        assert latency is not None, "the runner did not record latency"
+        assert 150 <= latency < 2000
+
+    @pytest.mark.anyio
+    async def test_scoring_is_not_counted_as_the_tasks_time(self) -> None:
+        """A judge's own call is the scorer's cost, not the system under test's.
+        Folding it in would make a model look slower for being graded."""
+
+        async def slow_scorer(output: object, expected: object, case: Case) -> Score:
+            await asyncio.sleep(0.4)
+            return _scorer(output, expected, case)
+
+        declared = Eval(
+            name="test-eval",
+            cases=[Case(id="q1", input="x", expected="x")],
+            task=lambda value: value,
+            scorers=[slow_scorer],
+            filepath="test_eval.py",
+        )
+        run = await run_eval(declared)
+
+        latency = run.results[0].latency_ms
+        assert latency is not None
+        assert latency < 300, f"{latency}ms includes the scorer's 400ms"
+
+    @pytest.mark.anyio
+    async def test_waiting_for_a_slot_is_not_counted(self) -> None:
+        """With one slot, the second case waits for the first. That queueing
+        is the concurrency setting's doing, not the task's latency."""
+
+        async def slow(value: str) -> str:
+            await asyncio.sleep(0.25)
+            return value
+
+        cases = [Case(id=f"q{n}", input="x", expected="x") for n in range(2)]
+        run = await run_eval(_eval(slow, cases), RunConfig(concurrency=1))
+
+        second = run.results[1].latency_ms
+        assert second is not None
+        assert second < 450, f"{second}ms includes time spent queued behind q0"
+
+    @pytest.mark.anyio
+    async def test_a_task_that_raises_still_has_a_latency(self) -> None:
+        """ "Failed after thirty seconds" and "failed at once" are different
+        findings."""
+
+        async def broken(value: str) -> str:
+            await asyncio.sleep(0.2)
+            raise RuntimeError("boom")
+
+        run = await run_eval(_eval(broken))
+
+        result = run.results[0]
+        assert result.error is not None
+        assert result.latency_ms is not None and result.latency_ms >= 150
