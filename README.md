@@ -3,6 +3,13 @@
 > **Status: 1.0.0.** All 8 phases complete. Install with
 > `pip install evalstand`.
 
+![evalstand watch: rows land as each case finishes, one case opens to its trace
+tree, and fixing the wrong answer re-runs the eval on its own](docs/demo.gif)
+
+<sub>Recorded from [`examples/demo/`](examples/demo/) — offline, no API key. The
+few seconds the live view takes to start are cut; everything after is the tool
+running unedited.</sub>
+
 Evaluating an LLM application should feel like running a test suite.
 
 `evalstand` is a local-first LLM evaluation tool for Python. You write an eval
@@ -128,8 +135,9 @@ not score line items — span selection cannot produce a list of records — and
 the generative eval, which does, has not yet been run against a real model. One
 run of one method on a synthetic corpus is a record, not a verdict on either.
 
-**No demo GIF yet.** `examples/demo/` holds an offline eval and a VHS tape ready
-to record; the recording tooling is not installed here.
+**The live view takes a few seconds to start.** `evalstand watch` imports
+LiteLLM at start-up — over three seconds on its own — even for an eval that
+never calls a model. The demo recording cuts that wait and says so.
 
 **Cost figures are lower bounds when a model is not in LiteLLM's pricing table.**
 Unpriced calls are counted and declared, never silently treated as free.
@@ -145,7 +153,7 @@ behind something that does auth if it needs to leave the machine.
 ```bash
 uv sync --all-extras --dev
 uv run pytest                       # the suite
-uv run python scripts/mutate.py     # 285 mutants, all killed
+uv run python scripts/mutate.py     # 287 mutants, all killed
 uv run mkdocs serve                 # the docs site
 ```
 

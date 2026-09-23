@@ -672,3 +672,43 @@ class TestAnEditIsWhatReRuns:
             await _settle(pilot, app)
 
         assert calls == ["q1", "q1"]
+
+
+class TestAnEditToATaskFileIsWhatReRuns:
+    """The plan names "task file" changes explicitly. A task living in its own
+    module was re-run in its old version: the eval file was re-read, but its
+    `from helper import task` was answered from `sys.modules`."""
+
+    async def test_editing_the_imported_task_runs_the_edit(
+        self, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import uuid
+
+        from evalstand.loading import load_evals, select_eval
+        from evalstand.tui.app import FilesChanged
+
+        helper = f"tui_helper_{uuid.uuid4().hex[:8]}"
+        helper_file = tmp_path / f"{helper}.py"
+        helper_file.write_text("def task(value):\n    return 'wrong'\n", encoding="utf-8")
+        (tmp_path / "split_eval.py").write_text(
+            "from evalstand import Case, evaluate\n"
+            f"from {helper} import task\n\n"
+            "def check(output, expected):\n    return output == expected\n\n"
+            'evaluate(name="split", cases=[Case(id="q1", input="x", expected="right")],'
+            " task=task, scorers=[check])\n",
+            encoding="utf-8",
+        )
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        declared = select_eval(load_evals([tmp_path / "split_eval.py"]), "split")
+        app = _app(declared, expected=1, watch_roots=[tmp_path])
+        async with app.run_test() as pilot:
+            await _settle(pilot, app)
+            assert app.state.totals().passed == 0
+
+            helper_file.write_text("def task(value):\n    return 'right'\n", encoding="utf-8")
+            app.post_message(FilesChanged([helper_file]))
+            await pilot.pause()
+            await _settle(pilot, app)
+
+            assert app.state.totals().passed == 1, "the task file's old version ran"

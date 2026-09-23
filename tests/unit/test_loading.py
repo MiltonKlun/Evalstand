@@ -6,10 +6,14 @@ measured the code the user had just replaced would look exactly like a model
 ignoring their changes, and no amount of staring at the eval file would explain
 it.
 
-Freshness comes from `exec_module` re-reading the source, not from the module
-name — the loader's first docstring claimed otherwise and a mutant that fixed
-the name proved it wrong. Kept as a note because a plausible-sounding
-explanation that is false is worse than none: it stops the next reader looking.
+Freshness comes from compiling the source on every load — not from the module
+name, which the loader's first docstring claimed and a mutant disproved, and not
+from `exec_module`, which the second claimed. `exec_module` serves a cached
+`.pyc` whenever the source's size and whole-second mtime match, so a same-length
+edit within a second ran the old code. And the modules an eval file imports are
+fresh only if they are forgotten first. Kept as a record because each wrong
+explanation sounded right, and a plausible false one stops the next reader
+looking.
 """
 
 from __future__ import annotations
@@ -297,3 +301,118 @@ class TestTheWatchCommand:
         assert result.exit_code == 1
         assert "alpha" in result.output and "beta" in result.output
         assert launched == [], "the live view was opened despite an ambiguous selection"
+
+
+class TestForgettingTheUsersModules:
+    """An eval file is re-read on every load; the modules it imports were not.
+
+    `from helper import task` is answered from `sys.modules`, so a task living
+    in its own file ran in its old version after every edit — watch mode said
+    "changed: helper.py" and re-ran the old code.
+    """
+
+    @staticmethod
+    def _project(tmp_path: Path, answer: str) -> str:
+        """An eval that imports its task from a sibling module with a unique
+        name, so no other test's cached module can answer the import."""
+        import uuid
+
+        helper = f"reload_helper_{uuid.uuid4().hex[:8]}"
+        (tmp_path / f"{helper}.py").write_text(
+            f"def task(value):\n    return {answer!r}\n", encoding="utf-8"
+        )
+        (tmp_path / "proj_eval.py").write_text(
+            "from evalstand import Case, evaluate\n"
+            f"from {helper} import task\n\n"
+            "def check(output, expected):\n    return output == expected\n\n"
+            'evaluate(name="proj", cases=[Case(id="q1", input="x", expected="x")],'
+            " task=task, scorers=[check])\n",
+            encoding="utf-8",
+        )
+        return helper
+
+    def test_an_edited_helper_is_seen_after_forgetting(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from evalstand.loading import forget_modules_under
+
+        monkeypatch.syspath_prepend(str(tmp_path))
+        helper = self._project(tmp_path, "old")
+        assert select_eval(load_evals([tmp_path])).task("x") == "old"
+
+        (tmp_path / f"{helper}.py").write_text(
+            "def task(value):\n    return 'new'\n", encoding="utf-8"
+        )
+        dropped = forget_modules_under([tmp_path])
+
+        assert helper in dropped
+        assert select_eval(load_evals([tmp_path])).task("x") == "new"
+
+    def test_without_forgetting_the_old_helper_is_what_runs(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The other half, and the bug itself: the test above would pass for a
+        loader that happened to re-read helpers anyway."""
+        monkeypatch.syspath_prepend(str(tmp_path))
+        helper = self._project(tmp_path, "old")
+        select_eval(load_evals([tmp_path]))
+
+        (tmp_path / f"{helper}.py").write_text(
+            "def task(value):\n    return 'new'\n", encoding="utf-8"
+        )
+
+        assert select_eval(load_evals([tmp_path])).task("x") == "old"
+
+    def test_evalstand_itself_is_never_forgotten(self) -> None:
+        """The running app is made of it. Re-importing it underneath live
+        objects would give two copies of every class."""
+        import sys
+
+        from evalstand.loading import forget_modules_under
+
+        package = Path(sys.modules["evalstand"].__file__ or "").parent.parent
+        dropped = forget_modules_under([package])
+
+        assert not [name for name in dropped if name.split(".")[0] == "evalstand"]
+        assert "evalstand.api" in sys.modules
+
+    def test_installed_packages_are_never_forgotten(self) -> None:
+        """A virtualenv often lives inside the watched project. Forgetting
+        installed packages would re-import them under live objects."""
+        import json
+        import sys
+
+        from evalstand.loading import forget_modules_under
+
+        dropped = forget_modules_under([Path(sys.prefix), Path(json.__file__).parent])
+
+        assert "json" not in dropped
+        assert "json" in sys.modules
+
+
+class TestForgettingRemovesTheBytecodeToo:
+    def test_a_forgotten_modules_cached_bytecode_is_deleted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Checked directly rather than through timing. A helper edited at the
+        same length within one second re-imported as its old `.pyc` even after
+        being forgotten; whether a given test lands in the same second is luck,
+        so this asserts the mechanism: the cache file is gone."""
+        import importlib
+        import sys
+        import uuid
+
+        from evalstand.loading import forget_modules_under
+
+        monkeypatch.setattr(sys, "dont_write_bytecode", False)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        name = f"pyc_helper_{uuid.uuid4().hex[:8]}"
+        (tmp_path / f"{name}.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+        module = importlib.import_module(name)
+        cached = Path(module.__cached__)
+        assert cached.exists(), "the import did not write bytecode to test against"
+
+        forget_modules_under([tmp_path])
+
+        assert not cached.exists(), "stale bytecode was left for the next import"

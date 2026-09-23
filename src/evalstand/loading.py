@@ -20,7 +20,14 @@ from pathlib import Path
 
 from evalstand.api import Eval, _current_eval_file, registry
 
-__all__ = ["EVAL_GLOB", "NoEvalsFoundError", "eval_files", "load_evals", "select_eval"]
+__all__ = [
+    "EVAL_GLOB",
+    "NoEvalsFoundError",
+    "eval_files",
+    "forget_modules_under",
+    "load_evals",
+    "select_eval",
+]
 
 EVAL_GLOB = "*_eval.py"
 """The same pattern the plugin collects, so the two cannot disagree about what
@@ -83,6 +90,57 @@ def load_evals(paths: Iterable[Path | str] | None = None) -> list[Eval]:
             _current_eval_file.reset(token)
 
     return registry.evals()
+
+
+def forget_modules_under(roots: Iterable[Path | str]) -> list[str]:
+    """Drop the cached imports of the user's own code, so the next import re-reads it.
+
+    Reloading an eval file re-executes it, but its `from helper import task`
+    is answered from `sys.modules`, so an edit to the helper was never seen: a
+    watch session showed "changed: helper.py", re-ran, and ran the old task.
+    The eval file is re-read; the modules it imports are not, unless forgotten.
+
+    Every module whose file sits under `roots` is dropped, not only the ones
+    that changed. A module that imports the edited one and stays cached keeps a
+    reference to the old version, so forgetting only the edited file leaves the
+    stale code one import away.
+
+    Never dropped: `evalstand` itself, which the running app is made of, and
+    anything under the interpreter's own prefixes — a virtualenv often lives
+    inside the project directory being watched, and forgetting installed
+    packages would re-import them underneath live objects.
+    """
+    watched = [Path(root).resolve() for root in roots]
+    installed = {
+        Path(prefix).resolve() for prefix in (sys.prefix, sys.base_prefix, sys.exec_prefix)
+    }
+
+    dropped: list[str] = []
+    for name, module in list(sys.modules.items()):
+        if name == "evalstand" or name.startswith("evalstand."):
+            continue
+        location = getattr(module, "__file__", None)
+        if not location:
+            continue
+        try:
+            path = Path(location).resolve()
+        except OSError:  # pragma: no cover - a module whose file vanished
+            continue
+        if any(path.is_relative_to(prefix) for prefix in installed):
+            continue
+        if any(path.is_relative_to(root) for root in watched):
+            del sys.modules[name]
+            dropped.append(name)
+            # The bytecode goes too. Python accepts a cached `.pyc` when the
+            # source's size and whole-second mtime match, so a helper edited at
+            # the same length within one second re-imported as its old
+            # bytecode even after being forgotten — found by a test whose edit
+            # was `'wrong'` to `'right'`. A cache file is always safe to delete;
+            # the next import rebuilds it from the source as it now is.
+            cached = getattr(module, "__cached__", None)
+            if cached:
+                Path(cached).unlink(missing_ok=True)
+    return dropped
 
 
 def _import_file(path: Path) -> None:

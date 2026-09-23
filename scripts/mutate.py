@@ -1848,7 +1848,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     (
         "src/evalstand/tui/app.py",
         "watch mode re-runs the eval imported at start-up instead of the edit",
-        "        return select_eval(load_evals([Path(self.declared.filepath)]), self.declared.name)",
+        "        return select_eval(load_evals([eval_file]), self.declared.name)",
         "        return self.declared",
     ),
     (
@@ -1867,6 +1867,18 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "src/evalstand/runner.py",
         "the runner never records a case's latency",
         "            latency_ms=latency_ms,\n",
+        "",
+    ),
+    (
+        "src/evalstand/tui/app.py",
+        "a reload leaves the eval's imported task module cached and stale",
+        "        forget_modules_under(self.watch_roots or [eval_file.parent])\n",
+        "",
+    ),
+    (
+        "src/evalstand/loading.py",
+        "a forgotten module keeps its stale bytecode",
+        "            if cached:\n                Path(cached).unlink(missing_ok=True)\n",
         "",
     ),
 ]

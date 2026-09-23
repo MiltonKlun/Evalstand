@@ -368,9 +368,14 @@ class EvalApp(App[None]):
         if not self.declared.filepath:
             return self.declared
 
-        from evalstand.loading import load_evals, select_eval
+        from evalstand.loading import forget_modules_under, load_evals, select_eval
 
-        return select_eval(load_evals([Path(self.declared.filepath)]), self.declared.name)
+        eval_file = Path(self.declared.filepath)
+        # The modules the eval file imports are cached separately from it. A
+        # task living in its own file would otherwise run in its old version
+        # after every edit — the same stale re-run, one import away.
+        forget_modules_under(self.watch_roots or [eval_file.parent])
+        return select_eval(load_evals([eval_file]), self.declared.name)
 
     def _rerun_fresh(self) -> bool:
         """Reload the eval from disk and run it. False when it could not load.
