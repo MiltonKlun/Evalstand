@@ -1,6 +1,6 @@
 # evalstand
 
-> **Status: 1.0.0.** All 8 phases complete. Install with
+> **Status: 1.0.1.** All 8 phases complete. Install with
 > `pip install evalstand`.
 
 ![evalstand watch: rows land as each case finishes, one case opens to its trace

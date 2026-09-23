@@ -1,6 +1,6 @@
 [project]
 name = "evalstand"
-version = "1.0.0"
+version = "1.0.1"
 description = "A local-first LLM evaluation tool for Python: write evals, run them like tests, watch results stream in."
 readme = "README.md"
 license = { file = "LICENSE" }
