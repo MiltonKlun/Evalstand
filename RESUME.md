@@ -1,6 +1,6 @@
 # Where this project stands
 
-Updated 2026-09-23. `evalstand` 1.0.0 is on PyPI and the showcase baseline is
+Updated 2026-09-23. `evalstand` 1.0.1 is on PyPI and the showcase baseline is
 recorded. The Jev evaluation lives in `JEV.md` (short version: not as a scorer;
 yes as an extraction method, which is what produced the baseline).
 
@@ -13,7 +13,7 @@ which needs a person to narrate it. Nothing is half-finished.
 
 | | |
 | --- | --- |
-| Release | **`evalstand` 1.0.0 on PyPI**, tag `v1.0.0`, installed from PyPI into a clean venv and run end to end |
+| Release | **`evalstand` 1.0.1 on PyPI**, tag `v1.0.1`, installed from PyPI into a clean venv and run end to end |
 | Tests | 1631 passing, 8 deselected (the `live` marker) |
 | Mutants | 287 in `scripts/mutate.py`, **zero stale anchors** (a suite test enforces it) |
 | Gate | `ruff check` · `ruff format --check` · `mypy` · `mkdocs build --strict` clean over the whole tree |
@@ -33,12 +33,6 @@ which needs a person to narrate it. Nothing is half-finished.
    `OPENAI_API_KEY`, and its numbers belong in a second document beside the
    Jev one, not overwriting it — the two methods answer different questions.
 
-3. **Release 1.0.1 — recommended soon.** `CHANGELOG.md` holds user-facing fixes
-   shipped broken in 1.0.0: **watch mode re-ran stale code** (the headline
-   feature), task-file edits were never seen, latency was never recorded, and
-   sub-cent costs showed as `$0.0000`. Anyone on 1.0.0 using `watch` is seeing
-   old results after every edit. Bump both version strings (a test fails
-   if only one moves), commit, tag `v1.0.1`; `release.yml` does the rest.
 
 ## The intermittent collection failure — a watch item
 
