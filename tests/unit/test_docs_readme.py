@@ -163,11 +163,38 @@ class TestTheLimitationsSectionIsHonest:
         for hint in ["password", "token=", "HTTPBasic", "Depends("]:
             assert hint not in source, f"serve now does auth; the README says it does not ({hint})"
 
-    def test_it_admits_the_missing_demo_gif(self, text: str) -> None:
-        """The plan asks for a GIF at the top. Until one exists, saying so beats
-        an empty space a reader reads as a broken image."""
-        if "demo.gif" not in text or text.count("demo.gif") == 1:
-            assert "No demo GIF yet" in text or "demo GIF" in text
+    def test_the_demo_gif_it_shows_exists_within_the_plans_limits(self, text: str) -> None:
+        """Task 6.8: a GIF at the top, under 5 MB and 30 seconds.
+
+        This used to be a conditional that passed whether or not the GIF
+        existed. Now there is one, so the checks are about it: the path the
+        README embeds resolves, the file is inside the plan's limits, and the
+        README has stopped saying it is missing. Duration is read from the
+        GIF's own frame delays rather than trusted from a note.
+        """
+        import re as _re
+
+        embedded = _re.search(r"\]\((docs/demo\.gif)\)", text)
+        assert embedded, "the README does not embed docs/demo.gif"
+
+        gif = ROOT / embedded.group(1)
+        assert gif.exists(), "the README embeds a GIF that is not in the repository"
+
+        data = gif.read_bytes()
+        assert data[:6] in (b"GIF87a", b"GIF89a"), "docs/demo.gif is not a GIF"
+        assert len(data) < 5 * 1024 * 1024, f"{len(data)} bytes, over the plan's 5 MB"
+
+        # Graphic Control Extension: 0x21 0xF9 0x04, packed byte, then the
+        # frame delay in hundredths of a second, little-endian.
+        delays = [
+            int.from_bytes(data[match.start() + 4 : match.start() + 6], "little")
+            for match in _re.finditer(rb"\x21\xf9\x04", data)
+        ]
+        seconds = sum(delays) / 100
+        assert delays, "no frame timing found in the GIF"
+        assert 5 < seconds < 30, f"{seconds:.1f}s, outside the plan's 30 seconds"
+
+        assert "No demo GIF yet" not in text
 
 
 class TestTheStatusLine:

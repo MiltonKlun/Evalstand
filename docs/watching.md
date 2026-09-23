@@ -79,6 +79,29 @@ resolving an import graph you can defeat with a dynamic import or a prompt read
 from disk, and a watch mode that silently misses a change is worse than one that
 occasionally re-runs too much — you stop trusting what you see.
 
+## Every re-run reads your code again
+
+A re-run imports the eval file afresh, and forgets the cached imports of every
+module under the watched folders first — so a task, a prompt builder or a
+helper living in its own file runs in its edited version, not the one the
+session started with. Each is compiled from source, never from `__pycache__`:
+Python trusts a cached `.pyc` whose source has the same size and the same
+modification time *to the second*, so a one-character fix saved twice within a
+second would otherwise run the old code.
+
+`r` does the same. Under `--once` there is no watcher, and pressing `r` after an
+edit runs the edit.
+
+**A file that no longer imports runs nothing.** A typo mid-edit is ordinary, and
+the live view says so — `could not load qa_eval.py: SyntaxError: … — nothing was
+re-run` — rather than falling back to the version it loaded earlier. That
+fallback would show results labelled as your current code, produced by code
+that is no longer on disk.
+
+Installed packages and `evalstand` itself are never re-imported. Editing a
+library in your virtualenv mid-session is not something watch mode picks up;
+restart it.
+
 ## Editing during a run
 
 **A change cancels the run in flight.** Waiting for a slow Batch to drain would

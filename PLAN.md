@@ -554,7 +554,9 @@ Harness at 202 mutants; 1089 tests.
   - In-flight model calls are allowed to finish and land in the Cache rather than being hard-killed. The money is already spent; discarding the response wastes it, and the next Batch will want it.
   - *Acceptance:* editing a prompt triggers a re-run within one second without restarting the process; a cancelled Batch never appears in `history` or `compare`.
 - [x] **6.7 Keybindings:** `q` quit, `r` re-run, `f` filter to failures, `c` compare with previous run, `/` search, `y` copy case id.
-- [ ] **6.8 Record a demo GIF** with `vhs` or `asciinema` + `agg`, embedded at the top of the README.
+- [x] **6.8 Record a demo GIF** with `vhs` or `asciinema` + `agg`, embedded at the top of the README.
+  - **Recorded 2026-09-23:** `docs/demo.gif`, 0.13 MB, 18.4 s — rows landing, a trace tree, the failures filter, and a watch-mode re-run that flips the one failing case to passing. Start-up is cut and the README says so.
+  - **Recording it found three real bugs, none of them in the tape.** Watch mode re-ran the eval imported at start-up rather than the edit; a task file's edit was never re-imported; and the loader could serve a same-length edit's stale `.pyc`. Separately, the runner never recorded per-case latency, so every latency column showed `-`. The first recording exited 0 while showing a failure that never flipped; the frames showed it at once.
   - *Acceptance:* under 5 MB, showing a full run, a trace tree, and watch-mode re-run in under 30 seconds.
 
 **Exit criteria:** the TUI satisfies every UI row in the Section 2 table. The README opens with a GIF that makes the value obvious in five seconds.

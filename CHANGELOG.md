@@ -16,7 +16,26 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `baseline.py` reads the model from the run's own traces and names the eval
   file it describes. Both used to be hard-coded for the generative eval.
 
+- Task 6.8: the demo GIF, `docs/demo.gif`, at the top of the README. Recorded
+  from `examples/demo/`, offline; the live view's start-up is cut and the README
+  says so.
+
 ### Fixed
+- **Watch mode re-ran the code it started with, not the edit.** A file change
+  triggered a re-run of the eval imported when the session began, so the status
+  said "changed", the rows re-landed, and the old code ran. `r` had the same
+  flaw. Both now reload the eval from disk; a file that no longer imports is
+  reported and nothing is run.
+- An edit to a **task file** the eval imports was never seen: the import was
+  answered from Python's module cache. Modules under the watched folders are now
+  forgotten before a reload, and their cached bytecode deleted.
+- The loader could run a same-length edit's **stale bytecode**: Python accepts a
+  `.pyc` whose source matches in size and whole-second mtime. Eval files are now
+  compiled from source on every load.
+- **Per-case latency was never recorded**, so every latency column showed `-`.
+  The runner now times the task alone — not queueing, not scoring.
+- The "changed: <file>" indicator vanished as soon as a fast re-run finished; it
+  now stays on the finished run's status line.
 - A priced cost under half a hundredth of a cent printed as `$0.0000` — the
   string reserved for "nobody knows", attached to a known, non-zero amount.
   Short calls to cheap models, including ordinary judge calls, were shown as
