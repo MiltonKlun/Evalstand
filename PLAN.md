@@ -491,7 +491,7 @@ Harness now at 116 mutants; 861 tests.
   - Uses no verdict language, for the same reason `compare` does not — asserted by test.
   - **Remaining:** `pytest extraction_eval.py` with `OPENAI_API_KEY` set (~60 calls), then `python baseline.py <run_id>`.
 
-**Exit criteria:** runs persist, history and comparison work, the showcase example runs from a clean clone. **— met 2026-09-05**, except the recorded baseline in 5.7, which needs an API key. Runs persist with provenance; `history`, `show` and `compare` all read them back; the example generates a byte-identical corpus and runs end to end.
+**Exit criteria:** runs persist, history and comparison work, the showcase example runs from a clean clone. **— met 2026-09-05**; the 5.7 baseline followed on 2026-09-22. Runs persist with provenance; `history`, `show` and `compare` all read them back; the example generates a byte-identical corpus and runs end to end.
 
 ---
 
@@ -581,10 +581,11 @@ Harness at 202 mutants; 1089 tests.
   - Marked done while two of the seven named pages did not exist. `architecture.md` and the ADR index were missing from *both* the nav and the disk, so the nav/disk consistency tests agreed with each other and `mkdocs build --strict` stayed green — nothing linked to what nobody had written. `TestTheSiteCoversWhatWasPromised` now asserts against this list rather than against the site. Consistency is not coverage.
 - [x] **7.5 Rewrite the README:** one-sentence problem statement, demo GIF, 60-second quickstart, feature list mapped to the Section 2 parity table, reproducible numbers from the showcase example, an honest **Limitations** section, the attribution footnote, licence.
   - The Limitations section is required. State plainly that score deltas are reported without significance testing and that LLM judge scorers are unvalidated in this version.
-- [ ] **7.6 Publish to PyPI** via a tagged `release.yml` using trusted publishing. Tag `v1.0.0`.
+- [x] **7.6 Publish to PyPI** via a tagged `release.yml` using trusted publishing. Tag `v1.0.0`.
+  - **1.0.0 published 2026-09-21, 1.0.1 on 2026-09-23**, both through `release.yml` with trusted publishing, and both verified by installing from PyPI into a clean venv and running an eval. 1.0.1 fixes watch mode re-running stale code. The box stayed unticked for two days after 1.0.0 shipped — noticed only when re-reading the plan for next steps.
 - [ ] **7.7 Record a 3-minute demo video:** write an eval, run it in watch mode, edit the prompt, watch the re-run, open a trace tree, break something and see the threshold gate fail in CI.
 
-**Exit criteria:** installable from PyPI, docs live, video recorded, parity table fully satisfied.
+**Exit criteria:** installable from PyPI, docs live, video recorded, parity table fully satisfied. **— three of four met 2026-09-23:** on PyPI, docs live, all 21 parity rows at parity or beyond. The video (7.7) is outstanding.
 
 ---
 
