@@ -39,6 +39,7 @@ evalstand watch
 - [Watching](watching.md) — the live view and watch mode
 - [CI](ci.md) — thresholds, exit codes, pull-request comments
 - [Architecture](architecture.md) — how the pieces fit, for anyone changing them
+- [Limitations](limitations.md) — what it does not do, stated plainly
 - [Decisions](adr/index.md) — why the design is the way it is
 
 ## What makes it different

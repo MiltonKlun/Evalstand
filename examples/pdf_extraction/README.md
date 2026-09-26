@@ -147,6 +147,8 @@ and it is the jaggedness guidance working as documented: a model that reads
 dates as text should not be asked which component is the day.
 
 This is not a scorer. The model here is the *system under test*; the scoring is
-still `json_fields` and `close_to`, deterministic as always. See
-[JEV.md](../../JEV.md) for why that distinction decided against a Jev-backed
-scorer.
+still `json_fields` and `close_to`, deterministic as always. A constrained-choice
+model makes a poor *grader* for a different reason: it must always return one of
+its options, so a judgement that is genuinely ambiguous arrives as a confident
+one — where the built-in `judge` reports an unreadable reply as an errored score
+and leaves it out of the mean.

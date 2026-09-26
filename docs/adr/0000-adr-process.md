@@ -18,7 +18,7 @@ decision; it is superseded by a later ADR that references it.
 
 An ADR is required for:
 
-- Adding a dependency outside the approved list in `PLAN.md` Section 4.
+- Adding a runtime dependency.
 - Waiving or changing a row in the Section 2 capability table.
 - Any architectural choice a future contributor would reasonably question.
 

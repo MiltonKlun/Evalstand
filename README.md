@@ -1,7 +1,6 @@
 # Evalstand
 
-> **Status: 1.0.1.** All 8 phases complete. Install with
-> `pip install evalstand`.
+> **Status: 1.0.1, stable.** Install with `pip install evalstand`.
 
 ![evalstand watch: rows land as each case finishes, one case opens to its trace
 tree, and fixing the wrong answer re-runs the eval on its own](docs/demo.gif)
@@ -20,9 +19,6 @@ Existing Python options are either heavyweight platforms that push you toward a
 hosted service, or bare metric libraries with no runner, no persistence, and no
 live feedback loop. `evalstand` is the middle: a real runner with a real UI that
 stays on your machine.
-
-<!-- The demo GIF belongs here. See examples/demo/README.md to record it: the
-     eval is offline, so re-recording costs nothing. -->
 
 ## How to start
 
@@ -91,6 +87,7 @@ function under test, and **Scorers** judge what it returned.
 - [CI](docs/ci.md) — thresholds, exit codes, pull-request comments
 - [Web UI](docs/web.md) — `serve`, the JSON API, and how to read its numbers
 - [Architecture](docs/architecture.md) — how the pieces fit, for anyone changing them
+- [Limitations](docs/limitations.md) — what it does not do, stated plainly
 - [Decisions](docs/adr/) — why the design is the way it is
 
 ## In CI
@@ -126,11 +123,12 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Author
 
-**Milton Klun**  
+**Milton Klun**\
 *QA Automation Engineer | AI Quality Testing*
 
 <div align="left">
   <a href="https://www.linkedin.com/in/milton-klun/"><img src="https://img.shields.io/badge/LINKEDIN-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/></a><a href="mailto:miltonericklun@gmail.com"><img src="https://img.shields.io/badge/EMAIL-D14836?style=for-the-badge" alt="Email"/></a><a href="https://www.miltonklun.com"><img src="https://img.shields.io/badge/PORTFOLIO-000000?style=for-the-badge" alt="Live Site"/></a>
+</div>
 
 ---
 

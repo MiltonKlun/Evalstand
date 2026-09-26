@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -107,20 +108,33 @@ class TestItsCountsAreReal:
         assert not missing, f"the README shows commands that do not exist: {missing}"
 
 
-class TestTheLimitationsSectionIsHonest:
-    """Required by the plan, and the section most likely to be quietly dropped
-    once the numbers look good."""
+LIMITATIONS = ROOT / "docs" / "limitations.md"
 
-    def test_it_exists(self, text: str) -> None:
-        assert "## Limitations" in text
 
-    def test_it_says_a_delta_is_not_a_verdict(self, text: str) -> None:
-        assert "no significance testing" in text.lower()
+@pytest.fixture(scope="module")
+def limitations() -> str:
+    return LIMITATIONS.read_text(encoding="utf-8")
 
-    def test_it_says_judge_scorers_are_unvalidated(self, text: str) -> None:
-        assert "unvalidated" in text.lower()
 
-    def test_it_describes_the_baseline_that_actually_exists(self, text: str) -> None:
+class TestTheLimitationsAreStatedAndReachable:
+    """The limitations live on their own docs page, linked from the README.
+
+    They moved out of the README to keep its front page short, which makes the
+    link the thing most likely to be lost next: a limitations page nobody can
+    find from the front page is a limitations page nobody reads. So the link is
+    checked as well as the claims.
+    """
+
+    def test_the_readme_links_to_them(self, text: str) -> None:
+        assert "docs/limitations.md" in text, "the README no longer points at the limitations"
+
+    def test_it_says_a_delta_is_not_a_verdict(self, limitations: str) -> None:
+        assert "no significance testing" in limitations.lower()
+
+    def test_it_says_judge_scorers_are_unvalidated(self, limitations: str) -> None:
+        assert "unvalidated" in limitations.lower()
+
+    def test_it_describes_the_baseline_that_actually_exists(self, limitations: str) -> None:
         """The README and `BASELINE.md` must agree about whether there is one.
 
         This only checked one direction while the file was a placeholder: the
@@ -132,24 +146,25 @@ class TestTheLimitationsSectionIsHonest:
         baseline = (ROOT / "examples" / "pdf_extraction" / "BASELINE.md").read_text(
             encoding="utf-8"
         )
+        text = limitations
         if "Not yet recorded" in baseline:
             assert "no published baseline" in text.lower()
             return
 
-        assert "no published baseline" not in text.lower(), "the README denies a real baseline"
+        assert "no published baseline" not in text.lower(), "the page denies a real baseline"
 
         model = re.search(r"\| model \| `([^`]+)` \|", baseline)
         assert model, "BASELINE.md does not name its model"
-        assert model.group(1) in text, f"the README does not say {model.group(1)} produced it"
+        assert model.group(1) in text, f"the page does not say {model.group(1)} produced it"
 
         if "Line items were not scored" in baseline:
-            assert "line items" in text.lower(), "the README omits what the baseline does not cover"
+            assert "line items" in text.lower(), "the page omits what the baseline does not cover"
 
-    def test_it_says_the_web_ui_has_no_authentication(self, text: str) -> None:
+    def test_it_says_the_web_ui_has_no_authentication(self, limitations: str) -> None:
         """A security property a reader acts on. `serve` exposes every recorded
         prompt and completion, and the only thing standing between that and a
         network is a default the user can override with one flag."""
-        assert "no authentication" in text.lower()
+        assert "no authentication" in limitations.lower()
 
     def test_no_auth_is_still_true(self) -> None:
         """Pinned against the code, not just the prose. If authentication were
@@ -235,17 +250,37 @@ class TestTheStatusLine:
             f"the status line does not name {evalstand.__version__}"
         )
 
-    def test_the_phase_count_matches_the_plan(self, text: str) -> None:
-        """The status line said "Phases 0-3 of 7" while phase 6 was finished.
 
-        Now that every phase is done the line says "All 8 phases", so the check
-        is that the number it names is the number the plan has.
-        """
-        plan = (ROOT / "PLAN.md").read_text(encoding="utf-8")
-        phases = len(re.findall(r"^## Phase \d", plan, re.MULTILINE))
+class TestNothingPublicPointsAtAPrivateFile:
+    """Working notes are kept out of the repository by `.gitignore`. A link to
+    one from a public page would be a 404 for every visitor who followed it."""
 
-        claimed = re.search(r"All (\d+) phases", text) or re.search(r"Phases 0-\d+ of (\d+)", text)
-        assert claimed, "the status line should say how far along the project is"
+    PRIVATE: ClassVar[list[str]] = ["PLAN.md", "RESUME.md", "JEV.md", "DEMO_SCRIPT.md"]
 
-        # Phase 0 is counted in the plan's headings but not in the total.
-        assert int(claimed.group(1)) == phases - 1, "the README's phase total is wrong"
+    def test_no_tracked_document_names_them(self) -> None:
+        import subprocess
+
+        tracked = subprocess.run(
+            ["git", "ls-files", "*.md", "*.yml", "*.toml"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()
+
+        offenders = [
+            f"{path}: {name}"
+            for path in tracked
+            for name in self.PRIVATE
+            if name in (ROOT / path).read_text(encoding="utf-8")
+        ]
+        assert not offenders, f"public files reference private notes: {offenders}"
+
+    def test_the_private_files_are_ignored(self) -> None:
+        """Listed in `.gitignore`, so a `git add .` cannot publish them again."""
+        ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+        for name in self.PRIVATE:
+            assert any(line.strip().rstrip("/").endswith(name) for line in ignored), (
+                f"{name} is not in .gitignore"
+            )

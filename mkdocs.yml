@@ -57,6 +57,7 @@ nav:
       - CI: ci.md
       - Web UI: web.md
   - Architecture: architecture.md
+  - Limitations: limitations.md
   - Decisions:
       - Index: adr/index.md
       - The ADR process: adr/0000-adr-process.md

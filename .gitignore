@@ -30,3 +30,9 @@ coverage.xml
 # Build artifacts
 dist/
 site/
+
+# Private working notes, kept locally and out of the published repository
+PLAN.md
+RESUME.md
+JEV.md
+examples/demo/DEMO_SCRIPT.md
