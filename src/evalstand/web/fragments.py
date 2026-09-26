@@ -1,8 +1,8 @@
-"""Server-rendered HTML fragments for the HTMX front end (task 8.2).
+"""Server-rendered HTML fragments for the HTMX front end.
 
 HTMX swaps fragments the server renders; there is no client-side model, so
 there is nothing to drift out of step with the server's, and no build step. The
-stack stays entirely Python, which is what the plan asks for.
+stack stays entirely Python.
 
 Every value is escaped through `reporting.html.escape`, and status comes from
 `reporting.html.status_of`. Both are imported rather than reimplemented: a

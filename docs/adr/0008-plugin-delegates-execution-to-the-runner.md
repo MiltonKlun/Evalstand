@@ -7,11 +7,11 @@ The pytest plugin takes over `pytest_runtestloop`. It hands every selected Eval
 to `run_eval()` before any item runs, then each item's `runtest` merely reports
 the Result the runner already produced. The plugin no longer executes anything.
 
-Phase 2's plugin executed each case inside its own `runtest`. That is the
+The first version of the plugin executed each case inside its own `runtest`. That is the
 obvious shape, and it is wrong for this tool: **pytest runs items strictly one
 after another.** A per-item `runtest` therefore cannot be concurrent, cannot
 abandon one case on a timeout while others continue, and cannot share a cache or
-a trace collector across a run. Every capability Phase 3 built was unreachable
+a trace collector across a run. Every capability the runner provides was unreachable
 from the path users actually run — `pytest` and `evalstand run` both. The
 summary printed `-` for cost on runs that really did spend money, because Runs
 were rebuilt from item state that never held a trace.
@@ -20,7 +20,7 @@ The risk register anticipated this as *"the plugin fights the runner's async
 model"* and prescribed falling back to a standalone runner with pytest
 compatibility as a stretch. That fallback is not needed. `pytest_runtestloop`
 resolves the conflict outright: only one component executes, so there is nothing
-left to fight over, and parity item 19 (bare `pytest` collects and runs evals)
+left to fight over, and the promise that bare `pytest` collects and runs evals
 is preserved rather than waived.
 
 ## Why not take the loop over entirely

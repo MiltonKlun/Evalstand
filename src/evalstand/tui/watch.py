@@ -1,4 +1,4 @@
-"""Watch mode: re-run when the code being measured changes (task 6.6).
+"""Watch mode: re-run when the code being measured changes.
 
 The feedback loop this tool exists for. Editing a prompt and seeing the scores
 move without leaving the terminal is the difference between evaluating a change

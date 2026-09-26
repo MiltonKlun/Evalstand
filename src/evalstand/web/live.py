@@ -1,4 +1,4 @@
-"""Server-sent events for the live run table (task 8.2).
+"""Server-sent events for the live run table.
 
 The runner already publishes finished Results to a `ResultSink`; this is the
 same seam the TUI uses. A browser is one more observer, and `runner._announce`

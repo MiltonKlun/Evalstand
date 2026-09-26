@@ -1,4 +1,4 @@
-"""The structured scorer (task 4.5).
+"""The structured scorer.
 
 An extraction task rarely gets everything right or everything wrong, and a
 single pass/fail throws away the only information worth having: *which* field
@@ -28,7 +28,7 @@ strict = json_fields(require_all=True)
 
 class TestTheAcceptanceCriterion:
     def test_three_of_five_fields_scores_point_six(self) -> None:
-        """Task 4.5's stated acceptance, verbatim."""
+        """A per-field breakdown alongside the overall score."""
         expected = {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}
         output = {"a": 1, "b": 2, "c": 3, "d": 99, "e": 98}
 

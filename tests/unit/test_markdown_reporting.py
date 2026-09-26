@@ -1,4 +1,4 @@
-"""The pull-request comment (task 7.2).
+"""The pull-request comment.
 
 A PR comment is read by someone who did not run the evals and cannot see the
 terminal. That makes the honesty rules matter more here, not less: a reviewer

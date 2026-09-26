@@ -1,4 +1,4 @@
-"""Watch mode (task 6.6).
+"""Watch mode.
 
 Two acceptance criteria, and they pull in opposite directions: editing a prompt
 must trigger a re-run within a second, *and* a Batch cut short by that edit must

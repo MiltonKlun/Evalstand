@@ -1,4 +1,4 @@
-"""Tracing (task 3.2).
+"""Tracing.
 
 The risk register names this the feature that decides whether the tool is real
 or a wrapper, and names `contextvars` under `asyncio.gather` as the specific
@@ -75,7 +75,7 @@ class TestSyncNesting:
         assert judge.parent_id == task.id
 
     def test_three_levels_nest(self) -> None:
-        """Task 3.2's acceptance shape: a task making nested calls."""
+        """A task making nested calls."""
         # Written flat rather than nested: `with a, b, c` nests identically for
         # context managers, and the assertions below are what prove the shape.
         with (
@@ -278,7 +278,7 @@ class TestRecordedFields:
 
 class TestCostRollup:
     def test_node_costs_sum_to_the_case_total(self) -> None:
-        """Task 3.2's acceptance: the sum of node costs equals the case total."""
+        """The sum of node costs equals the case total."""
         with TraceCollector() as collector, trace("task"):
             record_call(name="a", model="m", duration_ms=1, cost_usd=0.01)
             with trace("judge"):

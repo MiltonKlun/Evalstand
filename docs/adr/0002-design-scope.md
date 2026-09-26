@@ -57,7 +57,7 @@ The shape of the authoring experience, because it is the thing worth having:
 ## Added
 
 Three capabilities the reference does not have. They are marked **beyond** in
-the plan's capability table and stated in the README, because the honest framing
+the project's capability list and stated in the README, because the honest framing
 is stronger than implying parity:
 
 - **Stable case identity.** The reference identifies results positionally, by

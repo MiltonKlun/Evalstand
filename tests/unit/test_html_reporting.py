@@ -1,4 +1,4 @@
-"""The static HTML report (task 8.3).
+"""The static HTML report.
 
 A CI artifact is opened by whoever did not run the evals — often days later,
 often someone without the project installed. Three things therefore matter more

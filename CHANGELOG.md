@@ -16,7 +16,7 @@ file were never seen, latency was never recorded, and sub-cent costs printed
 as `$0.0000` — all listed under *Fixed* below.
 
 ### Added
-- Task 5.7: the showcase baseline, recorded. `BASELINE.md` now describes one
+- The showcase baseline, recorded. `BASELINE.md` now describes one
   real run — span selection with TypeSafe's `jev-1.13.0` over the 30-invoice
   corpus: 180/180 scalar fields, $0.0015. It covers the scalar fields only and
   says so beside the table; the generative eval's baseline still awaits a key.
@@ -25,7 +25,7 @@ as `$0.0000` — all listed under *Fixed* below.
 - `baseline.py` reads the model from the run's own traces and names the eval
   file it describes. Both used to be hard-coded for the generative eval.
 
-- Task 6.8: the demo GIF, `docs/demo.gif`, at the top of the README. Recorded
+- The demo GIF, `docs/demo.gif`, at the top of the README. Recorded
   from `examples/demo/`, offline; the live view's start-up is cut and the README
   says so.
 
@@ -53,7 +53,7 @@ as `$0.0000` — all listed under *Fixed* below.
 
 ## [1.0.0] — 2026-09-21
 
-First published release. Every phase of the plan is complete: the authoring
+First published release: the authoring
 API and pytest collection, the concurrent runner with nested trace trees, ten
 scorers, SQLite history with `history`/`show`/`compare`, the Textual TUI and
 watch mode, CI integration with documented exit codes, and an optional web UI.
@@ -66,50 +66,50 @@ labels. Both are stated in the README's Limitations section rather than left
 for a user to discover.
 
 ### Added
-- Phase 8 complete: the optional web UI. `evalstand serve` opens a browser view
+- The optional web UI. `evalstand serve` opens a browser view
   of run history, behind a `web` extra so a default install does not pull in a
   web server. A read-only JSON API, an HTMX front end with no build step, and a
   live table fed by server-sent events. The page computes no score, mean or
   pass count of its own — it renders through the same helpers the terminal uses,
   so it cannot drift from `evalstand show` (ADR 0009). 1587 tests.
-- Task 8.3: `--html PATH` writes a self-contained HTML report for a CI artifact.
+- `--html PATH` writes a self-contained HTML report for a CI artifact.
   One file, no external references, no JavaScript — so it renders in the
   sandboxed iframe CI systems serve artifacts from and survives being emailed.
   Unlike the terminal summary and the PR comment it shows everything: full
   outputs and whole trace trees, with failing cases expanded and passes
   collapsed.
-- Phase 7 complete: CI integration, docs, and the release path. `--fail-on-error`
+- CI integration, docs, and the release path. `--fail-on-error`
   and a documented exit-code contract (`0` met the bar, `1` below `--threshold`,
   `2` something did not run, with `2` outranking `1`); `--output markdown` for a
   pull-request comment; three copyable GitHub Actions recipes; an mkdocs-material
   site built strictly and deployed to Pages; a rewritten README with a
   Limitations section; and a tag-driven `release.yml` using trusted publishing.
   1404 tests, 243 mutants.
-- Phase 6 complete: the TUI and watch mode. A live run view whose rows land as
+- The TUI and watch mode. A live run view whose rows land as
   each case finishes, a case detail pane with the trace tree, a history screen
   that compares any two runs, custom columns via `evaluate(columns=)`, and watch
   mode that re-runs on a file change and records the cancelled batch honestly.
-- Phase 5 complete: storage, history, and the showcase example. SQLite with
+- Storage, history, and the showcase example. SQLite with
   migrations, provenance on every batch, `history`, `show` and `compare`, and an
   invoice-extraction example whose 30-PDF corpus regenerates byte-identically
   from a fixed seed. 1089 tests.
-- Phase 4 complete: the scorer library. Ten scorers — `exact`,
+- The scorer library. Ten scorers — `exact`,
   `normalised_exact`, `contains`, `regex_match`, `levenshtein`, `ratio`,
   `close_to`, `json_fields`, `judge`, `factuality` — plus the `@scorer`
   decorator and signature adaptation. 829 tests.
-- Phase 3 complete: the runner, tracing, repeats, and streaming. Concurrent
+- The runner, tracing, repeats, and streaming. Concurrent
   execution behind a semaphore, nested trace trees with per-node cost, repeats
   that bypass the cache in both directions, and streamed chunks reaching a live
   view as they arrive. 367 tests.
-- Phase 2 complete: the authoring API and pytest collection. `evaluate()`,
+- The authoring API and pytest collection. `evaluate()`,
   the pytest plugin, console reporting, a minimal `evalstand run`, and the toy
   example. 263 tests, 98% coverage.
-- Phase 1 complete: the model-call layer. `models.py` (Case, Score, Trace,
+- The model-call layer. `models.py` (Case, Score, Trace,
   Result, Run, Batch), `llm.py` (calls, streaming, retry, cost), `cache.py`
   (SQLite response cache), `cassettes.py` (record/replay). 176 tests, 99%
   coverage, no API keys required.
 - ADR 0006 (trace parenting), 0007 (LiteLLM over provider SDKs).
-- Phase 0 complete: repository scaffold, tooling configuration, CI workflow,
+- Repository scaffold, tooling configuration, CI workflow,
   ADR process.
 - `CONTEXT.md`: the project's domain model, 29 terms.
 - ADR 0002 (design scope), 0003 (no variants in v1), 0004 (`evaluate()`
@@ -120,16 +120,16 @@ for a user to discover.
 - `compare` exits `2` rather than `1` when it has nothing to compare — an absent
   run, or one whose batch never finished. A CI job seeing `1` could not tell
   "these runs differ badly" from "there was no measurement here".
-- `evalstand.trace` is the working implementation. It had been the Phase 2
-  placeholder that raised `NotImplementedError` since Phase 3: every internal
-  caller reached past the export to `evalstand.tracing.trace`, so nothing
-  noticed for four phases.
+- `evalstand.trace` is the working implementation. It had been a placeholder
+  that raised `NotImplementedError` long after the real one existed: every
+  internal caller reached past the export to `evalstand.tracing.trace`, so
+  nothing noticed for weeks.
 - `reporting.console` exports `UNKNOWN`, `pass_counts`, `format_score` and
   `format_cost`, so the markdown reporter and the TUI share one set of honesty
   rules rather than three copies that drift.
 - Results are stored and replayed in declaration order. An `ordinal` column
   replaces the previous `ORDER BY case_id`, which returned `q10` before `q2`.
-- Task 3.3 corrected: repeats now bypass the cache unconditionally. Its previous
+- Repeats now bypass the cache unconditionally. The previous
   rule — bypass only when temperature > 0 — could not be implemented, because a
   Task makes its own model calls and the runner cannot inspect their parameters.
 - Schema gains `batches`, `case_snapshots.content_hash`, `scores.error`,

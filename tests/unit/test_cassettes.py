@@ -1,9 +1,9 @@
-"""Cassette record/replay (task 1.6).
+"""Cassette record/replay.
 
 A cassette is a committed recording of a real provider response. It exists so
 tests can run offline against payload shapes that actually came back from a
 provider, rather than shapes a test author believed a provider returns — the
-streamed-cost bug in task 1.3 came from exactly that gap.
+an early streamed-cost bug came from exactly that gap.
 
 Distinct from the Cache: deleting a cassette breaks the suite, deleting the
 cache only costs money.

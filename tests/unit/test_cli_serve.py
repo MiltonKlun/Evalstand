@@ -1,4 +1,4 @@
-"""`evalstand serve` (task 8.4).
+"""`evalstand serve`.
 
 Two failures are worth catching here, and neither is a crash.
 

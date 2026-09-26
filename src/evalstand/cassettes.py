@@ -2,7 +2,7 @@
 
 A cassette lets a test run offline against a payload shape that genuinely came
 back from a provider, rather than one a test author believed a provider returns.
-That distinction is not academic: the streamed-cost bug in task 1.3 existed
+That distinction is not academic: an early streamed-cost bug existed
 because a hand-written mock agreed with the wrong assumption.
 
 Cassettes are **not** the response cache. Deleting a cassette breaks the suite;

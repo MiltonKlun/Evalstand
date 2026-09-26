@@ -1,4 +1,4 @@
-"""Recording a run to history (task 5.2), end to end.
+"""Recording a run to history, end to end.
 
 Two of these correspond to bugs found by running the tool rather than by
 reading it, and both failed *silently* — the summary printed normally, the exit
@@ -59,7 +59,7 @@ def store(tmp_path: Path) -> Any:
 
 
 class TestHistoryAccumulates:
-    """The bug that made Phase 5 pointless.
+    """The bug that made run history pointless.
 
     A Result's id is `{eval}-{case}-{repeat}` — stable within a run, and so
     identical across runs of the same eval. With a bare PRIMARY KEY on that
@@ -80,7 +80,7 @@ class TestHistoryAccumulates:
         assert results == 2
 
     def test_ten_runs_of_one_eval_all_persist(self, store: RunStore) -> None:
-        """History is the point of the phase. One entry is not history."""
+        """History is the point of recording. One entry is not history."""
         recorder = BatchRecorder(store, git=GitState())
         for index in range(10):
             recorder.record(_run(f"run-{index}", recorder.batch_id))

@@ -1,4 +1,4 @@
-"""The HTMX front end (task 8.2).
+"""The HTMX front end.
 
 Three failures are worth catching, and none of them is a 500.
 

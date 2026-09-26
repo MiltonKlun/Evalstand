@@ -1,4 +1,4 @@
-"""The optional web UI (Phase 8).
+"""The optional web UI.
 
 Imported only by `evalstand serve`. Everything here depends on the `web` extra,
 which a default install does not have — see ADR 0009 for why that is deliberate.

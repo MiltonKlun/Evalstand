@@ -8,7 +8,7 @@ that would make the demo any more honest, because what it demonstrates is the
 
 The sleeps are what make the recording show anything. Without them every case
 completes in the same frame and the GIF shows a finished table, which is
-precisely the impression this phase exists to correct.
+precisely the impression the live view exists to correct.
 
 The showcase example with real measurements is `examples/pdf_extraction/`.
 """

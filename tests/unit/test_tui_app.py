@@ -1,4 +1,4 @@
-"""The run view, driven headlessly (tasks 6.1, 6.2, 6.3, 6.5, 6.7).
+"""The run view, driven headlessly.
 
 `state.py` is tested as pure logic; this file tests the half that only a running
 terminal can show — that rows are actually mounted, that they arrive *during*
@@ -7,7 +7,7 @@ the run rather than at the end, and that the keys do what the footer says.
 The incremental assertion is the one worth reading carefully. A test that runs
 the app to completion and then counts rows passes just as happily against a UI
 that painted everything in one batch at the end, which is precisely the failure
-this phase exists to avoid. So the run is held open mid-flight and the table is
+the live view exists to avoid. So the run is held open mid-flight and the table is
 inspected while cases are still executing.
 """
 
@@ -54,11 +54,11 @@ async def _settle(pilot: Any, app: EvalApp) -> None:
 
 
 class TestRowsAppearIncrementally:
-    """Task 6.1's acceptance criterion, and the reason the runner grew a
+    """Rows land as each case finishes — and the reason the runner grew a
     per-Result sink at all."""
 
     async def test_a_row_is_mounted_while_other_cases_are_still_running(self) -> None:
-        """The assertion this phase turns on.
+        """The assertion the live view turns on.
 
         The last case blocks until the table has already been inspected, so a UI
         that painted every row at the end would find an empty table here. A test
@@ -115,7 +115,7 @@ class TestRowsAppearIncrementally:
 
 
 class TestTheSummaryPanel:
-    """Task 6.2."""
+    """The summary panel."""
 
     async def test_it_reports_per_scorer_means_and_pass_count(self) -> None:
         app = _app(_eval(_echo, "q1", "q2"), expected=2)
@@ -137,7 +137,7 @@ class TestTheSummaryPanel:
 
 
 class TestCaseDetail:
-    """Task 6.3."""
+    """The case detail view."""
 
     async def test_enter_opens_the_selected_case(self) -> None:
         app = _app(_eval(_echo, "q1", "q2"), expected=2)
@@ -242,7 +242,7 @@ class TestCaseDetail:
 
 
 class TestKeybindings:
-    """Task 6.7."""
+    """The key bindings."""
 
     async def test_f_filters_to_failures(self) -> None:
         async def half(value: str) -> str:
@@ -331,7 +331,7 @@ class TestKeybindings:
 
 
 class TestSearch:
-    """Task 6.7's `/`."""
+    """The `/` search."""
 
     async def test_slash_filters_the_table_by_case_id(self) -> None:
         app = _app(_eval(_echo, "alpha", "beta", "gamma"), expected=3)
@@ -433,7 +433,7 @@ class TestSearch:
 
 
 class TestCompareWithPrevious:
-    """Task 6.7's `c`."""
+    """The `c` compare key."""
 
     async def test_it_says_so_when_there_is_nothing_to_compare_against(self) -> None:
         """An empty comparison reads as "nothing changed", which is a claim
@@ -517,7 +517,7 @@ def _status_text(app: EvalApp) -> str:
 
 
 class TestCustomColumns:
-    """Task 6.5, at the widget level."""
+    """Custom columns, at the widget level."""
 
     async def test_a_declared_column_becomes_a_table_column(self) -> None:
         declared = _eval(_echo, "q1", columns={"length": lambda r: len(str(r.output))})

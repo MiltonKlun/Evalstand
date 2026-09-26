@@ -1,4 +1,4 @@
-"""The run store (task 5.1).
+"""The run store.
 
 Unlike the response cache, this is load-bearing: deleting the cache costs money,
 corrupting this loses the comparison data the tool exists to provide. So the
@@ -86,7 +86,7 @@ def _run(run_id: str = "r1", batch_id: str = "b1", **kwargs: Any) -> Run:
 
 
 class TestTheMigration:
-    """Task 5.1's acceptance, point by point."""
+    """What the store guarantees, point by point."""
 
     def test_it_applies_to_an_empty_database(self, store: RunStore) -> None:
         assert store.schema_version == LATEST_VERSION
@@ -214,7 +214,7 @@ class TestTheDatabaseEnforcesItsOwnInvariants:
 
 class TestWritingARun:
     def test_a_second_run_does_not_corrupt_the_first(self, store: RunStore) -> None:
-        """Task 5.1's acceptance. Each run is its own transaction, so the second
+        """Each run is its own transaction, so the second
         cannot disturb the first."""
         store.save_batch(_batch())
         store.save_run(_run("r1"))

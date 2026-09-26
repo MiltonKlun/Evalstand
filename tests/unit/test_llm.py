@@ -1,4 +1,4 @@
-"""The LiteLLM wrapper: token, cost, and latency extraction (task 1.2).
+"""The LiteLLM wrapper: token, cost, and latency extraction.
 
 Every test here mocks LiteLLM. The suite must pass with no provider API key set.
 """

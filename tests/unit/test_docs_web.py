@@ -1,4 +1,4 @@
-"""What `docs/web.md` promises (task 8.2 / 8.4).
+"""What `docs/web.md` promises.
 
 A documented endpoint that does not exist, or a flag spelled wrong, costs a
 reader the time to find out — and the doc is the only place the JSON API is

@@ -1,4 +1,4 @@
-"""The JSON API over run history (task 8.1).
+"""The JSON API over run history.
 
 The defect this file is written against is not a 500. It is an endpoint that
 answers confidently and wrongly — a pass rate that disagrees with the terminal,

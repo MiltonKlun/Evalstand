@@ -200,9 +200,9 @@ def _cache_note(runs: list[Run]) -> list[str]:
     """What the cache did, or why it did nothing.
 
     A bypassed run paid for every call. Showing a 0% hit rate would read as a
-    cache that missed, when in truth it was deliberately skipped — and the plan
-    calls repeats the easiest way to run up a bill by accident, so the number of
-    calls actually paid for is stated.
+    cache that missed, when in truth it was deliberately skipped — and repeats are the
+    easiest way to run up a bill by accident, so the number of calls actually
+    paid for is stated.
     """
     calls = sum(run.model_calls for run in runs)
     if not calls:

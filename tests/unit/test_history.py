@@ -1,4 +1,4 @@
-"""Reading history back (task 5.3).
+"""Reading history back.
 
 The danger in a read path is not that it crashes — it is that it returns
 something that looks right and differs from what was stored. So most of this

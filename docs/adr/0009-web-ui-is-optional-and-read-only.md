@@ -3,14 +3,14 @@
 - **Status:** accepted
 - **Date:** 2026-09-14
 
-Phase 8 adds a FastAPI backend, an HTMX front end, and `evalstand serve`. Three
+The web UI is a FastAPI backend, an HTMX front end, and `evalstand serve`. Three
 decisions shape all of it.
 
 ## It is an optional extra
 
 `fastapi`, `uvicorn` and `sse-starlette` live in the `web` extra, not in
 `dependencies`. `evalstand` is a local-first CLI and TUI: the primary way to
-watch a run is `evalstand watch`, which Phase 6 already ships. A user who never
+watch a run is `evalstand watch`, which already ships. A user who never
 runs `serve` should not install a web server, an ASGI framework and their
 transitive tree to get a test runner.
 
@@ -29,7 +29,7 @@ reporter call.
 This is the rule that matters most here. A second implementation of "which
 Results count towards a pass rate" would eventually disagree with the first, and
 a web page contradicting the terminal about whether a build passed is worse than
-either number alone. The same reasoning made `pass_counts` public in Phase 7.
+either number alone. The same reasoning made `pass_counts` public for the markdown reporter.
 
 ## Missing data stays missing
 
@@ -42,7 +42,7 @@ and should use it.
 
 **The front end holds no state.** HTMX swaps server-rendered fragments and SSE
 pushes new rows. There is no client-side model to drift from the server's, and
-no build step — which keeps the stack entirely Python, as the plan asks.
+no build step — which keeps the stack entirely Python.
 
 **A browser disconnecting must not affect a run.** The SSE publisher is a
 `ResultSink` like the TUI's, and `_announce` already guarantees an observer that

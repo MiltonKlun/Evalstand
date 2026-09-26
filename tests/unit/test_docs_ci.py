@@ -1,4 +1,4 @@
-"""The exit-code contract `docs/ci.md` publishes (task 7.1).
+"""The exit-code contract `docs/ci.md` publishes.
 
 A documented exit code is a promise a CI job is written against. If the table
 and the code drift apart, every pipeline that trusted the table starts
@@ -105,7 +105,7 @@ class TestTheEmptyDatabaseClaim:
 
 
 class TestTheShippedWorkflows:
-    """Task 7.3 ships copyable YAML rather than a published Action.
+    """The CI recipe ships as copyable YAML rather than a published Action.
 
     That makes the block itself the deliverable: a user pastes it verbatim, and
     a typo costs them a red build and a confusing error in someone else's
@@ -162,7 +162,7 @@ class TestTheShippedWorkflows:
 
 
 class TestTheHtmlArtifactSection:
-    """Task 8.3's documentation.
+    """The HTML report's documentation.
 
     The `if: always()` advice is the load-bearing part: without it the upload is
     skipped exactly when the gate fired, so the report explaining the failure is

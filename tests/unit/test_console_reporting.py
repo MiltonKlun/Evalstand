@@ -1,4 +1,4 @@
-"""Console reporting (task 2.6).
+"""Console reporting.
 
 The summary is where a user learns what a run did, so what it must never do is
 state a number it cannot support: a mean over scores that errored, a cost of
@@ -216,7 +216,7 @@ class TestFailures:
 
 
 class TestFitsOneScreen:
-    """Task 2.6's acceptance: the toy example prints within one screen."""
+    """The toy example's summary fits on one screen."""
 
     def test_the_summary_is_under_twenty_lines(self) -> None:
         run = _run(
@@ -355,7 +355,7 @@ class TestUnknownPlaceholder:
 
 
 class TestRunTotals:
-    """Task 3.5: the aggregates a user needs to trust or question a run."""
+    """The aggregates a user needs to trust or question a run."""
 
     def test_the_cache_hit_rate_is_reported(self) -> None:
         run = _run(_result("q1", scores=[Score(scorer_name="exact", value=1.0)]))

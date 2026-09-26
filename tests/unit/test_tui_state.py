@@ -297,7 +297,7 @@ class TestPerScorerMeans:
 
 
 class TestCustomColumns:
-    """Task 6.5. A plain dict of callables, so this spends none of the
+    """Custom columns: a plain dict of callables, so this spends none of the
     remaining public-API slots."""
 
     def test_a_derived_column_is_rendered(self) -> None:

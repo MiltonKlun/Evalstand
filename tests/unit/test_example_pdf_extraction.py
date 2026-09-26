@@ -1,4 +1,4 @@
-"""The showcase example (task 5.6).
+"""The showcase example.
 
 The acceptance is unusual for this project: it is about **reproducibility**
 rather than about what a figure claims. `python generate.py --seed 42` must
@@ -67,7 +67,7 @@ def truth() -> list[dict[str, Any]]:
 
 
 class TestTheCorpusIsReproducible:
-    """Task 5.6's acceptance."""
+    """The corpus regenerates from its seed."""
 
     def test_regenerating_at_the_same_seed_reproduces_the_ground_truth(self) -> None:
         """The claim the whole example rests on — and the one it can keep.
@@ -334,7 +334,7 @@ class TestTheEvalIsWiredCorrectly:
 
 
 class TestTheBaselineGenerator:
-    """`baseline.py` turns a stored run into BASELINE.md (task 5.7).
+    """`baseline.py` turns a stored run into BASELINE.md.
 
     Generated rather than typed: a hand-written figure drifts from the code the
     moment either changes, and a baseline that quietly disagrees with the tool
@@ -461,7 +461,7 @@ class TestTheBaselineGenerator:
         assert "total, vendor" in modes[0][1][0]
 
     def test_the_rendered_document_carries_the_three_required_sections(self) -> None:
-        """Task 5.7 asks for per-field accuracy, cost per document, and
+        """A baseline states per-field accuracy, cost per document, and
         observed failure modes."""
         baseline = _load("baseline")
         text = baseline.render(

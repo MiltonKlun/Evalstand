@@ -1,4 +1,4 @@
-"""The pytest plugin (task 2.2).
+"""The pytest plugin.
 
 Uses pytest's own `pytester` fixture so these are real collection runs, not
 simulations of one. The risk register calls this out as the place the plugin
@@ -122,7 +122,7 @@ evaluate(
 
 class TestAsyncTasks:
     def test_an_async_task_runs(self, pytester: pytest.Pytester) -> None:
-        """Task 2.3: the user should never have to say which kind it is."""
+        """The user should never have to say which kind it is."""
         pytester.makepyfile(
             async_eval="""
 from evalstand import Case, evaluate
@@ -145,7 +145,7 @@ evaluate(
         result.assert_outcomes(passed=1)
 
     def test_sync_and_async_evals_agree(self, pytester: pytest.Pytester) -> None:
-        """Task 2.3's acceptance: identical evals, identical results."""
+        """Sync and async tasks: identical evals, identical results."""
         pytester.makepyfile(
             both_eval="""
 from evalstand import Case, evaluate

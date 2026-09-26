@@ -1,4 +1,4 @@
-"""Round-trip serialisation and invariants for the core models (task 1.1)."""
+"""Round-trip serialisation and invariants for the core models."""
 
 from __future__ import annotations
 
@@ -294,7 +294,7 @@ class TestBatch:
 
 
 class TestJsonSerialisability:
-    """Every model must survive the database round trip (task 1.1 acceptance)."""
+    """Every model must survive the database round trip."""
 
     def test_all_models_dump_to_plain_json(self) -> None:
         models = [

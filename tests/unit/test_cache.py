@@ -1,4 +1,4 @@
-"""The response cache (task 1.5).
+"""The response cache.
 
 The cache exists to avoid paying twice for an identical call. It is never
 load-bearing for correctness: deleting it must cost money, never break anything.
@@ -200,7 +200,7 @@ class TestStats:
 
 
 class TestCachedCalls:
-    """Task 1.5's acceptance criterion, stated end to end."""
+    """A repeated call is served from the cache, end to end."""
 
     def test_the_same_call_twice_hits_the_provider_once(self, cache: ResponseCache) -> None:
         completion = make_completion(input_tokens=12, output_tokens=3)
@@ -279,7 +279,7 @@ class TestCachedCalls:
 class TestConcurrency:
     """The cache must survive concurrent use.
 
-    Phase 3 runs cases concurrently. asyncio alone stays on one thread, but a
+    The runner executes cases concurrently. asyncio alone stays on one thread, but a
     thread pool anywhere in a user's task would otherwise hit a confusing
     SQLite "objects created in a thread can only be used in that thread" crash.
     """
@@ -323,7 +323,7 @@ class TestConcurrency:
 
     @pytest.mark.anyio
     async def test_survives_concurrent_asyncio_calls(self, cache: ResponseCache) -> None:
-        """The shape Phase 3's runner actually uses: gather on one thread."""
+        """The shape the runner actually uses: gather on one thread."""
         completion = make_completion(input_tokens=1, output_tokens=1)
 
         async def fake(**_: Any) -> MagicMock:

@@ -1,8 +1,8 @@
-"""Task 4.7: every built-in scorer meets the awkward inputs.
+"""Every built-in scorer meets the awkward inputs.
 
 The per-scorer test files each cover their own edge cases. This file is the
-*inventory*: it enumerates the public scorers and asserts the three the plan
-names — happy path, empty output, `None` expected — against every one of them.
+*inventory*: it enumerates the public scorers and asserts the three that
+bite in practice — happy path, empty output, `None` expected — against every one of them.
 
 The reason to have it as well as the per-scorer files is that those can only
 test the scorers someone remembered to write tests for. This one fails when a
@@ -92,7 +92,7 @@ class TestTheInventoryIsComplete:
     def test_every_exported_scorer_is_in_the_table(self) -> None:
         """The point of this file. A scorer added to the package without a row
         here is a scorer nobody checked against the awkward inputs, and a
-        checklist in PLAN.md cannot notice that."""
+        checklist in a document cannot notice that."""
         exported = {
             name
             for name in scorers_module.__all__
@@ -107,13 +107,13 @@ class TestTheInventoryIsComplete:
         )
 
     def test_the_library_is_large_enough_to_ship(self) -> None:
-        """Phase 4's exit criterion is eight or more built-in scorers."""
+        """The library promises at least eight built-in scorers."""
         assert len(BUILT) >= 8
 
 
 @pytest.mark.parametrize("name", sorted(BUILT))
 class TestEveryScorerMeetsTheAwkwardInputs:
-    """The three the plan names, applied to every scorer without exception."""
+    """The three awkward inputs, applied to every scorer without exception."""
 
     @pytest.mark.anyio
     async def test_the_happy_path_scores_one(self, name: str) -> None:

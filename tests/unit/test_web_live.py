@@ -1,4 +1,4 @@
-"""Server-sent events for the live table (task 8.2).
+"""Server-sent events for the live table.
 
 The broker sits between the runner and a browser, and the failure that matters
 is not a dropped event — it is a browser that slows down or breaks a run.

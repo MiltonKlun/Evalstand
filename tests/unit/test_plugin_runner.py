@@ -1,9 +1,10 @@
-"""The plugin executes through the runner (Phase 3 wiring).
+"""The plugin executes through the runner.
 
-Phase 3 built concurrency, timeouts, tracing and a shared cache, and Phase 2's
-plugin executed cases itself in `runtest` — so none of it reached the path users
-actually run. These tests pin down the seam between the two: the plugin collects
-and reports, the runner executes, and nothing executes twice.
+The runner provides concurrency, timeouts, tracing and a shared cache, and the
+first version of the plugin executed cases itself in `runtest` — so none of it
+reached the path users actually run. These tests pin down the seam between the
+two: the plugin collects and reports, the runner executes, and nothing executes
+twice.
 
 **Why `runpytest_subprocess` and not the default in-process run.** pytester's
 inline runner leaves `importlib.metadata` unable to enumerate distributions once
@@ -190,7 +191,7 @@ class TestPhase3CapabilitiesReachTheUser:
     """The point of the wiring: what the runner measures must be reported."""
 
     def test_traces_produce_token_and_cost_totals(self, pytester: pytest.Pytester) -> None:
-        """Phase 2's plugin built Runs from item state, which held no traces, so
+        """The first plugin built Runs from item state, which held no traces, so
         the footer printed "-" for a run that really did cost money."""
         pytester.makepyfile(model_eval=MODEL_EVAL)
         joined = "\n".join(pytester.runpytest_subprocess("--no-cov").outlines)

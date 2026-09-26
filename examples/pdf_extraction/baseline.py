@@ -10,8 +10,8 @@ baseline that quietly disagrees with the tool is worse than none: it is the
 number people quote.
 
 Everything here is a count of what happened. There is no "good" or "poor", no
-grade, and no comparison against an expectation — the plan is explicit that
-`evalstand` has no significance testing, and a baseline that editorialised would
+grade, and no comparison against an expectation — `evalstand` has no
+significance testing, and a baseline that editorialised would
 be asserting more than one run can support.
 """
 

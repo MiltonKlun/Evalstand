@@ -107,7 +107,7 @@ class FilesChanged(Message):
 
 
 class SummaryPanel(Static):
-    """Task 6.2: per-scorer means, pass count, cost, wall time, cache rate."""
+    """Per-scorer means, pass count, cost, wall time, cache rate."""
 
     def show(self, state: RunState) -> None:
         totals = state.totals()
@@ -132,7 +132,7 @@ class SummaryPanel(Static):
 
 
 class CaseDetail(ModalScreen[None]):
-    """Task 6.3: one case in full, with its trace tree.
+    """One case in full, with its trace tree.
 
     The rendering is `reporting.console.render_case`, not a second
     implementation. Two renderers disagreeing about what a case did — one
@@ -666,7 +666,7 @@ class EvalApp(App[None]):
             self._open(str(message.row_key.value))
 
     def action_open_case(self) -> None:
-        """Task 6.3: open the selected case.
+        """Open the selected case.
 
         Available while the run is still going, because a Result is complete the
         moment it lands — waiting for the whole run would withhold a finished
@@ -688,7 +688,7 @@ class EvalApp(App[None]):
         self.push_screen(CaseDetail(result, key))
 
     def action_history(self) -> None:
-        """Task 6.4. Opens only when there is a database to read.
+        """Open the history screen, when there is a database to read.
 
         Said plainly rather than showing an empty table: "no history" and "not
         recording" send a user to different places, and a blank screen implies

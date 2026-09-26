@@ -1,10 +1,10 @@
-"""The README's factual claims (task 7.5).
+"""The README's factual claims.
 
 The README is the first and often only thing a reader sees, which makes a stale
 claim there more expensive than anywhere else — and it goes stale silently,
 because nothing imports it. This file has already caught two: a status line
-saying "Phases 0-3 of 7" three phases late, and "levenshtein arrives in Phase 4"
-written when it had already shipped.
+reporting progress that was months out of date, and a scorer described as
+upcoming when it had already shipped.
 
 Only the checkable things are asserted. This is not a prose review.
 """
@@ -178,12 +178,12 @@ class TestTheLimitationsAreStatedAndReachable:
         for hint in ["password", "token=", "HTTPBasic", "Depends("]:
             assert hint not in source, f"serve now does auth; the README says it does not ({hint})"
 
-    def test_the_demo_gif_it_shows_exists_within_the_plans_limits(self, text: str) -> None:
-        """Task 6.8: a GIF at the top, under 5 MB and 30 seconds.
+    def test_the_demo_gif_it_shows_exists_within_its_limits(self, text: str) -> None:
+        """A GIF at the top, under 5 MB and 30 seconds.
 
         This used to be a conditional that passed whether or not the GIF
         existed. Now there is one, so the checks are about it: the path the
-        README embeds resolves, the file is inside the plan's limits, and the
+        README embeds resolves, the file is inside those limits, and the
         README has stopped saying it is missing. Duration is read from the
         GIF's own frame delays rather than trusted from a note.
         """
@@ -197,7 +197,7 @@ class TestTheLimitationsAreStatedAndReachable:
 
         data = gif.read_bytes()
         assert data[:6] in (b"GIF87a", b"GIF89a"), "docs/demo.gif is not a GIF"
-        assert len(data) < 5 * 1024 * 1024, f"{len(data)} bytes, over the plan's 5 MB"
+        assert len(data) < 5 * 1024 * 1024, f"{len(data)} bytes, over 5 MB"
 
         # Graphic Control Extension: 0x21 0xF9 0x04, packed byte, then the
         # frame delay in hundredths of a second, little-endian.
@@ -207,7 +207,7 @@ class TestTheLimitationsAreStatedAndReachable:
         ]
         seconds = sum(delays) / 100
         assert delays, "no frame timing found in the GIF"
-        assert 5 < seconds < 30, f"{seconds:.1f}s, outside the plan's 30 seconds"
+        assert 5 < seconds < 30, f"{seconds:.1f}s, over 30 seconds"
 
         assert "No demo GIF yet" not in text
 

@@ -1,4 +1,4 @@
-"""Every factual claim in `docs/watching.md` (task 6.6).
+"""Every factual claim in `docs/watching.md`.
 
 Same rule as `test_docs_scorers.py`: documentation that drifts from the code is
 worse than none, because a user who follows a wrong instruction loses time and

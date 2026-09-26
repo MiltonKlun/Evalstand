@@ -1,4 +1,4 @@
-"""Results reaching a watcher as they land (task 6.1).
+"""Results reaching a watcher as they land.
 
 The TUI's acceptance criterion is that rows appear incrementally, not in one
 batch at the end. `run_eval` gathers, so without a per-Result callback a live

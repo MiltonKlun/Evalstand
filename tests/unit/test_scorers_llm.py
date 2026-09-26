@@ -1,4 +1,4 @@
-"""LLM-as-judge scorers (task 4.6).
+"""LLM-as-judge scorers.
 
 The acceptance criterion — a judge's LLM call appears in the case's trace tree —
 is the one that matters most, because it is what stops LLM-as-judge from being
@@ -51,7 +51,7 @@ async def _run_judge(scorer: Any, reply: str, output: Any = "an answer") -> Scor
 
 
 class TestTheAcceptanceCriterion:
-    """Task 4.6: a judge's LLM call appears in the case's trace tree.
+    """A judge's LLM call appears in the case's trace tree.
 
     Asserted end to end through `run_eval`, because the mechanism being checked
     is that scoring happens inside the case's trace collector. A unit test of
@@ -329,7 +329,7 @@ class TestThePrompt:
 
 
 class TestTheAwkwardInputs:
-    """Task 4.7's three, for a scorer that cannot simply inspect its arguments."""
+    """The three awkward inputs, for a scorer that cannot simply inspect its arguments."""
 
     @pytest.mark.anyio
     async def test_an_empty_output_still_reaches_the_judge(self) -> None:

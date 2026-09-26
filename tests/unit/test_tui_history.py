@@ -1,4 +1,4 @@
-"""The history view (task 6.4).
+"""The history view.
 
 The assertion that matters most is not about the table — it is that comparing
 from *this* screen refuses a cancelled run exactly as `evalstand compare` does.

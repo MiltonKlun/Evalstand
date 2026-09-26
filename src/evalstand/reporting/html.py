@@ -1,4 +1,4 @@
-"""A self-contained HTML report, for a CI artifact (task 8.3).
+"""A self-contained HTML report, for a CI artifact.
 
 The plan calls this worth doing without the rest of the web UI, and the reason is
 what CI does to a terminal report: it scrolls away. A build log is searched

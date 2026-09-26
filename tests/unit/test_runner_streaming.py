@@ -1,4 +1,4 @@
-"""Streaming through the runner (task 3.4).
+"""Streaming through the runner.
 
 A streaming task's output must be visible as it arrives, not only when the case
 finishes. The runner cannot poll the task — the task owns the stream — so the

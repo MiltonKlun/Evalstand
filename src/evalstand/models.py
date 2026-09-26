@@ -251,7 +251,7 @@ class Run(_Model):
     results: list[Result] = Field(default_factory=list)
 
     model_config_used: dict[str, Any] = Field(default_factory=dict)
-    """What the run was configured with, for provenance (task 5.2).
+    """What the run was configured with, for provenance.
 
     Named `model_config_used` because pydantic reserves `model_config` on every
     BaseModel; using that name would silently shadow the class's own settings.
@@ -266,8 +266,8 @@ class Run(_Model):
     cache_hits: Annotated[int, Field(ge=0)] = 0
     cache_bypassed: bool = False
     """True when this run skipped the cache — repeats always do. Recorded
-    because a bypassed run spends the full amount every time, and the plan
-    calls that the easiest way to run up a bill by accident."""
+    because a bypassed run spends the full amount every time, which makes it
+    the easiest way to run up a bill by accident."""
 
     @model_validator(mode="after")
     def _results_are_distinct_executions(self) -> Self:

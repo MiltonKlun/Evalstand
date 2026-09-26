@@ -1,4 +1,4 @@
-"""The single page the browser loads (task 8.2).
+"""The single page the browser loads.
 
 HTMX is vendored as a `<script>` tag rather than fetched from a CDN. `serve` is
 a local-first command — a user runs it on a laptop, sometimes offline, often on

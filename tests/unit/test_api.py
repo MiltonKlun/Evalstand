@@ -1,4 +1,4 @@
-"""The public API: `evaluate()` and the registry (task 2.1).
+"""The public API: `evaluate()` and the registry.
 
 `evaluate()` registers and returns. It performs no I/O, starts no event loop, and
 makes no model calls — see ADR 0004. Every test here asserts that boundary in
@@ -234,7 +234,7 @@ class TestCaseLoading:
 
     @pytest.mark.anyio
     async def test_an_async_loader_works_inside_a_running_loop(self) -> None:
-        """Phase 3's runner is async, so it will call this from inside a loop.
+        """The runner is async, so it calls this from inside a loop.
         `asyncio.run` cannot nest, so the sync path must not be the only one."""
 
         async def load() -> list[Case]:

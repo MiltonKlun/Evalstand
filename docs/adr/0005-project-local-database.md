@@ -9,7 +9,7 @@ gitignored, rather than in a user-global cache directory.
 History is only meaningful relative to a codebase: comparing Runs across two
 unrelated projects is nonsense, and a global database makes `history` ambiguous
 for anyone working on more than one. Project-local storage also keeps a Run's
-provenance — the git SHA recorded in Phase 5.2 — aligned with the repository the
+provenance — the git SHA recorded with every run — aligned with the repository the
 database sits in.
 
 ## Consequences

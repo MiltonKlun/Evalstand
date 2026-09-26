@@ -1,4 +1,4 @@
-"""The JSON API over run history (task 8.1).
+"""The JSON API over run history.
 
 Reads what `RunStore` already holds. It computes no pass rate, no mean and no
 total of its own: those come from `reporting.console.pass_counts` and the Run's
@@ -205,7 +205,7 @@ def create_app(store: RunStore, broker: Any = None) -> FastAPI:
             detail=f"run {run_id!r} has no case {case_id!r} at repeat {repeat}",
         )
 
-    # ---- The HTMX front end (task 8.2) -------------------------------------
+    # ---- The HTMX front end -------------------------------------
     #
     # Fragments, not JSON. The page holds no client-side model, so there is
     # nothing to drift out of step with the server — the server renders every

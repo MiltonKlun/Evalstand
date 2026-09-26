@@ -1,7 +1,7 @@
 """The pytest plugin: collect `*_eval.py` and run one item per execution.
 
 Registered through the `pytest11` entry point, so bare `pytest` collects evals
-with no extra configuration (parity item 19).
+with no extra configuration.
 
 The unit of collection is one `(case, repeat_index)` pair, not one case. An item
 is one execution with one outcome; collapsing several stochastic executions into
@@ -10,8 +10,8 @@ a single pass/fail would require inventing an aggregation rule — any/all/major
 
 **Execution belongs to the runner, not to pytest.** pytest runs items strictly
 one after another, so a per-item `runtest` can never be concurrent, and every
-capability Phase 3 built — concurrency, timeouts, tracing, the shared cache —
-would be unreachable through the path users actually run. So the plugin takes
+capability the runner provides — concurrency, timeouts, tracing, the shared
+cache — would be unreachable through the path users actually run. So the plugin takes
 over `pytest_runtestloop`: it hands each eval to `run_eval()`, then replays the
 finished Results through the items so pytest still reports one outcome per case
 and `-k`, `-x`, `--collect-only` and the rest keep working.
@@ -42,7 +42,7 @@ _SESSION_MARKER = "_evalstand_registry_reset"
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Phase 3's execution controls, exposed on the path users actually run.
+    """The runner's execution controls, exposed on the path users actually run.
 
     These configure *how* a run executes, never what it measures, so they are
     flags rather than anything declared in an eval file.
@@ -727,8 +727,8 @@ def _collected_runs(config: pytest.Config) -> list[Run]:
     """The Runs the runner produced.
 
     Assembly belongs to the runner, which is the only place that saw the traces,
-    token counts and costs. Rebuilding Runs here from item state — as Phase 2
-    did — would silently drop all three, which is exactly how a summary comes to
-    print "-" for a run that really did cost money.
+    token counts and costs. Rebuilding Runs here from item state — as the first
+    version of the plugin did — would silently drop all three, which is exactly
+    how a summary comes to print "-" for a run that really did cost money.
     """
     return list(getattr(config, "_evalstand_runs", []))

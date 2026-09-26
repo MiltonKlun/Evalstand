@@ -1,4 +1,4 @@
-"""The runner (task 3.1).
+"""The runner.
 
 Concurrent execution with a semaphore, ordered result collection, per-case
 timeouts, and errors captured on the Result rather than aborting the run.
@@ -89,7 +89,7 @@ class TestBasicExecution:
 
 
 class TestErrorsDoNotAbortTheRun:
-    """Task 3.1's acceptance: one case raising still completes the run."""
+    """One case raising still completes the run."""
 
     @pytest.mark.anyio
     async def test_a_raising_case_is_recorded_and_the_rest_complete(self) -> None:
@@ -199,7 +199,7 @@ class TestTimeouts:
 class TestConcurrency:
     @pytest.mark.anyio
     async def test_cases_run_concurrently(self) -> None:
-        """Task 3.1's acceptance: changing concurrency changes wall time."""
+        """Changing concurrency changes wall time."""
 
         async def task(value: str) -> str:
             await asyncio.sleep(0.05)
@@ -360,7 +360,7 @@ class TestRepeats:
 
     @pytest.mark.anyio
     async def test_a_nondeterministic_task_produces_distinct_outputs(self) -> None:
-        """Task 3.3's acceptance, in the runner: repeats must actually re-execute
+        """Repeats must actually re-execute
         rather than reuse one answer."""
         counter = 0
 
@@ -374,7 +374,7 @@ class TestRepeats:
 
 
 class TestRunTotals:
-    """Task 3.5: per-run aggregates."""
+    """Per-run aggregates."""
 
     @pytest.mark.anyio
     async def test_reports_wall_time(self) -> None:
@@ -412,7 +412,7 @@ class TestTheStoredOutputIsWhatWasScored:
     every stored output held the *last* value -- so the report showed two cases
     marked correct while their output column displayed the wrong answer. The
     scores were right and the evidence for them was gone, which makes a failure
-    undebuggable and will matter more in Phase 5, where these outputs are
+    undebuggable, and matters more once these outputs are
     persisted and compared across runs.
     """
 

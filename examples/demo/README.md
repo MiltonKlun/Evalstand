@@ -68,7 +68,7 @@ result. Find the right trim point by looking at the frames, not by guessing.
 
 Afterwards:
 
-- **under 5 MB** and **under 30 seconds** — the plan's limits
+- **under 5 MB** and **under 30 seconds**, so it loads fast at the top of the README
 - the table visibly **fills row by row**; if it appears complete in one frame,
   the recording missed the point and the sleeps in `answer()` need lengthening
 - the trace tree is legible at the recorded font size

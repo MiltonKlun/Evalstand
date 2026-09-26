@@ -1,4 +1,4 @@
-"""The numeric scorer (task 4.4).
+"""The numeric scorer.
 
 The plan asks for "sensible handling of None and unparseable output", and most
 of this file is about what "sensible" means. The rule the design settles on:
@@ -232,7 +232,7 @@ class TestWhatTheScoreSays:
 
 
 class TestTheAwkwardInputs:
-    """Task 4.7's three: happy path, empty output, and a None expected."""
+    """The three awkward inputs: happy path, empty output, and a None expected."""
 
     def test_an_empty_output_does_not_raise(self) -> None:
         assert close_to()("", 42).passed is False

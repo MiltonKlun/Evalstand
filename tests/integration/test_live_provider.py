@@ -1,4 +1,4 @@
-"""Live provider tests (task 1.2's remaining acceptance criterion).
+"""Live provider tests: the checks that need a real model.
 
 These are the only tests that reach a real provider and spend real money. They
 are marked `live` and excluded by default, so CI and a normal local run never
@@ -89,7 +89,7 @@ class TestLiveAsync:
 class TestLiveStreaming:
     @pytest.mark.anyio
     async def test_a_stream_yields_chunks_and_totals(self) -> None:
-        """Task 1.3 priced streams from `cost_per_token` because streamed
+        """Streams are priced from `cost_per_token` because streamed
         responses often omit usage. This is the only test that checks a real
         provider still sends it when asked."""
         streamer = acall_stream(MODEL, MESSAGES, temperature=0.0, max_tokens=5)

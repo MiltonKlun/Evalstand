@@ -1,4 +1,4 @@
-# A VHS script for the README's demo GIF (task 6.8).
+# A VHS script for the README's demo GIF.
 #
 #     cd examples/demo && vhs demo.tape
 #
@@ -10,7 +10,7 @@
 # What it demonstrates is the interface: rows landing one at a time, a trace
 # tree, and a re-run triggered by an edit.
 #
-# Under 30 seconds and 5 MB, as the plan requires. If it outgrows either, cut
+# Kept under 30 seconds and 5 MB. If it outgrows either, cut
 # the pauses rather than the content — a GIF that stops before the watch-mode
 # re-run has dropped the one thing that is hard to explain in prose.
 #

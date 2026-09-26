@@ -1,4 +1,4 @@
-"""The CLI (Phase 2's exit criterion).
+"""The command line interface.
 
 `run` delegates to pytest rather than reimplementing collection: a second
 execution path would be a second thing to keep correct, and the two could
@@ -133,7 +133,7 @@ class TestRun:
 
 
 class TestExecutionFlags:
-    """Phase 3's controls, reachable from the CLI.
+    """The runner's execution controls, reachable from the CLI.
 
     Asserted on observable behaviour rather than on the argv the CLI builds: a
     test that only checks the forwarded string would pass just as happily if the

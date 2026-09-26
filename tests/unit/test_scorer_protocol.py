@@ -1,4 +1,4 @@
-"""The Scorer protocol (task 4.1).
+"""The Scorer protocol.
 
 The acceptance criterion is "a user-defined 3-line scorer works without
 importing any base class", so most of these are about what a user can get away

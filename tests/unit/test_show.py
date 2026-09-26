@@ -1,4 +1,4 @@
-"""Rendering one run in full (task 5.4).
+"""Rendering one run in full.
 
 Two themes. The first is the trace tree: the Result validator guarantees a
 forest — no cycles, no dangling parents, no duplicate ids — so the renderer can

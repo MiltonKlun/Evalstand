@@ -1,4 +1,4 @@
-"""Cache policy in the runner (task 3.3).
+"""Cache policy in the runner.
 
 The runner cannot pass a cache to the task: the task calls `llm.call()` itself,
 with parameters that live in user code. So the cache reaches it the same way the
@@ -99,7 +99,7 @@ class TestCacheReachesTheTask:
 
 
 class TestRepeatsBypassTheCache:
-    """Task 3.3's core rule."""
+    """The core rule: a repeat never reads the cache."""
 
     @pytest.mark.anyio
     async def test_repeats_call_the_provider_every_time(self, cache: ResponseCache) -> None:
@@ -161,7 +161,7 @@ class TestRepeatsBypassTheCache:
     async def test_a_nondeterministic_task_yields_distinct_outputs(
         self, cache: ResponseCache
     ) -> None:
-        """Task 3.3's acceptance: repeats produce distinct outputs rather than
+        """Repeats produce distinct outputs rather than
         one answer repeated."""
         counter = 0
 

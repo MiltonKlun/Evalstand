@@ -50,7 +50,7 @@ honestly.
 
 **What it costs us, measured rather than assumed:**
 
-- `import litellm` takes ~3 seconds. Phase 2's pytest plugin pays that on every
+- `import litellm` takes ~3 seconds. The pytest plugin pays that on every
   collection, so it likely wants a deferred import.
 - It pulls 14 direct requirements — `boto3`, `aiohttp`, `openai`, and others —
   contributing to 102 packages in the environment. Heavy for a tool whose own
@@ -64,7 +64,7 @@ honestly.
   reported cost is stale too, and we would not know. This is why an unpriced
   call reports `None` rather than `0.0`: at least the gap is visible.
 - A provider quirk LiteLLM smooths over is a quirk we cannot see. The cassettes
-  from task 1.6 are partial insurance — they pin real payload shapes so a change
+  are partial insurance — they pin real payload shapes so a change
   in what LiteLLM returns fails a test rather than silently altering results.
 
 **What stays open:** nothing in the design prevents a second backend later. The

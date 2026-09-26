@@ -1,4 +1,4 @@
-"""Every factual claim in `docs/scorers.md` (task 4.8).
+"""Every factual claim in `docs/scorers.md`.
 
 Documentation that drifts from the code is worse than none: a user who follows
 a wrong example loses time and then trust. So the numbers, signatures and
@@ -174,7 +174,7 @@ class TestTheReturnValueTable:
 
 class TestTheJudgeCaveat:
     def test_the_doc_states_the_scorers_are_unvalidated(self) -> None:
-        """Task 4.6's note requires this to be said plainly, so its absence is
+        """The judge scorers' status must be said plainly, so its absence is
         a documentation bug worth failing the suite over."""
         assert "unvalidated" in TEXT.lower()
         assert "not been calibrated against human labels" in TEXT.lower()

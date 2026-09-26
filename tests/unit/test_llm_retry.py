@@ -1,4 +1,4 @@
-"""Retry policy (task 1.4).
+"""Retry policy.
 
 Retry on 429 and 5xx with exponential backoff and jitter, at most 3 attempts.
 Never retry an auth or content-policy error: those will fail identically every

@@ -1,4 +1,4 @@
-"""Task 1.6's acceptance criterion, demonstrated end to end.
+"""The whole suite runs offline against recorded responses, end to end.
 
 The unit suite already passes with no keys because it mocks LiteLLM. That proves
 the tests do not spend money; it does not prove the code works against a real

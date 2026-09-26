@@ -1,4 +1,4 @@
-"""Comparing two runs (task 5.5).
+"""Comparing two runs.
 
 The acceptance criterion is unusual: it is about what the output must *not*
 say. `evalstand` has no significance testing, so it cannot tell a real change
@@ -102,7 +102,7 @@ def _rendered(comparison: Any) -> str:
 
 
 class TestTheOutputAssertsNoVerdict:
-    """Task 5.5's acceptance, checked mechanically rather than by eye."""
+    """What a comparison reports, checked mechanically rather than by eye."""
 
     def test_no_verdict_word_appears_when_scores_fell(self) -> None:
         comparison = compare_runs(
@@ -463,7 +463,7 @@ class TestTheCompareCommand:
 
 
 class TestACancelledBatchIsRefused:
-    """Task 6.6: "a cancelled Batch never appears in `history` or `compare`".
+    """A cancelled Batch never appears in `history` or `compare`.
 
     `history` filtered one from the start; `compare` did not. A watch-mode run
     interrupted part-way covers a subset of its cases, and its aggregate
@@ -683,7 +683,7 @@ class TestSnapshotsOnOnlyOneSide:
 
 
 class TestTheDocumentedLimitation:
-    """`docs/ci.md` is required by the plan to state the limitation explicitly.
+    """`docs/ci.md` states the limitation explicitly, and must keep doing so.
     A doc that drifts from the code is worse than none: a reader who follows it
     loses time and then trust."""
 

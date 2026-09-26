@@ -1,4 +1,4 @@
-"""The exit codes a CI job depends on (task 7.1).
+"""The exit codes a CI job depends on.
 
 Three outcomes, and the distinction between the last two is the point:
 
@@ -155,7 +155,7 @@ class TestTwoMeansSomethingDidNotRun:
         assert _run(pytester, RAISING_EVAL, "--fail-on-error") == 2
 
     def test_an_errored_scorer_exits_two_with_the_flag(self, pytester: pytest.Pytester) -> None:
-        """The scenario the plan calls out: the mean is 1.00 over the one case
+        """The scenario that matters most: the mean is 1.00 over the one case
         that got measured, so a threshold alone would wave it through as
         excellent."""
         assert _run(pytester, PARTIALLY_SCORED_EVAL, "--fail-on-error") == 2

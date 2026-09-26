@@ -1,4 +1,4 @@
-"""Streaming calls (task 1.3).
+"""Streaming calls.
 
 The acceptance criterion is that a streamed call and a non-streamed call to the
 same prompt agree on accumulated text and on cost. Streamed responses often omit
@@ -202,7 +202,7 @@ class TestStreamedCostUsesTokenCounts:
 
 
 class TestStreamedMatchesNonStreamed:
-    """Task 1.3's acceptance criterion, stated directly."""
+    """A streamed call reports its tokens and cost, stated directly."""
 
     @pytest.mark.anyio
     async def test_same_text_and_equivalent_cost(self) -> None:

@@ -1,12 +1,11 @@
 """The command line interface.
 
-Phase 2 ships only `run`, which is what the phase's exit criterion requires. It
-delegates to pytest rather than reimplementing collection: the plugin already
-knows how to find and execute evals, and a second execution path would be a
-second thing to keep correct.
+`run` delegates to pytest rather than reimplementing collection: the plugin
+already knows how to find and execute evals, and a second execution path would
+be a second thing to keep correct.
 
-`history`, `show`, and `compare` arrive in Phase 5; `watch` — the live view and
-file-change re-runs — in Phase 6.
+`history`, `show` and `compare` read the local run store; `watch` opens the live
+view and re-runs on file changes; `serve` browses history in a browser.
 """
 
 from __future__ import annotations

@@ -58,8 +58,8 @@ current_cache: contextvars.ContextVar[ResponseCache | None] = contextvars.Contex
 """The cache for the run currently executing.
 
 A ContextVar rather than an argument because the task calls the model itself,
-with parameters that live in user code. The same reason task 3.3 could not gate
-on temperature: the runner cannot reach inside the task.
+with parameters that live in user code. The same reason repeats cannot bypass
+the cache only at non-zero temperature: the runner cannot reach inside the task.
 """
 
 current_bypass: contextvars.ContextVar[bool] = contextvars.ContextVar(

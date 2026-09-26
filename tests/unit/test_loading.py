@@ -1,4 +1,4 @@
-"""Finding evals without a pytest session (task 6.6).
+"""Finding evals without a pytest session.
 
 Watch mode re-imports after every edit, so the property that matters most is
 **freshness**: an edited file must produce the edited behaviour. A re-run that

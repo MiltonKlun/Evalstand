@@ -1,4 +1,4 @@
-"""Automatic capture: every model call appears in the trace tree (task 3.2).
+"""Automatic capture: every model call appears in the trace tree.
 
 The user writes no tracing code. This is what makes the feature useful rather
 than a thing people forget to instrument — and it is why `llm.py` is the only
@@ -50,7 +50,7 @@ class TestAutomaticCapture:
         assert chat.parent_id == task.id
 
     def test_nested_calls_form_the_tree_the_acceptance_asks_for(self) -> None:
-        """Task 3.2's acceptance: three nested calls, correct parentage, and the
+        """Three nested calls, correct parentage, and the
         node costs summing to the case total."""
         with (
             patch("evalstand.llm.litellm.completion", return_value=make_completion()),

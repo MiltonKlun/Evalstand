@@ -1,4 +1,4 @@
-"""Markdown reporting, for a pull-request comment (task 7.2).
+"""Markdown reporting, for a pull-request comment.
 
 A PR comment is read by someone who did not run the evals and cannot see the
 terminal. That makes the honesty rules matter *more* here than in the console,

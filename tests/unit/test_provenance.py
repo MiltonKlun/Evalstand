@@ -1,4 +1,4 @@
-"""Provenance (task 5.2): what produced a run.
+"""Provenance: what produced a run.
 
 A stored result without provenance is a number nobody can act on. The rule that
 runs through this file: **absent is not the same as false.** Not being in a

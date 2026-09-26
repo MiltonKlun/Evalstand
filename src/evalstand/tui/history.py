@@ -1,4 +1,4 @@
-"""The history view (task 6.4): browse past runs, open one, compare two.
+"""The history view: browse past runs, open one, compare two.
 
 Everything on screen comes from renderers that already exist —
 `render_history`, `render_run_detail`, `render_comparison`. A second set of
@@ -127,7 +127,7 @@ class HistoryScreen(Screen[None]):
         self._say(f"marked: {', '.join(self.marked) if self.marked else 'none'}")
 
     def action_compare(self) -> None:
-        """Render the Phase 5 comparison for the two marked runs."""
+        """Render the run comparison for the two marked runs."""
         if len(self.marked) != MAX_SELECTED:
             self._say(f"mark {MAX_SELECTED} runs with space, then press c")
             return

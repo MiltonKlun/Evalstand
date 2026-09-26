@@ -1,4 +1,4 @@
-"""The docs site holds together (task 7.4).
+"""The docs site holds together.
 
 A documentation site fails differently from code: nothing raises, the page just
 says the wrong thing or 404s, and the reader concludes the tool is unfinished.
@@ -74,12 +74,12 @@ class TestTheNav:
 
 
 class TestTheSiteCoversWhatWasPromised:
-    """Task 7.4 names seven deliverables. Six of them existed while the task was
-    marked done.
+    """The pages the docs site promises. Two of them were once missing while
+    everything built green.
 
     `TestTheNav` compares the nav against the files on disk, which agree with
     each other when a page is missing from *both* — so `architecture.md` and the
-    ADR index were absent for a whole phase without a single failing test and
+    ADR index were absent for weeks without a single failing test and
     with `mkdocs build --strict` green, because nothing linked to what nobody
     had written. Consistency is not coverage. This class asserts against the
     promise instead of against the site.
@@ -97,7 +97,7 @@ class TestTheSiteCoversWhatWasPromised:
 
     @pytest.mark.parametrize("page", PROMISED)
     def test_the_page_exists_and_is_in_the_nav(self, config: dict, page: str) -> None:
-        assert (DOCS / page).exists(), f"task 7.4 promises {page}"
+        assert (DOCS / page).exists(), f"the docs site promises {page}"
         assert page in _nav_pages(config["nav"]), f"{page} exists but is unreachable"
 
     def test_the_adr_index_lists_every_decision(self) -> None:

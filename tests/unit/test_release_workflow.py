@@ -1,4 +1,4 @@
-"""The release workflow (task 7.6).
+"""The release workflow.
 
 A release workflow is the least-tested code in most projects: it runs once per
 version, in an environment nobody can reproduce locally, and its failures are

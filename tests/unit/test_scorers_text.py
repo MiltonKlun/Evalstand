@@ -1,6 +1,6 @@
-"""String and fuzzy scorers (tasks 4.2 and 4.3).
+"""String and fuzzy scorers.
 
-Task 4.7 asks every scorer to cover the happy path, empty output, and a `None`
+Every scorer covers the happy path, empty output, and a `None`
 expected value. Those three are the ones that bite in practice: a model that
 returns nothing, and a Case with no reference answer, both reach a scorer that
 was written thinking about neither.
@@ -130,7 +130,7 @@ class TestRegexMatch:
 
 class TestLevenshtein:
     def test_the_documented_value(self) -> None:
-        """Task 4.3's acceptance criterion, and the value in the docs: 3 edits
+        """The value the docs quote: 3 edits
         over 7 characters."""
         assert levenshtein("kitten", "sitting").value == pytest.approx(0.5714285, abs=1e-6)
 
@@ -219,7 +219,7 @@ class TestBinaryScorersAlwaysClaimAVerdict:
 
 
 class TestTheAwkwardInputsEveryScorerMeets:
-    """Task 4.7: empty output and a `None` expected value.
+    """Empty output and a `None` expected value.
 
     A model that returns nothing and a Case with no reference answer both reach
     scorers written with neither in mind, and a scorer that raises produces an

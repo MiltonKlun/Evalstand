@@ -239,7 +239,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "        if not self.model_calls:\n            return None",
         "        if not self.model_calls:\n            return 0.0",
     ),
-    # --- Phase 3 wiring: the runner reached through the plugin ---
+    # --- The runner, reached through the plugin ---
     # --- selection: the money-losing bug ---
     (
         "src/evalstand/plugin.py",
@@ -360,7 +360,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "    return list(await _a.gather(*(run_eval(d, config, only=u) for d, u in wanted.values())))\n"
         "    runs: list[Run] = []\n    for declared, units in wanted.values():",
     ),
-    # --- Phase 4: the scorer library ---
+    # --- The scorer library ---
     # Was SURVIVED as an equivalent mutant; this version is real.
     (
         "src/evalstand/scorers/base.py",
@@ -413,7 +413,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '    return " ".join(token for token in tokens if token)',
         '    return " ".join(tokens)',
     ),
-    # --- Phase 4.4: the numeric scorer ---
+    # --- The numeric scorer ---
     (
         "src/evalstand/scorers/numeric.py",
         "an ambiguous output takes the first number instead of refusing",
@@ -522,7 +522,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '                "parsed_output": actual,',
         '                "parsed_output": None,',
     ),
-    # --- Phase 4.5: the structured scorer ---
+    # --- The structured scorer ---
     (
         "src/evalstand/scorers/json_field.py",
         "the denominator counts volunteered fields, penalising verbosity",
@@ -629,7 +629,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '                    "missing": sorted(fields),',
         '                    "missing": [],',
     ),
-    # --- Phase 4.6: LLM judges ---
+    # --- LLM judges ---
     (
         "src/evalstand/scorers/llm.py",
         "an unreadable judgement is laundered into a zero",
@@ -808,7 +808,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '    except Exception:\n        logger.debug("could not copy a task output; storing its repr", exc_info=True)\n        return repr(output)',
         "    except _NeverRaised:\n        return repr(output)",
     ),
-    # --- Phase 5.1: the run store ---
+    # --- The run store ---
     # --- the bug that really happened ---
     (
         "src/evalstand/storage.py",
@@ -905,7 +905,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "        value_float   REAL,",
         "        value_float   REAL NOT NULL DEFAULT 0.0,",
     ),
-    # --- Phase 5.2: provenance and recording ---
+    # --- Provenance and recording ---
     # --- the bug that made history hold one entry forever ---
     (
         "src/evalstand/migrations/__init__.py",
@@ -1008,7 +1008,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "        if self._owns_store:\n            self.store.close()",
         "        self.store.close()",
     ),
-    # --- Phase 5.3: reading history back ---
+    # --- Reading history back ---
     (
         "src/evalstand/reporting/console.py",
         "a run that made no calls is reported as free",
@@ -1099,7 +1099,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '            git_dirty=None if row["git_dirty"] is None else bool(row["git_dirty"]),',
         '            git_dirty=bool(row["git_dirty"]),',
     ),
-    # --- Phase 5.4: the run-detail view ---
+    # --- The run-detail view ---
     (
         "src/evalstand/reporting/console.py",
         "the tree walk becomes recursive and overflows on deep chains",
@@ -1172,7 +1172,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "    if run.task_source_hash:",
         "    if False:",
     ),
-    # --- Phase 5.5: comparing two runs ---
+    # --- Comparing two runs ---
     # --- the acceptance criterion itself ---
     (
         "src/evalstand/reporting/console.py",
@@ -1351,7 +1351,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "        if run.batch_id != self.batch.id:",
         "        if True:",
     ),
-    # --- Phase 6: the live view, watch mode, and the history screen ---tuple[str, str, str, str]] = [
+    # --- The live view, watch mode, and the history screen ---
     # --- the live view must show results as they land ---
     (
         "src/evalstand/runner.py",
@@ -1520,7 +1520,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "            run = await run_eval(self.declared, config, batch_id=self._batch_id())",
         "            run = await run_eval(self.declared, config)",
     ),
-    # --- Phase 7: the CI contract and the pull-request comment ---tuple[str, str, str, str]] = [
+    # --- The CI contract and the pull-request comment ---
     # --- the exit-code contract a CI job gates on ---
     (
         "src/evalstand/plugin.py",
@@ -1638,7 +1638,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         "    recorder = None\n    if store:",
         "    recorder = None\n    if True:",
     ),
-    # --- Phase 8.3: the HTML artifact a CI job uploads ---
+    # --- The HTML artifact a CI job uploads ---
     (
         "src/evalstand/reporting/html.py",
         "model output is not escaped, so a completion containing markup executes",
@@ -1729,7 +1729,7 @@ MUTANTS: list[tuple[str, str, str, str]] = [
         '    if html is not None:\n        args += ["--html", str(html)]',
         "    pass",
     ),
-    # ---- Phase 8: the web UI -------------------------------------------
+    # ---- The web UI ----------------------------------------------------
     #
     # The page and the API read history rather than producing it, so every
     # mutant here is about *reporting* something untrue: a denominator that

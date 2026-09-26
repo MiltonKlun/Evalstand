@@ -19,7 +19,7 @@ decision; it is superseded by a later ADR that references it.
 An ADR is required for:
 
 - Adding a runtime dependency.
-- Waiving or changing a row in the Section 2 capability table.
+- Waiving a capability the reference implementation has, or adding one it lacks.
 - Any architectural choice a future contributor would reasonably question.
 
 ## Consequences

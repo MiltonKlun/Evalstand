@@ -1,8 +1,8 @@
 """The public API surface: everything `__all__` promises must actually work.
 
-Written after `evalstand.trace` was found to be a Phase 2 placeholder that
-raised `NotImplementedError`. Phase 3 implemented `trace()` in `tracing.py` and
-never rewired the export, so the documented import crashed for four phases —
+Written after `evalstand.trace` was found to be an early placeholder that
+raised `NotImplementedError`. `trace()` was later implemented in `tracing.py`
+but the export was never rewired, so the documented import crashed for weeks —
 invisible because every internal caller reached past it to
 `evalstand.tracing.trace`, and the only smoke test asserted a version string.
 
