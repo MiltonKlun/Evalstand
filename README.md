@@ -1,4 +1,4 @@
-# evalstand
+# Evalstand
 
 > **Status: 1.0.1.** All 8 phases complete. Install with
 > `pip install evalstand`.
@@ -21,7 +21,7 @@ against the one before it.
 <!-- The demo GIF belongs here. See examples/demo/README.md to record it: the
      eval is offline, so re-recording costs nothing. -->
 
-## 60 seconds
+## How to start
 
 ```bash
 git clone https://github.com/MiltonKlun/Evalstand && cd Evalstand
@@ -77,13 +77,6 @@ function under test, and **Scorers** judge what it returned.
 | **Runs under pytest** | each `(case, repeat)` is one test item, so `-k`, `-x`, `--lf` all work |
 | **A web UI, optionally** | `evalstand serve` browses history in a browser and streams a running eval into it |
 
-Full capability list in [PLAN.md](PLAN.md) §2. Three capabilities go beyond the
-tool that inspired this one:
-
-- **Nested traces.** The reference implementation's traces are a flat list.
-- **Response caching.** It has none, so iterating re-buys every answer.
-- **Stable case identity.** It matches cases by position, so inserting one
-  silently re-pairs every later case with the wrong history.
 
 ## Docs
 
@@ -165,7 +158,17 @@ broken probe, not as a survivor.
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+## Author
+
+**Milton Klun**  
+*QA Automation Engineer | AI Quality Testing*
+
+<div align="left">
+  <a href="https://www.linkedin.com/in/milton-klun/"><img src="https://img.shields.io/badge/LINKEDIN-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/></a><a href="mailto:miltonericklun@gmail.com"><img src="https://img.shields.io/badge/EMAIL-D14836?style=for-the-badge" alt="Email"/></a><a href="https://www.miltonklun.com"><img src="https://img.shields.io/badge/PORTFOLIO-000000?style=for-the-badge" alt="Live Site"/></a>
 
 ---
 
