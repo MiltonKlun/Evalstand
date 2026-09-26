@@ -38,7 +38,7 @@ which needs a person to narrate it. Nothing is half-finished.
 
 The full suite once failed intermittently with `collected 0 items` from a
 nested `evalstand run`. It has not reproduced in many consecutive full runs
-since `c0b0e14`.
+since `0697baa`.
 
 **The `entry_points()` theory is disproved** — tested directly on 2026-09-21:
 five nested `pytest.main()` runs in one process kept `entry_points(pytest11)`

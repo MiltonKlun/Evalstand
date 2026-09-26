@@ -33,7 +33,7 @@ GROUND_TRUTH = EXAMPLE / "ground_truth.json"
 CHECKSUMS = EXAMPLE / "checksums.txt"
 
 pytest.importorskip("reportlab", reason="the examples extra is not installed")
-# No `faker` guard. The corpus was moved to `random.Random` in 16eefc4 and the
+# No `faker` guard. The corpus was moved to `random.Random` in cb5e798 and the
 # dependency dropped from the `examples` extra — but this line outlived it and
 # skipped the whole file, silently, on every platform, because `importorskip`
 # on a package nothing installs any more is an unconditional skip.

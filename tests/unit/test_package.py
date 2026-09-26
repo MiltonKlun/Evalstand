@@ -106,7 +106,7 @@ class TestEachExportDoesItsJob:
 class TestNoGuardOutlivesItsDependency:
     """`pytest.importorskip("faker")` survived the commit that removed faker.
 
-    The corpus moved to `random.Random` in 16eefc4: the dependency left
+    The corpus moved to `random.Random` in cb5e798: the dependency left
     `generate.py`, left the `examples` extra, and left `uv.lock`. The guard at
     the top of `test_example_pdf_extraction.py` stayed. `importorskip` on a
     package that nothing installs any more is an *unconditional* skip, so the
