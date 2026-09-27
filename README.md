@@ -1,5 +1,7 @@
 # Evalstand
 
+[![CI](https://github.com/MiltonKlun/Evalstand/actions/workflows/ci.yml/badge.svg)](https://github.com/MiltonKlun/Evalstand/actions/workflows/ci.yml) [![PyPI](https://img.shields.io/pypi/v/evalstand)](https://pypi.org/project/evalstand/)
+
 > **Status: 1.0.2, stable.** Install with `pip install evalstand`.
 
 ![evalstand watch: rows land as each case finishes, one case opens to its trace
@@ -124,7 +126,7 @@ This project is licensed under the [MIT License](LICENSE).
 ## Author
 
 **Milton Klun**\
-*QA Automation Engineer | AI Quality Testing*
+*SDET · QA Automation Engineer · AI Quality & LLM Evaluation*
 
 <div align="left">
   <a href="https://www.linkedin.com/in/milton-klun/"><img src="https://img.shields.io/badge/LINKEDIN-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/></a><a href="mailto:miltonericklun@gmail.com"><img src="https://img.shields.io/badge/EMAIL-D14836?style=for-the-badge" alt="Email"/></a><a href="https://www.miltonklun.com"><img src="https://img.shields.io/badge/PORTFOLIO-000000?style=for-the-badge" alt="Live Site"/></a>
