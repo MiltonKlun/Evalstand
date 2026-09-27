@@ -1,6 +1,6 @@
 # Evalstand
 
-> **Status: 1.0.1, stable.** Install with `pip install evalstand`.
+> **Status: 1.0.2, stable.** Install with `pip install evalstand`.
 
 ![evalstand watch: rows land as each case finishes, one case opens to its trace
 tree, and fixing the wrong answer re-runs the eval on its own](docs/demo.gif)
@@ -105,7 +105,7 @@ for the workflow and the full table.
 ```bash
 uv sync --all-extras --dev
 uv run pytest                       # the suite
-uv run python scripts/mutate.py     # 287 mutants, all killed
+uv run python scripts/mutate.py     # 292 mutants, all killed
 uv run mkdocs serve                 # the docs site
 ```
 

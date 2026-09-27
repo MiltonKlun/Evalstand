@@ -1622,6 +1622,36 @@ MUTANTS: list[tuple[str, str, str, str]] = [
     ),
     (
         "src/evalstand/cli.py",
+        "--no-store never reaches pytest, so a dirty tree cannot be run unrecorded",
+        '    if no_store:\n        args.append("--no-store")',
+        "    pass",
+    ),
+    (
+        "src/evalstand/cli.py",
+        "--allow-dirty never reaches pytest, so the refusal's own advice fails",
+        '    if allow_dirty:\n        args.append("--allow-dirty")',
+        "    pass",
+    ),
+    (
+        "src/evalstand/cli.py",
+        "--no-store is forwarded on every run, so nothing is ever recorded",
+        '    if no_store:\n        args.append("--no-store")',
+        '    if True:\n        args.append("--no-store")',
+    ),
+    (
+        "src/evalstand/cli.py",
+        "--allow-dirty is forwarded on every run, so the dirty-tree check never fires",
+        '    if allow_dirty:\n        args.append("--allow-dirty")',
+        '    if True:\n        args.append("--allow-dirty")',
+    ),
+    (
+        "src/evalstand/provenance.py",
+        "the dirty-tree refusal stops offering --no-store",
+        'f"or pass --no-store to run without recording."',
+        'f"or commit later."',
+    ),
+    (
+        "src/evalstand/cli.py",
         "the CLI normalises the exit code, erasing 2 vs 1",
         "    raise typer.Exit(code=pytest.main(args))",
         "    raise typer.Exit(code=1 if pytest.main(args) else 0)",
@@ -1960,7 +1990,7 @@ def main() -> int:
     # behaviour, and calling it "no test asserts on this" sends the reader to
     # write a test that already exists.
     #
-    # One went stale for four tasks: a list comprehension became a for loop, the
+    # One went stale for weeks: a list comprehension became a for loop, the
     # anchor stopped matching, and it reported as a survivor the whole time.
     if stale:
         print("\nSTALE ANCHORS — these mutants tested nothing; repair them:")

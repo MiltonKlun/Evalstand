@@ -137,7 +137,8 @@ def require_clean(state: GitState, *, allow_dirty: bool) -> None:
         raise DirtyTreeError(
             f"the working tree has uncommitted changes, so results cannot be "
             f"tied to commit {state.sha[:8] if state.sha else '?'}. "
-            f"Commit them, or pass --allow-dirty to persist anyway."
+            f"Commit them, pass --allow-dirty to record anyway, "
+            f"or pass --no-store to run without recording."
         )
 
 

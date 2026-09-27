@@ -55,6 +55,17 @@ def run(
         bool,
         typer.Option("--no-cache", help="Call the provider even when a cached response exists."),
     ] = False,
+    no_store: Annotated[
+        bool,
+        typer.Option("--no-store", help="Run without recording anything to the history database."),
+    ] = False,
+    allow_dirty: Annotated[
+        bool,
+        typer.Option(
+            "--allow-dirty",
+            help="Record results even though the working tree has uncommitted changes.",
+        ),
+    ] = False,
     threshold: Annotated[
         float | None,
         typer.Option("--threshold", help="Fail when an eval's mean score falls below this."),
@@ -85,7 +96,9 @@ def run(
 
     Exit codes, which `docs/ci.md` documents and a CI job can rely on:
     `0` everything met its bar, `1` an eval fell below `--threshold`,
-    `2` something did not run (with `--fail-on-error`).
+    `2` something did not run (with `--fail-on-error`), `4` the run was refused
+    before anything executed — a bad option, or uncommitted changes with
+    neither `--allow-dirty` nor `--no-store`.
     """
     import pytest
 
@@ -103,6 +116,10 @@ def run(
         args += ["--timeout", str(timeout)]
     if no_cache:
         args.append("--no-cache")
+    if no_store:
+        args.append("--no-store")
+    if allow_dirty:
+        args.append("--allow-dirty")
     if threshold is not None:
         args += ["--threshold", str(threshold)]
     if fail_on_error:

@@ -13,7 +13,7 @@ from evalstand.api import evaluate, scorer
 from evalstand.models import Case, Result, Score, Trace
 from evalstand.tracing import trace
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 __all__ = [
     "Case",

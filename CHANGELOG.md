@@ -6,6 +6,24 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.2] — 2026-09-27
+
+**Upgrade if you run evals with uncommitted changes.** In 1.0.1, `evalstand run`
+on a tree with uncommitted changes refused to start and told you to pass
+`--allow-dirty` — which `run` then rejected as an unknown option. The only ways
+past were to commit or to call `pytest` directly.
+
+### Fixed
+- `evalstand run` accepts `--allow-dirty` and `--no-store`. The pytest plugin
+  had both; the CLI forwarded neither.
+- The dirty-tree refusal now names both ways out: `--allow-dirty` to record the
+  run marked as dirty, or `--no-store` to run without recording.
+- Exit code `4`, the refusal's code, is documented in `docs/ci.md` and in
+  `evalstand run --help`. It is pytest's usage-error code and means nothing ran.
+
+### Changed
+- The source distribution no longer includes private working notes.
+
 ## [1.0.1] — 2026-09-23
 
 **Upgrade if you use `evalstand watch`.** In 1.0.0, watch mode re-ran the code

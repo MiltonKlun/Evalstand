@@ -1,11 +1,13 @@
 """The exit codes a CI job depends on.
 
-Three outcomes, and the distinction between the last two is the point:
+Three outcomes of a run, and the distinction between the last two is the point:
 
 - **0** every eval met its bar.
 - **1** an eval's mean fell below `--threshold`. The measurement worked; the
   answer was "worse than the bar".
 - **2** with `--fail-on-error`, something did not run.
+
+And one for a run that never started: **4**, refused before anything executed.
 
 A build that exits 1 sends someone to look at the model. A build that exits 2
 sends them to look at the pipeline. Collapsing them would send half of those
@@ -206,7 +208,7 @@ class TestTwoMeansSomethingDidNotRun:
 
 
 class TestCompareOnAnEmptyDatabase:
-    """7.1's acceptance names this case specifically.
+    """The case a fresh CI build is always in.
 
     The history database is project-local and gitignored (ADR 0005), so CI
     starts every build with no history at all. `--threshold` still works there
@@ -239,6 +241,36 @@ class TestCompareOnAnEmptyDatabase:
         run, so a fresh clone can gate on quality from its first build."""
         assert _run(pytester, PASSING_EVAL, "--threshold", "0.8") == 0
         assert _run(pytester, LOW_EVAL, "--threshold", "0.8") == 1
+
+
+class TestFourMeansTheRunWasRefused:
+    """pytest's own usage-error code, kept so `evalstand run` and bare `pytest`
+    agree. Whatever the cause, it must mean *nothing executed*: a build that
+    reads 4 has spent nothing and measured nothing."""
+
+    def test_an_invalid_option_exits_four(self, pytester: pytest.Pytester) -> None:
+        assert _run(pytester, PASSING_EVAL, "--concurrency", "0") == 4
+
+    def test_a_dirty_tree_exits_four_and_runs_nothing(self, pytester: pytest.Pytester) -> None:
+        """The raising task would print its error if it had executed; the
+        refusal must come first, before anything is paid for."""
+        import subprocess
+
+        def git(*args: str) -> None:
+            subprocess.run(["git", *args], cwd=pytester.path, capture_output=True, check=True)
+
+        pytester.makepyfile(subject_eval=RAISING_EVAL)
+        git("init", "-q")
+        git("config", "user.email", "test@example.com")
+        git("config", "user.name", "Test")
+        git("add", ".")
+        git("commit", "-qm", "first")
+        (pytester.path / "subject_eval.py").write_text(RAISING_EVAL + "\n# edited\n")
+
+        result = pytester.runpytest_subprocess("-p", "no:cacheprovider")
+
+        assert result.ret == 4
+        assert "provider down" not in str(result.stdout) + str(result.stderr)
 
 
 class TestWhatTheFlagMustNotDo:

@@ -189,6 +189,84 @@ class TestExecutionFlags:
         assert "2/2" in result.output
 
 
+class TestADirtyTree:
+    """`run` refused a dirty tree and told the user to pass `--allow-dirty` —
+    which `run` then rejected as "No such option", because the plugin had both
+    flags and the CLI forwarded neither. The only way past the refusal was to
+    commit, or to call pytest directly. Every test here goes through the real
+    CLI into a real repository, because the bug lived in the hop between them.
+    """
+
+    @staticmethod
+    def _dirty_repo(tmp_path: Path, monkeypatch, name: str) -> Path:
+        import subprocess
+
+        def git(*args: str) -> None:
+            subprocess.run(["git", *args], cwd=tmp_path, capture_output=True, check=True)
+
+        # A distinct eval name and module per test: several tests in this file
+        # run evals in one process, and a shared name would let one test's
+        # module answer for another's.
+        eval_file = tmp_path / f"{name.replace('-', '_')}_eval.py"
+        eval_file.write_text(PASSING_EVAL.replace("cli-toy", name), encoding="utf-8")
+        git("init", "-q")
+        git("config", "user.email", "test@example.com")
+        git("config", "user.name", "Test")
+        git("add", ".")
+        git("commit", "-qm", "first")
+        # Modified after the commit, so the recorded SHA would not describe
+        # what ran. An untracked file would not count as dirty at all.
+        eval_file.write_text(
+            eval_file.read_text(encoding="utf-8") + "\n# edited\n", encoding="utf-8"
+        )
+        monkeypatch.chdir(tmp_path)
+        return tmp_path
+
+    def test_it_is_refused_before_anything_runs(self, tmp_path: Path, monkeypatch) -> None:
+        repo = self._dirty_repo(tmp_path, monkeypatch, "cli-dirty-refused")
+
+        result = runner.invoke(app, ["run", str(repo)])
+
+        assert result.exit_code == 4, "the refusal is the exit code docs/ci.md documents"
+        assert "uncommitted changes" in result.output
+        assert "2/2" not in result.output, "a refused run executed anyway"
+
+    def test_the_refusal_names_both_ways_out(self, tmp_path: Path, monkeypatch) -> None:
+        repo = self._dirty_repo(tmp_path, monkeypatch, "cli-dirty-message")
+
+        output = runner.invoke(app, ["run", str(repo)]).output
+
+        assert "--allow-dirty" in output
+        assert "--no-store" in output
+
+    def test_allow_dirty_runs_and_records_that_the_tree_was_dirty(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """Recorded, and marked. A batch stored as clean would claim the commit
+        describes what ran, which is the one thing the check exists to stop."""
+        from evalstand.storage import RunStore
+
+        repo = self._dirty_repo(tmp_path, monkeypatch, "cli-dirty-allowed")
+
+        result = runner.invoke(app, ["run", str(repo), "--allow-dirty"])
+
+        assert result.exit_code == 0, result.output
+        assert "2/2" in result.output
+        with RunStore(repo / ".evalstand" / "evalstand.db") as store:
+            assert store.run_count() == 1
+            dirty = store.connection.execute("SELECT git_dirty FROM batches").fetchall()
+        assert [row[0] for row in dirty] == [1]
+
+    def test_no_store_runs_and_records_nothing(self, tmp_path: Path, monkeypatch) -> None:
+        repo = self._dirty_repo(tmp_path, monkeypatch, "cli-dirty-unstored")
+
+        result = runner.invoke(app, ["run", str(repo), "--no-store"])
+
+        assert result.exit_code == 0, result.output
+        assert "2/2" in result.output
+        assert not (repo / ".evalstand").exists(), "--no-store still wrote a database"
+
+
 class TestVersion:
     def test_prints_the_version(self) -> None:
         from evalstand import __version__
@@ -252,6 +330,16 @@ class TestFlagsReachPytest:
         """Passing the default explicitly would work, but leaving it off keeps
         the argv the plugin sees identical to a bare `pytest` run."""
         assert "--output" not in self._argv(monkeypatch)
+
+    def test_the_storage_flags_are_absent_unless_asked_for(self, monkeypatch) -> None:
+        """Either one leaking into every run would switch off the history
+        check for people who never asked: `--no-store` records nothing, and
+        `--allow-dirty` records runs against a commit that did not produce
+        them."""
+        argv = self._argv(monkeypatch)
+
+        assert "--no-store" not in argv
+        assert "--allow-dirty" not in argv
 
     def test_the_threshold_value_survives_the_hop(self, monkeypatch) -> None:
         argv = self._argv(monkeypatch, "--threshold", "0.85")

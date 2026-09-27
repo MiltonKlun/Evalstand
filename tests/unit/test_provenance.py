@@ -188,6 +188,7 @@ class TestTheDirtyTreeGate:
         message = str(caught.value)
         assert "abcdef01" in message
         assert "--allow-dirty" in message
+        assert "--no-store" in message
 
 
 class TestTheTaskSourceHash:

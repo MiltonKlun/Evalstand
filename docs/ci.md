@@ -234,6 +234,7 @@ A CI job can gate on these, and they mean different things on purpose:
 | `0` | every eval met its bar | |
 | `1` | an eval fell below `--threshold` | the measurement worked; the answer was worse than your bar |
 | `2` | something did not run | only with `--fail-on-error`; also what `compare` returns when it has nothing to compare |
+| `4` | the run was refused before anything executed | an invalid option, or uncommitted changes without `--allow-dirty` or `--no-store`; nothing was spent |
 
 ```bash
 evalstand run --threshold 0.85 --fail-on-error
@@ -254,6 +255,11 @@ all. The flag is how you say which you want.
 recorded, or one whose Batch never finished, it exits `2` — not `1`. A job that
 saw `1` could not tell "these runs differ badly" from "there was no measurement
 here", which is exactly the confusion the table exists to prevent.
+
+**`4` is pytest's own usage-error code**, kept rather than renumbered so that
+`evalstand run` and bare `pytest` agree. A CI checkout is clean, so in a build
+it almost always means a mistyped option — and unlike `1` or `2`, no model was
+called.
 
 Every code in this table is reproduced in a test: see
 `tests/unit/test_exit_codes.py`, including the empty-database case below.

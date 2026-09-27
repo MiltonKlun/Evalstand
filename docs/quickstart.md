@@ -99,6 +99,15 @@ evalstand show <run-id>        # one run in detail
 evalstand compare <old> <new>  # what changed
 ```
 
+Each run is tied to the commit it ran from, so a run with uncommitted changes to
+tracked files is refused before anything executes: its commit would not
+describe the code that ran. Commit first, or say which you want:
+
+```bash
+evalstand run --no-store       # try an edit without recording it
+evalstand run --allow-dirty    # record it anyway, marked as dirty
+```
+
 `compare` reports differences, never verdicts. There is no significance testing
 here, so a delta between two runs of a stochastic system may be noise — and
 saying otherwise would be a claim the tool cannot support.
