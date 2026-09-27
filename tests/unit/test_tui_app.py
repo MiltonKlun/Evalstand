@@ -675,7 +675,7 @@ class TestAnEditIsWhatReRuns:
 
 
 class TestAnEditToATaskFileIsWhatReRuns:
-    """The plan names "task file" changes explicitly. A task living in its own
+    """Watch mode promises to re-run on task file changes. A task living in its own
     module was re-run in its old version: the eval file was re-read, but its
     `from helper import task` was answered from `sys.modules`."""
 

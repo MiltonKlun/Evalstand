@@ -276,6 +276,36 @@ class TestNothingPublicPointsAtAPrivateFile:
         ]
         assert not offenders, f"public files reference private notes: {offenders}"
 
+    def test_no_tracked_file_cites_the_build_plan(self) -> None:
+        """A comment whose reason is "the build plan says so" persuades only
+        someone holding the plan. Every reader of the published code is someone
+        who is not, so a comment has to give the reason itself. The first sweep
+        for these missed six, because it searched for task numbers and this
+        phrasing has none."""
+        import subprocess
+
+        citation = re.compile(
+            r"\b[Tt]he plan\b|\bplan's\b|\b(?:[Pp]hase|[Tt]ask) \d|\b\d+\.\d+'s acceptance"
+        )
+        tracked = subprocess.run(
+            ["git", "ls-files", "*.py", "*.md", "*.yml", "*.toml"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()
+
+        offenders = [
+            f"{path}:{number}: {line.strip()}"
+            for path in tracked
+            if Path(path).name != Path(__file__).name
+            for number, line in enumerate(
+                (ROOT / path).read_text(encoding="utf-8").splitlines(), start=1
+            )
+            if citation.search(line)
+        ]
+        assert not offenders, "public files cite the build plan:\n" + "\n".join(offenders)
+
     def test_the_private_files_are_ignored(self) -> None:
         """Listed in `.gitignore`, so a `git add .` cannot publish them again."""
         ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()

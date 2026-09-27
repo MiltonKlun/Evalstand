@@ -153,7 +153,7 @@ def open_recorder(
     try:
         store = RunStore(path) if path is not None else RunStore()
     except DatabaseTooNewError:
-        # Deliberately not downgraded. The plan requires this to be a hard
+        # Deliberately not downgraded to a warning. This must be a hard
         # refusal: continuing would run the eval and then silently fail to
         # record it, leaving the user with a database they cannot read and no
         # sign that anything is wrong with their tooling.

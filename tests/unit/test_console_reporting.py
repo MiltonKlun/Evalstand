@@ -368,7 +368,7 @@ class TestRunTotals:
         assert "0%" not in _render(render_summary([run]))
 
     def test_a_bypassed_run_says_so_instead_of_showing_a_rate(self) -> None:
-        """Repeats spend the full amount every time. The plan calls this the
+        """Repeats spend the full amount every time. That makes them the
         easiest way to run up a bill by accident, so it must be visible."""
         run = _run(_result("q1", scores=[Score(scorer_name="exact", value=1.0)]))
         run = run.model_copy(

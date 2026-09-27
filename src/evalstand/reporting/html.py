@@ -1,6 +1,6 @@
 """A self-contained HTML report, for a CI artifact.
 
-The plan calls this worth doing without the rest of the web UI, and the reason is
+It is worth having without the rest of the web UI, and the reason is
 what CI does to a terminal report: it scrolls away. A build log is searched
 once, by whoever is already debugging. An HTML file can be downloaded from the
 build, opened by someone who does not have the project installed, and attached

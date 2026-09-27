@@ -1,6 +1,6 @@
 """The numeric scorer.
 
-The plan asks for "sensible handling of None and unparseable output", and most
+The scorer promises sensible handling of None and unparseable output, and most
 of this file is about what "sensible" means. The rule the design settles on:
 **an ambiguous output is unparseable, not a guess.** A scorer that says "I could
 not read this" is auditable; one that quietly picks a number from "42 or 43"

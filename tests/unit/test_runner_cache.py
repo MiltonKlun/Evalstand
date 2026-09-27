@@ -198,7 +198,7 @@ class TestExplicitBypass:
 class TestBypassIsReported:
     @pytest.mark.anyio
     async def test_a_repeat_run_records_that_it_bypassed(self, cache: ResponseCache) -> None:
-        """Repeats spend N times over. The plan calls this the easiest way to
+        """Repeats spend N times over. That makes them the easiest way to
         run up a bill by accident, so the run must say it happened."""
         with (
             patch("evalstand.llm.litellm.completion", return_value=make_completion()),
