@@ -23,7 +23,7 @@ The shape of the authoring experience, because it is the thing worth having:
 - **Scores as floats in `[0, 1]`**, with scorers returning either a bare number
   or a structure carrying metadata (`create-scorer.ts`).
 - **Repeats** for non-deterministic evaluation — its `trialCount`, our
-  `--repeat N`.
+  `repeat=N` argument to `evaluate()`.
 - **Traces** captured automatically from calls made inside a task, associated
   with the running case through per-task context storage. It uses
   `AsyncLocalStorage` (`traces.ts`); `contextvars` is the direct Python

@@ -190,7 +190,7 @@ def create_app(store: RunStore, broker: Any = None) -> FastAPI:
 
         By `(case_id, repeat)` rather than by the synthetic Result id: a reader
         looking at a table knows the case failed, not what the runner called
-        that execution. With `--repeat`, `?repeat=` picks which execution.
+        that execution. With `repeat=N`, `?repeat=` picks which execution.
         """
         found = store.load_run(run_id)
         if found is None:

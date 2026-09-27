@@ -171,6 +171,87 @@ class TestTheExamplesCompile:
                 pytest.fail(f"{page} block {index} does not compile: {exc}")
 
 
+class TestEveryDocumentedFlagExists:
+    """The architecture page described `--repeat 3` from the start. There has never
+    been such a flag — repeats are `repeat=N` on `evaluate()` — so a reader who
+    tried it got "No such option" from a page explaining the design.
+
+    Every `--flag` in the published Markdown must be an option of an
+    `evalstand` command, an option the pytest plugin registers, or one of the
+    other tools' flags listed below by name.
+    """
+
+    # Flags the documents quote for tools that are not evalstand, each named
+    # with its owner so the list is reviewed rather than grown by reflex.
+    OTHER_TOOLS: ClassVar[dict[str, str]] = {
+        "--lf": "pytest",
+        "--maxfail": "pytest",
+        "--collect-only": "pytest",
+        "--no-cov": "pytest-cov",
+        "--dev": "uv",
+        "--extra": "uv",
+        "--all-extras": "uv",
+        "--seed": "examples/pdf_extraction/generate.py",
+        "--check": "examples/pdf_extraction/generate.py",
+        "--list": "scripts/mutate.py",
+    }
+
+    @staticmethod
+    def _evalstand_flags() -> set[str]:
+        import typer.main
+
+        from evalstand import plugin
+        from evalstand.cli import app
+
+        flags: set[str] = set()
+        group = typer.main.get_command(app)
+        for command in group.commands.values():  # type: ignore[attr-defined]
+            for param in command.params:
+                flags.update(param.opts)
+                flags.update(param.secondary_opts)
+
+        class Group:
+            def addoption(self, *names: str, **_: object) -> None:
+                flags.update(names)
+
+        class Parser:
+            def getgroup(self, *_: object) -> Group:
+                return Group()
+
+        plugin.pytest_addoption(Parser())  # type: ignore[arg-type]
+        return flags
+
+    def test_no_document_names_an_option_that_does_not_exist(self) -> None:
+        import subprocess
+
+        tracked = subprocess.run(
+            ["git", "ls-files", "*.md"], cwd=ROOT, capture_output=True, text=True, check=True
+        ).stdout.split()
+        known = self._evalstand_flags() | set(self.OTHER_TOOLS)
+        flag = re.compile(r"(?:^|[\s`(])(--[a-z][a-z-]*)")
+
+        offenders = [
+            f"{path}:{number}: {name}"
+            for path in tracked
+            # The changelog records history, including options since renamed.
+            if path != "CHANGELOG.md"
+            for number, line in enumerate(
+                (ROOT / path).read_text(encoding="utf-8").splitlines(), start=1
+            )
+            for name in flag.findall(line)
+            if name not in known
+        ]
+        assert not offenders, "documented options that do not exist:\n" + "\n".join(offenders)
+
+    def test_it_knows_the_real_options(self) -> None:
+        """Guards the guard: an empty set would make every flag look unknown,
+        and a failure there would be read as a docs problem."""
+        flags = self._evalstand_flags()
+
+        assert {"--threshold", "--allow-dirty", "--store", "--open"} <= flags
+        assert "--repeat" not in flags
+
+
 class TestTheBuildStaysStrict:
     def test_strict_is_on(self, config: dict) -> None:
         """Without it, a broken internal link is published rather than caught.

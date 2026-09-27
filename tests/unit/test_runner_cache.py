@@ -4,7 +4,7 @@ The runner cannot pass a cache to the task: the task calls `llm.call()` itself,
 with parameters that live in user code. So the cache reaches it the same way the
 trace collector does — through a ContextVar the runner sets around each case.
 
-The rule this file pins down: **`--repeat N` with N > 1 bypasses the cache
+The rule this file pins down: **`repeat=N` with N > 1 bypasses the cache
 unconditionally, in both directions.** Receiving N identical cached rows is never
 what asking for repeats means, and writing a repeat's response back would let a
 later single run serve an arbitrary sample from that set as though it were the

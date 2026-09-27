@@ -38,7 +38,7 @@ treated as synonyms anywhere:
 | **Run** | Every Result for one Eval, plus its totals and provenance. |
 | **Batch** | Every Run from one invocation. |
 
-The distinction that matters most in practice: with `--repeat 3`, one Case
+The distinction that matters most in practice: with `repeat=3`, one Case
 produces three Results. Any design that collapses those into a single
 pass/fail has to invent an aggregation rule — any, all, majority — and that is
 a judgement the user never made.
@@ -96,7 +96,7 @@ provider, rather than one a test author *believed* a provider returns. That is
 not academic — a streamed-cost bug early in the project existed precisely
 because a hand-written mock agreed with the wrong assumption.
 
-`--repeat N` with `N > 1` bypasses the cache unconditionally. Repeating a call
+`repeat=N` with `N > 1` bypasses the cache unconditionally. Repeating a call
 to measure variance, and then being served the same cached answer three times,
 would report zero variance with total confidence.
 
