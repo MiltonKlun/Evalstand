@@ -9,12 +9,29 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from evalstand.cli import app
 from tests.conftest import help_text
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _run_from_the_eval_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run each command from inside its temporary directory, as a user runs
+    `evalstand` from their project.
+
+    From the repository, pytest roots the session at the common ancestor of
+    the two, the home directory, and on the way down to the eval it lists
+    every entry of the system temp directory. On a machine where another
+    program creates and deletes folders there, one vanishing mid-listing
+    failed collection with FileNotFoundError: the intermittent `test_cli`
+    failure, reproduced about one run in three before this fixture.
+    """
+    monkeypatch.chdir(tmp_path)
+
 
 PASSING_EVAL = """
 from evalstand import Case, evaluate
